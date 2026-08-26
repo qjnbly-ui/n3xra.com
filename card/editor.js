@@ -41,6 +41,10 @@ let pendingScanDataUrl = "";
 let slugTimer = 0;
 let sectionOrder = [...DEFAULT_SECTION_ORDER];
 let pendingScanDetails = null;
+let changeVersion = 0;
+let changesPending = false;
+let saveTimer = 0;
+let savePromise = null;
 const repeatableContainers = {
     "activation-email": document.querySelector("#card-activation-additional-emails"),
     "activation-phone": document.querySelector("#card-activation-additional-phones"),
@@ -59,6 +63,12 @@ function setScanStatus(message = "", tone = "") { if (scanStatus) {
     scanStatus.textContent = message;
     scanStatus.className = tone ? `is-${tone}` : "";
 } }
+function setSaveStatus(message, tone = "") { if (saveStatus) {
+    saveStatus.textContent = message;
+    saveStatus.className = `card-auto-save-status${tone ? ` is-${tone}` : ""}`;
+} }
+function markChanged() { if (!card)
+    return; changesPending = true; changeVersion += 1; setSaveStatus("Unsaved changes"); window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 750); }
 function slugify(value) { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 function validSectionOrder(value) {
     if (!Array.isArray(value))
@@ -110,6 +120,7 @@ function moveSection(index, direction) {
     next[nextIndex] = current;
     sectionOrder = next;
     renderSectionOrder();
+    markChanged();
 }
 function mediaPath(row, type) { return String(row[MEDIA_CONFIG[type].column] || ""); }
 function setMediaPreview(type, url = "") {
@@ -206,7 +217,7 @@ function addContactRow(key, value = "") {
     remove.type = "button";
     remove.textContent = "×";
     remove.setAttribute("aria-label", `Remove additional ${isEmail ? "email" : "phone number"}`);
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => { row.remove(); markChanged(); });
     row.append(input, remove);
     container.append(row);
 }
@@ -242,7 +253,7 @@ function addLinkRow(link = { label: "", url: "" }) {
     remove.type = "button";
     remove.textContent = "×";
     remove.setAttribute("aria-label", "Remove link");
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => { row.remove(); markChanged(); });
     row.append(label, url, remove);
     linksContainer.append(row);
 }
@@ -300,6 +311,8 @@ function fillForm(row) {
         scanPanel.hidden = false;
     form.hidden = false;
     activation?.setAttribute("hidden", "");
+    changesPending = false;
+    setSaveStatus("All changes saved");
 }
 async function checkSlug(rawSlug, current = "") {
     const slug = slugify(rawSlug);
@@ -388,7 +401,9 @@ function applyScanSelection(useAll) {
         slugInput.value = slugify(pendingScanDetails.fullName);
     if (!card && slugInput?.value)
         void checkSlug(slugInput.value);
-    setScanStatus("Scanned details added. Review them, then save your changes.", "success");
+    if (card)
+        markChanged();
+    setScanStatus(card ? "Scanned details added and queued to save." : "Scanned details added. Review them, then activate your card.", "success");
     scanReview?.close();
 }
 function showScanReview(details) {
@@ -435,6 +450,65 @@ async function analyzeScan() {
         scanButton.disabled = false;
     }
 }
+async function saveChanges() {
+    if (!supabase || !card || !form || !changesPending)
+        return;
+    if (savePromise) {
+        await savePromise;
+        if (changesPending)
+            return saveChanges();
+        return;
+    }
+    window.clearTimeout(saveTimer);
+    const version = changeVersion;
+    setSaveStatus("Saving…", "saving");
+    savePromise = (async () => {
+        try {
+            const values = new FormData(form);
+            const currentRequestState = String(card?.physical_card_status || "not_requested");
+            const requestChecked = values.get("request_physical_card") === "on";
+            const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested";
+            const slug = slugify(values.get("slug"));
+            if (slug !== card?.slug && !(await checkSlug(slug, String(card?.slug || ""))))
+                throw new Error("Choose an available card address.");
+            const primaryEmail = normalizeEmail(String(values.get("email") || ""));
+            const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
+            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+            if (!payload.display_name)
+                throw new Error("Your card needs a display name.");
+            if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
+                throw new Error("Complete the mailing address before requesting a physical card.");
+            const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card.id).select("*").single();
+            if (error)
+                throw error;
+            card = data;
+            if (version === changeVersion) {
+                changesPending = false;
+                setSaveStatus(requestChecked && currentRequestState === "not_requested" ? "Saved · physical card requested" : "All changes saved");
+            }
+            else {
+                setSaveStatus("Saving latest changes…", "saving");
+            }
+            const url = `${window.location.origin}/card/${card.slug}`;
+            if (publicLink)
+                publicLink.href = url;
+            if (publicAddress)
+                publicAddress.textContent = url;
+            setRequestState(card);
+        }
+        catch (error) {
+            setSaveStatus(error instanceof Error ? error.message : "Changes could not be saved.", "error");
+        }
+    })();
+    try {
+        await savePromise;
+    }
+    finally {
+        savePromise = null;
+        if (changesPending && version !== changeVersion)
+            saveTimer = window.setTimeout(() => void saveChanges(), 250);
+    }
+}
 async function initialize() {
     if (!supabase || !form || !activationForm || !activation)
         throw new Error("The Contact Card product is not configured.");
@@ -478,7 +552,8 @@ scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0];
 scanButton?.addEventListener("click", () => void analyzeScan());
 scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
-document.querySelectorAll("[data-add-contact]").forEach((button) => button.addEventListener("click", () => addContactRow(button.dataset.addContact)));
+document.querySelectorAll("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact); if (card)
+    markChanged(); }));
 activationForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     void (async () => {
@@ -521,52 +596,15 @@ activationForm?.addEventListener("submit", (event) => {
         }
     })();
 });
-addLinkButton?.addEventListener("click", () => addLinkRow());
+addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 document.querySelectorAll("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput; if (!file || !(type in MEDIA_CONFIG))
     return; void uploadMedia(type, file).catch((error) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
 document.querySelectorAll("[data-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.removeMedia; if (!(type in MEDIA_CONFIG))
     return; button.disabled = true; void removeMedia(type).catch((error) => showMediaStatus(error instanceof Error ? error.message : "The image could not be removed.", true)).finally(() => { button.disabled = !card || !mediaPath(card, type); }); }));
-form?.addEventListener("submit", (event) => {
-    event.preventDefault();
-    void (async () => {
-        if (!supabase || !card || !form)
-            return;
-        const button = form.querySelector('button[type="submit"]');
-        if (button)
-            button.disabled = true;
-        if (saveStatus)
-            saveStatus.textContent = "Saving…";
-        try {
-            const values = new FormData(form);
-            const currentRequestState = String(card.physical_card_status || "not_requested");
-            const requestChecked = values.get("request_physical_card") === "on";
-            const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested";
-            const slug = slugify(values.get("slug"));
-            if (slug !== card.slug && !(await checkSlug(slug, card.slug)))
-                throw new Error("Choose an available card address.");
-            const primaryEmail = normalizeEmail(String(values.get("email") || ""));
-            const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
-            if (!payload.display_name)
-                throw new Error("Your card needs a display name.");
-            if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
-                throw new Error("Complete the mailing address before requesting a physical card.");
-            const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card.id).select("*").single();
-            if (error)
-                throw error;
-            card = data;
-            fillForm(card);
-            if (saveStatus)
-                saveStatus.textContent = requestChecked && currentRequestState === "not_requested" ? "Changes saved and physical card requested." : "Changes saved.";
-        }
-        catch (error) {
-            if (saveStatus)
-                saveStatus.textContent = error instanceof Error ? error.message : "Changes could not be saved.";
-        }
-        finally {
-            if (button)
-                button.disabled = false;
-        }
-    })();
-});
+form?.addEventListener("input", markChanged);
+form?.addEventListener("change", markChanged);
+form?.addEventListener("submit", (event) => { event.preventDefault(); markChanged(); void saveChanges(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden")
+    void saveChanges(); });
+window.addEventListener("pagehide", () => { void saveChanges(); });
 void initialize().catch((error) => { showStatus(error instanceof Error ? error.message : "The Contact Card could not be loaded.", true); document.body.classList.remove("is-loading"); });

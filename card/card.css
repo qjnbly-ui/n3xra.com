@@ -64,7 +64,10 @@ a { color: inherit; }
 .card-editor-back { color: #5c6863; text-decoration: none; font-size: .82rem; font-weight: 700; }
 .card-editor-shell { width:min(1180px,calc(100% - 34px)); margin:0 auto; padding:108px 0 80px; }
 .card-editor-kicker { margin: 0 0 10px; color: #397363; font-size: .7rem; font-weight: 800; letter-spacing: .15em; text-transform: uppercase; }
-.card-editor-toolbar { display:flex; justify-content:flex-end; margin-bottom:24px; }
+.card-editor-toolbar { display:flex; align-items:center; justify-content:flex-end; gap:14px; margin-bottom:24px; }
+.card-auto-save-status { margin:0; color:var(--card-muted); font-size:.76rem; font-weight:700; }
+.card-auto-save-status.is-saving { color:#8a5a0a; }
+.card-auto-save-status.is-error { color:#a33041; }
 .card-editor-view { display:inline-flex; min-height:44px; align-items:center; padding:12px 16px; border:1px solid var(--card-line); border-radius:999px; background:#fff; text-decoration:none; font-size:.78rem; font-weight:700; }
 .card-editor-status { padding: 26px 0; color: var(--card-muted); }
 .card-editor-status:empty { display: none; }
@@ -150,8 +153,7 @@ a { color: inherit; }
 .card-editor-branding-toggle > span { display: grid; gap: 3px; }
 .card-editor-branding-toggle strong { color: var(--card-ink); font-size: .82rem; }
 .card-editor-branding-toggle small { font-weight: 500; }
-.card-editor-grid { padding-bottom: 88px; }
-.card-editor-actions { position: fixed; z-index: 45; right: max(18px, calc((100vw - 1180px) / 2)); bottom: max(18px, env(safe-area-inset-bottom)); display: flex; max-width: min(560px, calc(100vw - 36px)); align-items: center; justify-content: flex-end; gap: 18px; padding: 10px; border: 1px solid rgba(15,22,32,.12); border-radius: 17px; background: rgba(255,255,255,.96); box-shadow: 0 16px 44px rgba(7,16,26,.18); backdrop-filter: blur(16px); }
+.card-editor-actions { display: flex; align-items: center; justify-content: flex-end; gap: 18px; padding-top: 8px; }
 .card-editor-actions p { margin: 0; color: var(--card-muted); font-size: .8rem; }
 .card-editor-actions button { min-height: 50px; padding: 0 24px; border: 0; border-radius: 14px; color: #fff; background: var(--card-ink); cursor: pointer; font-weight: 800; }
 .card-editor-actions button:disabled { opacity: .55; cursor: wait; }
@@ -182,7 +184,7 @@ a { color: inherit; }
   .contact-card-shell { width: 100%; box-shadow: none; }
   .contact-card-hero { min-height: 420px; padding-inline: 24px; }
   .card-editor-shell { width:min(100% - 26px,620px); padding-top:96px; }
-  .card-editor-toolbar { justify-content:flex-start; }
+  .card-editor-toolbar { justify-content:space-between; }
   .card-editor-grid { grid-template-columns: 1fr; }
   .card-editor-wide-panel, .card-editor-publish-panel, .card-editor-actions { grid-column: auto; }
   .card-editor-fields, .card-editor-publish-controls { grid-template-columns: 1fr; }
@@ -190,9 +192,8 @@ a { color: inherit; }
   .card-editor-wide { grid-column: auto; }
   .card-editor-link-row { grid-template-columns: 1fr 38px; }
   .card-editor-link-row input:first-child { grid-column: 1 / -1; }
-  .card-editor-actions { right: 13px; bottom: max(10px, env(safe-area-inset-bottom)); left: 13px; max-width: none; align-items: center; flex-direction: row; }
-  .card-editor-actions p { flex: 1; line-height: 1.35; }
-  .card-editor-actions button { width: auto; flex: none; }
+  .card-editor-actions { align-items: stretch; flex-direction: column; }
+  .card-editor-actions button { width: 100%; }
   .card-activation-head, .card-activation-actions { align-items: stretch; flex-direction: column; }
   .card-scan-panel { grid-template-columns: 1fr; margin: 18px 0; }
   .card-activation-form { padding: 0 18px 18px; }
@@ -214,7 +215,6 @@ a { color: inherit; }
   .card-scan-review-row span { grid-column: 2; }
   .card-scan-review footer { display: grid; grid-template-columns: 1fr 1fr; }
   .card-scan-primary { grid-column: 1 / -1; grid-row: 1; }
-  .card-editor-actions { gap: 8px; }
-  .card-editor-actions p { max-height: 38px; overflow: hidden; font-size: .7rem; }
-  .card-editor-actions button { min-height: 46px; padding: 0 17px; }
+  .card-editor-toolbar { gap:8px; }
+  .card-auto-save-status { font-size:.68rem; }
 }

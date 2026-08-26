@@ -49,6 +49,10 @@ let pendingScanDataUrl = "";
 let slugTimer = 0;
 let sectionOrder: SectionKey[] = [...DEFAULT_SECTION_ORDER];
 let pendingScanDetails: ScanDetails | null = null;
+let changeVersion = 0;
+let changesPending = false;
+let saveTimer = 0;
+let savePromise: Promise<void> | null = null;
 
 const repeatableContainers = {
   "activation-email": document.querySelector<HTMLElement>("#card-activation-additional-emails"),
@@ -61,6 +65,8 @@ type RepeatableKey = keyof typeof repeatableContainers;
 function showStatus(message = "", isError = false): void { if (status) { status.textContent = message; status.style.color = isError ? "#a33041" : ""; } }
 function showMediaStatus(message = "", isError = false): void { if (mediaStatus) { mediaStatus.textContent = message; mediaStatus.style.color = isError ? "#a33041" : ""; } }
 function setScanStatus(message = "", tone = ""): void { if (scanStatus) { scanStatus.textContent = message; scanStatus.className = tone ? `is-${tone}` : ""; } }
+function setSaveStatus(message: string, tone = ""): void { if (saveStatus) { saveStatus.textContent = message; saveStatus.className = `card-auto-save-status${tone ? ` is-${tone}` : ""}`; } }
+function markChanged(): void { if (!card) return; changesPending = true; changeVersion += 1; setSaveStatus("Unsaved changes"); window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 750); }
 function slugify(value: unknown): string { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 
 function validSectionOrder(value: unknown): SectionKey[] {
@@ -87,7 +93,7 @@ function renderSectionOrder(): void {
 function moveSection(index: number, direction: -1 | 1): void {
   const nextIndex = index + direction; if (nextIndex < 0 || nextIndex >= sectionOrder.length) return;
   const next = [...sectionOrder]; const current = next[index]; const replacement = next[nextIndex]; if (!current || !replacement) return;
-  next[index] = replacement; next[nextIndex] = current; sectionOrder = next; renderSectionOrder();
+  next[index] = replacement; next[nextIndex] = current; sectionOrder = next; renderSectionOrder(); markChanged();
 }
 
 function mediaPath(row: CardRow, type: MediaType): string { return String(row[MEDIA_CONFIG[type].column] || ""); }
@@ -124,7 +130,7 @@ function addContactRow(key: RepeatableKey, value = ""): void {
   const container = repeatableContainers[key]; if (!container || container.children.length >= 5) return;
   const isEmail = key.endsWith("email"); const row = document.createElement("div"); row.className = "card-repeatable-row";
   const input = document.createElement("input"); input.type = isEmail ? "email" : "tel"; input.maxLength = isEmail ? 320 : 40; input.placeholder = isEmail ? "Additional email address" : "Additional phone number"; input.value = value; input.dataset.additionalContact = isEmail ? "email" : "phone";
-  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remove additional ${isEmail ? "email" : "phone number"}`); remove.addEventListener("click", () => row.remove()); row.append(input, remove); container.append(row);
+  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remove additional ${isEmail ? "email" : "phone number"}`); remove.addEventListener("click", () => { row.remove(); markChanged(); }); row.append(input, remove); container.append(row);
 }
 function renderContacts(key: RepeatableKey, values: unknown): void { const container = repeatableContainers[key]; if (!container) return; container.replaceChildren(); if (Array.isArray(values)) for (const value of values.slice(0, 5)) if (String(value || "").trim()) addContactRow(key, String(value)); }
 function collectContacts(key: RepeatableKey): string[] {
@@ -136,7 +142,7 @@ function addLinkRow(link: CardLink = { label: "", url: "" }): void {
   if (!linksContainer || linksContainer.children.length >= 12) return; const row = document.createElement("div"); row.className = "card-editor-link-row";
   const label = document.createElement("input"); label.placeholder = "Label, e.g. LinkedIn"; label.maxLength = 80; label.value = link.label; label.dataset.cardLinkLabel = "true";
   const url = document.createElement("input"); url.type = "url"; url.placeholder = "https://"; url.maxLength = 500; url.value = link.url; url.dataset.cardLinkUrl = "true";
-  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", "Remove link"); remove.addEventListener("click", () => row.remove()); row.append(label, url, remove); linksContainer.append(row);
+  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", "Remove link"); remove.addEventListener("click", () => { row.remove(); markChanged(); }); row.append(label, url, remove); linksContainer.append(row);
 }
 function collectLinks(): CardLink[] {
   if (!linksContainer) return [];
@@ -157,7 +163,7 @@ function fillForm(row: CardRow): void {
   }
   const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) branding.checked = row.show_n3xra_branding !== false; renderContacts("editor-email", row.additional_emails); renderContacts("editor-phone", row.additional_phones);
   setRequestState(row); sectionOrder = validSectionOrder(row.section_order); renderSectionOrder(); void loadMediaPreviews(row); linksContainer?.replaceChildren(); for (const link of row.links || []) addLinkRow(link); if (!row.links?.length) addLinkRow();
-  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", "");
+  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", ""); changesPending = false; setSaveStatus("All changes saved");
 }
 
 async function checkSlug(rawSlug: string, current = ""): Promise<boolean> {
@@ -201,7 +207,7 @@ function applyScanSelection(useAll: boolean): void {
     else { const control = activeControl(item.key); if (control) control.value = item.value; }
   }
   if (!card && slugInput && !slugInput.value && pendingScanDetails.fullName) slugInput.value = slugify(pendingScanDetails.fullName);
-  if (!card && slugInput?.value) void checkSlug(slugInput.value); setScanStatus("Scanned details added. Review them, then save your changes.", "success"); scanReview?.close();
+  if (!card && slugInput?.value) void checkSlug(slugInput.value); if (card) markChanged(); setScanStatus(card ? "Scanned details added and queued to save." : "Scanned details added. Review them, then activate your card.", "success"); scanReview?.close();
 }
 function showScanReview(details: ScanDetails): void {
   if (!scanReview || !scanReviewFields) return; pendingScanDetails = details; scanReviewFields.replaceChildren();
@@ -212,6 +218,23 @@ async function analyzeScan(): Promise<void> {
   if (!pendingScanDataUrl || !accessToken || !scanButton) return; scanButton.disabled = true; setScanStatus("Reading the business card…");
   try { const response = await fetch("/api/contact-card-scan", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl: pendingScanDataUrl }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "The card could not be analyzed."); const details = payload.details as ScanDetails; showScanReview(details); setScanStatus(`Card scanned${details.confidence ? ` · ${Math.round(details.confidence * 100)}% confidence` : ""}. Choose which details to use.`, "success"); }
   catch (error) { setScanStatus(error instanceof Error ? error.message : "The card could not be analyzed.", "error"); } finally { scanButton.disabled = false; }
+}
+
+async function saveChanges(): Promise<void> {
+  if (!supabase || !card || !form || !changesPending) return;
+  if (savePromise) { await savePromise; if (changesPending) return saveChanges(); return; }
+  window.clearTimeout(saveTimer); const version = changeVersion; setSaveStatus("Saving…", "saving");
+  savePromise = (async () => {
+    try {
+      const values = new FormData(form); const currentRequestState = String(card?.physical_card_status || "not_requested"); const requestChecked = values.get("request_physical_card") === "on"; const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested"; const slug = slugify(values.get("slug")); if (slug !== card?.slug && !(await checkSlug(slug, String(card?.slug || "")))) throw new Error("Choose an available card address.");
+      const primaryEmail = normalizeEmail(String(values.get("email") || "")); const primaryPhone = normalizePhone(String(values.get("phone_e164") || "")); const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+      if (!payload.display_name) throw new Error("Your card needs a display name."); if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country)) throw new Error("Complete the mailing address before requesting a physical card.");
+      const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card!.id).select("*").single(); if (error) throw error; card = data as CardRow;
+      if (version === changeVersion) { changesPending = false; setSaveStatus(requestChecked && currentRequestState === "not_requested" ? "Saved · physical card requested" : "All changes saved"); } else { setSaveStatus("Saving latest changes…", "saving"); }
+      const url = `${window.location.origin}/card/${card.slug}`; if (publicLink) publicLink.href = url; if (publicAddress) publicAddress.textContent = url; setRequestState(card);
+    } catch (error) { setSaveStatus(error instanceof Error ? error.message : "Changes could not be saved.", "error"); }
+  })();
+  try { await savePromise; } finally { savePromise = null; if (changesPending && version !== changeVersion) saveTimer = window.setTimeout(() => void saveChanges(), 250); }
 }
 
 async function initialize(): Promise<void> {
@@ -227,7 +250,7 @@ scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0];
 scanButton?.addEventListener("click", () => void analyzeScan());
 scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
-document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => addContactRow(button.dataset.addContact as RepeatableKey)));
+document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact as RepeatableKey); if (card) markChanged(); }));
 
 activationForm?.addEventListener("submit", (event) => {
   event.preventDefault(); void (async () => {
@@ -239,19 +262,14 @@ activationForm?.addEventListener("submit", (event) => {
   })();
 });
 
-addLinkButton?.addEventListener("click", () => addLinkRow());
+addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 document.querySelectorAll<HTMLInputElement>("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput as MediaType; if (!file || !(type in MEDIA_CONFIG)) return; void uploadMedia(type, file).catch((error: unknown) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
 document.querySelectorAll<HTMLButtonElement>("[data-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.removeMedia as MediaType; if (!(type in MEDIA_CONFIG)) return; button.disabled = true; void removeMedia(type).catch((error: unknown) => showMediaStatus(error instanceof Error ? error.message : "The image could not be removed.", true)).finally(() => { button.disabled = !card || !mediaPath(card, type); }); }));
 
-form?.addEventListener("submit", (event) => {
-  event.preventDefault(); void (async () => {
-    if (!supabase || !card || !form) return; const button = form.querySelector<HTMLButtonElement>('button[type="submit"]'); if (button) button.disabled = true; if (saveStatus) saveStatus.textContent = "Saving…";
-    try { const values = new FormData(form); const currentRequestState = String(card.physical_card_status || "not_requested"); const requestChecked = values.get("request_physical_card") === "on"; const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested"; const slug = slugify(values.get("slug")); if (slug !== card.slug && !(await checkSlug(slug, card.slug))) throw new Error("Choose an available card address.");
-      const primaryEmail = normalizeEmail(String(values.get("email") || "")); const primaryPhone = normalizePhone(String(values.get("phone_e164") || "")); const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
-      if (!payload.display_name) throw new Error("Your card needs a display name."); if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country)) throw new Error("Complete the mailing address before requesting a physical card.");
-      const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card.id).select("*").single(); if (error) throw error; card = data as CardRow; fillForm(card); if (saveStatus) saveStatus.textContent = requestChecked && currentRequestState === "not_requested" ? "Changes saved and physical card requested." : "Changes saved.";
-    } catch (error) { if (saveStatus) saveStatus.textContent = error instanceof Error ? error.message : "Changes could not be saved."; } finally { if (button) button.disabled = false; }
-  })();
-});
+form?.addEventListener("input", markChanged);
+form?.addEventListener("change", markChanged);
+form?.addEventListener("submit", (event) => { event.preventDefault(); markChanged(); void saveChanges(); });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden") void saveChanges(); });
+window.addEventListener("pagehide", () => { void saveChanges(); });
 
 void initialize().catch((error: unknown) => { showStatus(error instanceof Error ? error.message : "The Contact Card could not be loaded.", true); document.body.classList.remove("is-loading"); });

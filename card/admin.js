@@ -1,5 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 const MEDIA_BUCKET = "contact-card-media";
+const MAX_SCAN_BYTES = 3_350_000;
 const MEDIA_CONFIG = {
     profile: { column: "profile_image_path", stem: "profile" }, logo: { column: "company_logo_path", stem: "logo" }, background: { column: "background_image_path", stem: "background" },
 };
@@ -25,12 +26,27 @@ const sectionOrderContainer = document.querySelector("#admin-card-section-order"
 const mediaStatus = document.querySelector("#admin-card-media-status");
 const additionalEmailContainer = document.querySelector("#admin-card-additional-emails");
 const additionalPhoneContainer = document.querySelector("#admin-card-additional-phones");
+const scanInput = document.querySelector("#admin-card-scan-input");
+const scanButton = document.querySelector("#admin-card-scan-analyze");
+const scanStatus = document.querySelector("#admin-card-scan-status");
+const scanPreview = document.querySelector("#admin-card-scan-preview");
+const scanReview = document.querySelector("#admin-card-scan-review");
+const scanReviewFields = document.querySelector("#admin-card-scan-review-fields");
+const scanApplySelected = document.querySelector("#admin-card-scan-apply-selected");
+const scanApplyAll = document.querySelector("#admin-card-scan-apply-all");
 let cards = [];
 let accounts = [];
 let selectedId = "";
 let adminUserId = "";
 let sectionOrder = [...DEFAULT_SECTION_ORDER];
 let modalReturnFocus = null;
+let accessToken = "";
+let pendingScanDataUrl = "";
+let pendingScanDetails = null;
+let changesPending = false;
+let changeVersion = 0;
+let saveTimer = 0;
+let savePromise = null;
 function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function slugify(value) { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 function normalizePhone(value) { let digits = String(value || "").replace(/\D/g, ""); if (!digits)
@@ -52,6 +68,12 @@ function setMediaStatus(message = "", isError = false) { if (mediaStatus) {
     mediaStatus.textContent = message;
     mediaStatus.style.color = isError ? "#a33041" : "";
 } }
+function setScanStatus(message = "", tone = "") { if (scanStatus) {
+    scanStatus.textContent = message;
+    scanStatus.className = tone ? `is-${tone}` : "";
+} }
+function markChanged() { changesPending = true; changeVersion += 1; setFormStatus("Unsaved changes"); window.clearTimeout(saveTimer); if (selectedId)
+    saveTimer = window.setTimeout(() => void saveCard(), 750); }
 function validSectionOrder(value) {
     if (!Array.isArray(value))
         return [...DEFAULT_SECTION_ORDER];
@@ -82,7 +104,7 @@ function renderSectionOrder() {
             button.textContent = label;
             button.disabled = direction < 0 ? index === 0 : index === sectionOrder.length - 1;
             button.setAttribute("aria-label", `Move ${SECTION_DETAILS[key].label} ${direction < 0 ? "up" : "down"}`);
-            button.addEventListener("click", () => { const nextIndex = index + direction; const next = [...sectionOrder]; [next[index], next[nextIndex]] = [next[nextIndex], next[index]]; sectionOrder = next; renderSectionOrder(); });
+            button.addEventListener("click", () => { const nextIndex = index + direction; const next = [...sectionOrder]; [next[index], next[nextIndex]] = [next[nextIndex], next[index]]; sectionOrder = next; renderSectionOrder(); markChanged(); });
             actions.append(button);
         }
         row.append(number, copy, actions);
@@ -109,7 +131,7 @@ function addLinkRow(link = { label: "", url: "" }) {
     remove.type = "button";
     remove.textContent = "×";
     remove.setAttribute("aria-label", "Remove link");
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => { row.remove(); markChanged(); });
     row.append(label, url, remove);
     linksContainer.append(row);
 }
@@ -135,7 +157,7 @@ function addContactRow(type, value = "") {
     remove.type = "button";
     remove.textContent = "×";
     remove.setAttribute("aria-label", `Remove additional ${type}`);
-    remove.addEventListener("click", () => row.remove());
+    remove.addEventListener("click", () => { row.remove(); markChanged(); });
     row.append(input, remove);
     container.append(row);
 }
@@ -238,7 +260,7 @@ function openModal(preferredFocus) {
     document.body.classList.add("contact-card-modal-open");
     window.requestAnimationFrame(() => preferredFocus?.focus());
 }
-function closeModal() {
+function closeModalNow() {
     if (!modal || !form)
         return;
     modal.hidden = true;
@@ -246,6 +268,20 @@ function closeModal() {
     document.body.classList.remove("contact-card-modal-open");
     modalReturnFocus?.focus();
     modalReturnFocus = null;
+}
+async function requestClose() {
+    window.clearTimeout(saveTimer);
+    if (changesPending) {
+        const saved = await saveCard();
+        if (!saved)
+            return;
+    }
+    else if (savePromise) {
+        const saved = await savePromise;
+        if (!saved)
+            return;
+    }
+    closeModalNow();
 }
 async function invoke(action) {
     if (!supabase)
@@ -272,6 +308,8 @@ function renderOwnerOptions(selected = "", locked = false) {
 function showCard(card) {
     if (!form)
         return;
+    changesPending = false;
+    window.clearTimeout(saveTimer);
     form.classList.remove("hidden");
     selectedId = String(card?.id || "");
     form.reset();
@@ -307,7 +345,13 @@ function showCard(card) {
         publicLink.hidden = !card?.slug;
         publicLink.href = card?.slug ? `/card/${encodeURIComponent(card.slug)}` : "#";
     }
-    setFormStatus();
+    setFormStatus(card ? "All changes saved" : "Complete the card details, then save.");
+    setScanStatus();
+    pendingScanDataUrl = "";
+    if (scanButton)
+        scanButton.disabled = true;
+    if (scanPreview)
+        scanPreview.innerHTML = "<span>Business card photo</span>";
     renderList();
     openModal(card ? field("slug") : field("owner_user_id"));
 }
@@ -339,51 +383,179 @@ function payload() {
     const primaryPhone = normalizePhone(field("phone_e164").value);
     return { owner_user_id: ownerUserId, slug, status: field("status").value, physical_card_status: field("physical_card_status").value, display_name: displayName, headline: field("headline").value.trim(), company_name: field("company_name").value.trim(), bio: field("bio").value.trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(field("website_url").value), location_text: field("location_text").value.trim(), links: collectLinks(), section_order: sectionOrder, accent_color: field("accent_color").value || "#2f7d68", show_n3xra_branding: field("show_n3xra_branding").checked, shipping_name: field("shipping_name").value.trim(), shipping_address_line_1: field("shipping_address_line_1").value.trim(), shipping_address_line_2: field("shipping_address_line_2").value.trim(), shipping_city: field("shipping_city").value.trim(), shipping_region: field("shipping_region").value.trim(), shipping_postal_code: field("shipping_postal_code").value.trim(), shipping_country: field("shipping_country").value.trim() || "United States" };
 }
-form?.addEventListener("submit", (event) => { event.preventDefault(); void (async () => { if (!supabase || !form)
-    return; const button = form.querySelector('button[type="submit"]'); if (button)
-    button.disabled = true; setFormStatus("Saving Contact Card…"); try {
-    const values = payload();
-    let result;
-    if (selectedId)
-        result = await supabase.from("contact_card_profiles").update({ ...values, updated_by_user_id: adminUserId }).eq("id", selectedId).select("*").single();
-    else
-        result = await supabase.from("contact_card_profiles").insert({ ...values, created_by_user_id: adminUserId, updated_by_user_id: adminUserId }).select("*").single();
-    if (result.error)
-        throw result.error;
-    selectedId = result.data.id;
-    await loadData(selectedId);
-    closeModal();
+function imageElement(file) { return new Promise((resolve, reject) => { const image = new Image(); const url = URL.createObjectURL(file); image.onload = () => { URL.revokeObjectURL(url); resolve(image); }; image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("The photo could not be opened.")); }; image.src = url; }); }
+function canvasBlob(canvas, quality) { return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("The photo could not be prepared.")), "image/jpeg", quality)); }
+async function compressCard(file) {
+    if (!/^image\/(jpeg|png|webp)$/i.test(file.type))
+        throw new Error("Choose a JPEG, PNG, or WebP image.");
+    if (file.size > 16_000_000)
+        throw new Error("Choose a business-card image smaller than 16 MB.");
+    const image = await imageElement(file);
+    const scale = Math.min(1, 2000 / Math.max(image.naturalWidth, image.naturalHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+    canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+    canvas.getContext("2d")?.drawImage(image, 0, 0, canvas.width, canvas.height);
+    for (const quality of [.88, .78, .68, .58]) {
+        const blob = await canvasBlob(canvas, quality);
+        if (blob.size <= MAX_SCAN_BYTES)
+            return blob;
+    }
+    throw new Error("Crop closer to the business card and try again.");
+}
+function blobDataUrl(blob) { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = () => reject(new Error("The photo could not be read.")); reader.readAsDataURL(blob); }); }
+async function prepareScan(file) { setScanStatus("Preparing photo…"); const blob = await compressCard(file); pendingScanDataUrl = await blobDataUrl(blob); if (scanPreview) {
+    scanPreview.replaceChildren();
+    const image = document.createElement("img");
+    image.src = URL.createObjectURL(blob);
+    image.alt = "Business card preview";
+    scanPreview.append(image);
+} if (scanButton)
+    scanButton.disabled = false; setScanStatus("Photo ready. Scan it, then review the fields.", "success"); }
+function scanValues(details) {
+    const emails = Array.from(new Set([details.email, ...(details.emails || [])].filter((value) => Boolean(value))));
+    const phones = Array.from(new Set([details.phoneE164, ...(details.phonesE164 || [])].filter((value) => Boolean(value))));
+    return [{ key: "display_name", label: "Name", value: details.fullName || "" }, { key: "headline", label: "Job title", value: details.jobTitle || "" }, { key: "company_name", label: "Company", value: details.companyName || "" }, { key: "email", label: "Primary email", value: emails[0] || "" }, ...emails.slice(1).map((value, index) => ({ key: `additional_email_${index}`, label: "Additional email", value })), { key: "phone_e164", label: "Primary phone", value: phones[0] || "" }, ...phones.slice(1).map((value, index) => ({ key: `additional_phone_${index}`, label: "Additional phone", value })), { key: "website_url", label: "Website", value: details.websiteUrl || "" }, { key: "location_text", label: "Location / address", value: details.addressText || "" }].filter((item) => item.value);
+}
+function applyScanSelection(useAll) {
+    if (!pendingScanDetails || !scanReviewFields)
+        return;
+    const selected = new Set(useAll ? scanValues(pendingScanDetails).map((item) => item.key) : Array.from(scanReviewFields.querySelectorAll("input:checked")).map((input) => input.value));
+    for (const item of scanValues(pendingScanDetails)) {
+        if (!selected.has(item.key))
+            continue;
+        if (item.key.startsWith("additional_email_"))
+            addContactRow("email", item.value);
+        else if (item.key.startsWith("additional_phone_"))
+            addContactRow("phone", item.value);
+        else
+            field(item.key).value = item.value;
+    }
+    markChanged();
+    setScanStatus("Scanned details applied and queued to save.", "success");
+    scanReview?.close();
+}
+function showScanReview(details) { if (!scanReview || !scanReviewFields)
+    return; pendingScanDetails = details; scanReviewFields.replaceChildren(); for (const item of scanValues(details)) {
+    const label = document.createElement("label");
+    label.className = "card-scan-review-row";
+    const checkbox = document.createElement("input");
+    checkbox.type = "checkbox";
+    checkbox.value = item.key;
+    checkbox.checked = true;
+    const strong = document.createElement("strong");
+    strong.textContent = item.label;
+    const value = document.createElement("span");
+    value.textContent = item.value;
+    label.append(checkbox, strong, value);
+    scanReviewFields.append(label);
+} if (!scanReviewFields.children.length)
+    throw new Error("No contact details were recognized. Try a clearer photo."); scanReview.showModal(); }
+async function analyzeScan() { if (!pendingScanDataUrl || !accessToken || !scanButton)
+    return; scanButton.disabled = true; setScanStatus("Reading the business card…"); try {
+    const response = await fetch("/api/admin-prospect-card-scan", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl: pendingScanDataUrl }) });
+    const responsePayload = await response.json();
+    if (!response.ok)
+        throw new Error(responsePayload.error || "The card could not be analyzed.");
+    const details = responsePayload.details;
+    showScanReview(details);
+    setScanStatus(`Card scanned${details.confidence ? ` · ${Math.round(details.confidence * 100)}% confidence` : ""}. Choose which details to use.`, "success");
 }
 catch (error) {
-    setFormStatus(saveErrorMessage(error), "error");
+    setScanStatus(error instanceof Error ? error.message : "The card could not be analyzed.", "error");
 }
 finally {
-    if (button)
-        button.disabled = false;
-} })(); });
+    scanButton.disabled = false;
+} }
+async function saveCard() {
+    if (!supabase || !form)
+        return false;
+    if (!changesPending && selectedId)
+        return true;
+    if (savePromise)
+        return savePromise;
+    window.clearTimeout(saveTimer);
+    const version = changeVersion;
+    setFormStatus("Saving…", "saving");
+    form.querySelectorAll('button[type="submit"]').forEach((button) => { button.disabled = true; });
+    savePromise = (async () => { try {
+        const values = payload();
+        let result;
+        if (selectedId)
+            result = await supabase.from("contact_card_profiles").update({ ...values, updated_by_user_id: adminUserId }).eq("id", selectedId).select("*").single();
+        else
+            result = await supabase.from("contact_card_profiles").insert({ ...values, created_by_user_id: adminUserId, updated_by_user_id: adminUserId }).select("*").single();
+        if (result.error)
+            throw result.error;
+        selectedId = result.data.id;
+        cards = [result.data, ...cards.filter((item) => item.id !== result.data.id)];
+        if (version === changeVersion)
+            changesPending = false;
+        field("id").value = selectedId;
+        renderOwnerOptions(String(result.data.owner_user_id || ""), true);
+        if (deleteButton)
+            deleteButton.hidden = false;
+        if (publicLink) {
+            publicLink.hidden = false;
+            publicLink.href = `/card/${encodeURIComponent(result.data.slug)}`;
+        }
+        setFormStatus(changesPending ? "Saving latest changes…" : "All changes saved", changesPending ? "saving" : "success");
+        renderList();
+        return true;
+    }
+    catch (error) {
+        setFormStatus(saveErrorMessage(error), "error");
+        return false;
+    }
+    finally {
+        form.querySelectorAll('button[type="submit"]').forEach((button) => { button.disabled = false; });
+    } })();
+    try {
+        return await savePromise;
+    }
+    finally {
+        savePromise = null;
+        if (changesPending && version !== changeVersion && selectedId)
+            saveTimer = window.setTimeout(() => void saveCard(), 250);
+    }
+}
+form?.addEventListener("submit", (event) => { event.preventDefault(); markChanged(); void saveCard(); });
 deleteButton?.addEventListener("click", () => { void (async () => { if (!supabase || !selectedId)
     return; const selected = cards.find((item) => item.id === selectedId); if (!selected || !window.confirm(`Delete the Contact Card for ${selected.display_name}? This cannot be undone.`))
     return; setFormStatus("Deleting Contact Card…"); const mediaPaths = [selected.profile_image_path, selected.company_logo_path, selected.background_image_path].filter(Boolean); if (mediaPaths.length)
     await supabase.storage.from("contact-card-media").remove(mediaPaths); const { error } = await supabase.from("contact_card_profiles").delete().eq("id", selectedId); if (error)
-    return setFormStatus(error.message, "error"); selectedId = ""; closeModal(); await loadData(); })(); });
+    return setFormStatus(error.message, "error"); selectedId = ""; changesPending = false; closeModalNow(); await loadData(); })(); });
 newButton?.addEventListener("click", () => showCard(null));
 search?.addEventListener("input", renderList);
 list?.addEventListener("click", (event) => { const id = event.target.closest("[data-card-id]")?.dataset.cardId; const selected = cards.find((item) => item.id === id); if (selected)
     showCard(selected); });
-addLinkButton?.addEventListener("click", () => addLinkRow());
-document.querySelectorAll("[data-admin-add-contact]").forEach((button) => button.addEventListener("click", () => addContactRow(button.dataset.adminAddContact)));
+addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
+document.querySelectorAll("[data-admin-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.adminAddContact); markChanged(); }));
 document.querySelectorAll("[data-admin-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.adminMediaInput; if (!file || !(type in MEDIA_CONFIG))
     return; void uploadMedia(type, file).catch((error) => setMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
 document.querySelectorAll("[data-admin-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.adminRemoveMedia; if (!(type in MEDIA_CONFIG))
     return; button.disabled = true; void removeMedia(type).catch((error) => setMediaStatus(error instanceof Error ? error.message : "The image could not be removed.", true)).finally(() => { const card = cards.find((item) => item.id === selectedId); button.disabled = !card || !mediaPath(card, type); }); }));
-modalClose?.addEventListener("click", closeModal);
-modalBackdrop?.addEventListener("click", closeModal);
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden)
-    closeModal(); });
+scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0]; if (!file)
+    return; void prepareScan(file).catch((error) => setScanStatus(error instanceof Error ? error.message : "The photo could not be prepared.", "error")).finally(() => { scanInput.value = ""; }); });
+scanButton?.addEventListener("click", () => void analyzeScan());
+scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
+scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
+form?.addEventListener("input", markChanged);
+form?.addEventListener("change", markChanged);
+modalClose?.addEventListener("click", () => void requestClose());
+modalBackdrop?.addEventListener("click", () => void requestClose());
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden && !scanReview?.open) {
+    event.preventDefault();
+    void requestClose();
+} });
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && changesPending)
+    void saveCard(); });
+window.addEventListener("pagehide", () => { if (changesPending)
+    void saveCard(); });
 void (async () => { if (!supabase)
     throw new Error("Supabase is not configured."); const session = await getSessionOrNull(supabase); if (!session?.user) {
     window.location.replace("/account/?next=/n3xra-admin/contact-cards/");
     return;
-} adminUserId = session.user.id; const requestedCard = new URLSearchParams(window.location.search).get("card") || ""; await loadData(requestedCard); document.body.classList.remove("portal-loading"); const screen = document.querySelector("#portal-status"); if (screen)
+} adminUserId = session.user.id; accessToken = String(session.access_token || ""); const requestedCard = new URLSearchParams(window.location.search).get("card") || ""; await loadData(requestedCard); document.body.classList.remove("portal-loading"); const screen = document.querySelector("#portal-status"); if (screen)
     screen.hidden = true; })().catch((error) => { const screen = document.querySelector("#portal-status"); if (screen)
     screen.textContent = error instanceof Error ? error.message : "Contact Cards could not be opened."; });

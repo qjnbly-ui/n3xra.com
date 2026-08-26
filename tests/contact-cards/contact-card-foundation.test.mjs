@@ -65,16 +65,19 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=6/);
-  assert.match(admin, /contact-cards-admin\.css\?v=3/);
+  assert.match(admin, /\/card\/admin\.js\?v=7/);
+  assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
   assert.match(admin, /data-admin-media-input="profile"/);
   assert.match(adminLogic, /function openModal/);
   assert.match(adminLogic, /function saveErrorMessage/);
   assert.match(adminLogic, /details\.code === "23505"/);
-  assert.match(adminLogic, /modalClose\?\.addEventListener\("click", closeModal\)/);
+  assert.match(adminLogic, /modalClose\?\.addEventListener\("click", \(\) => void requestClose\(\)\)/);
   assert.match(adminLogic, /event\.key === "Escape"/);
-  assert.match(adminLogic, /closeModal\(\);/);
+  assert.match(adminLogic, /async function requestClose/);
+  assert.match(adminLogic, /await saveCard\(\)/);
+  assert.match(admin, /id="admin-card-scan-input"/);
+  assert.match(admin, /id="contact-card-header-save"/);
   assert.match(adminLogic, /new URLSearchParams\(window\.location\.search\)\.get\("card"\)/);
   assert.match(adminStyles, /\.contact-card-modal \{ position:fixed/);
   assert.match(adminStyles, /@media\(max-width:800px\).*\.contact-card-modal\{align-items:end/s);
@@ -107,12 +110,15 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=4/);
+  assert.match(activation, /\/card\/editor\.js\?v=5/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
   assert.match(editor, /applyScanSelection/);
   assert.match(editor, /additional_emails/);
+  assert.match(editor, /form\?\.addEventListener\("input", markChanged\)/);
+  assert.match(editor, /All changes saved/);
+  assert.doesNotMatch(activation, />Save changes</);
 });
 
 test("contact cards store additional public emails and phone numbers", async () => {
