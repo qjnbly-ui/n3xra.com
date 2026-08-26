@@ -42,17 +42,16 @@ const portalUrl = cleanUrl(import.meta.env.PUBLIC_N3XRA_PORTAL_URL);
   </head>
   <body style={`--brand-primary:${primaryColor};--brand-accent:${accentColor};--heading-font:${headingFont};--body-font:${bodyFont}`}>
     <main>
-      <div class="brand">
-        {logoUrl && <img src={logoUrl} alt={`${siteName} logo`} />}
-        <p class="business-name">{siteName}</p>
-      </div>
-      <p class="eyebrow">Private preview <span aria-hidden="true">•</span> Work in progress</p>
-      <h1>Something new is taking shape.</h1>
-      <p class="intro">N3XRA is thoughtfully building this new website for {siteName}. This private preview will evolve as design and content are approved—without changing the production domain.</p>
-      <div class="actions">
-        <div class="status"><span></span> Preview environment active</div>
-        {portalUrl && <a href={portalUrl}>Open client portal <span aria-hidden="true">→</span></a>}
-      </div>
+      <section class="placeholder" aria-labelledby="page-title">
+        <div class="brand">
+          {logoUrl && <img src={logoUrl} alt={`${siteName} logo`} />}
+          <p class="business-name">{siteName}</p>
+        </div>
+        <p class="eyebrow">Private preview</p>
+        <h1 id="page-title">Website coming soon.</h1>
+        {portalUrl && <a class="portal-link" href={portalUrl}>Open client portal <span aria-hidden="true">→</span></a>}
+      </section>
     </main>
+    <footer><a href="https://n3xra.com/">Built by N3XRA</a></footer>
   </body>
 </html>

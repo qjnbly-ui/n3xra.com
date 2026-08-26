@@ -78,6 +78,9 @@ test("the standard client website template is deployable and safely personalized
   assert.match(page, /PUBLIC_N3XRA_LOGO_URL/);
   assert.match(page, /PUBLIC_N3XRA_PORTAL_URL/);
   assert.match(page, /noindex, nofollow, noarchive, nosnippet/);
+  assert.match(page, /Website coming soon\./);
+  assert.match(page, /href="https:\/\/n3xra\.com\/">Built by N3XRA/);
+  assert.match(styles, /text-align:\s*center/);
   assert.match(page, /logoUrl &&/);
   assert.match(page, /portalUrl &&/);
   assert.match(styles, /--brand-primary/);
