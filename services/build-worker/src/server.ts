@@ -141,7 +141,19 @@ async function startPreview(session: Session) {
   session.previewProcess?.kill("SIGTERM"); session.previewState = "starting";
   const packageJson = JSON.parse(await readFile(join(session.cwd, "package.json"), "utf8")) as Json;
   const packageManager = existsSync(join(session.cwd, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(session.cwd, "yarn.lock")) ? "yarn" : "npm";
-  if (!existsSync(join(session.cwd, "node_modules"))) await command(packageManager, packageManager === "npm" ? ["ci"] : ["install", "--frozen-lockfile"], session.cwd);
+  if (!existsSync(join(session.cwd, "node_modules"))) {
+    if (packageManager === "npm") {
+      const installArgs = existsSync(join(session.cwd, "package-lock.json")) ? ["ci", "--no-audit", "--no-fund"] : ["install", "--no-audit", "--no-fund"];
+      try {
+        await command("npm", installArgs, session.cwd);
+      } catch (error) {
+        if (installArgs[0] !== "ci") throw error;
+        await command("npm", ["install", "--no-audit", "--no-fund"], session.cwd);
+      }
+    } else {
+      await command(packageManager, ["install", "--frozen-lockfile"], session.cwd);
+    }
+  }
   const script = packageJson.scripts?.dev ? "dev" : packageJson.scripts?.start ? "start" : "preview";
   const args = packageManager === "npm" ? ["run", script, "--", "--host", "127.0.0.1", "--port", String(session.previewPort)] : [script, "--host", "127.0.0.1", "--port", String(session.previewPort)];
   session.previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, BROWSER: "none" }, stdio: ["ignore", "pipe", "pipe"] });
