@@ -80,7 +80,7 @@ const RECENT_CAPABILITIES = [
     introducedBy: "fc4bd61",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",
-    summary: "Customers can activate and edit a digital business card from their N3XRA account, choose an available public link, scan an existing business card to begin setup, add profile and company imagery, reorder contact sections, control N3XRA branding, and request a physical tap card. Administrators can create, assign, review, and manage cards independently from Prospects.",
+    summary: "Customers can activate and edit a digital business card from their N3XRA account, choose an available public link, scan an existing business card to begin setup, add profile and company imagery, reorder contact sections, control N3XRA branding, and request a physical tap card. Administrators can create, assign, review, and manage cards from its dedicated product workspace.",
   },
   {
     introducedBy: "d95f6f4",

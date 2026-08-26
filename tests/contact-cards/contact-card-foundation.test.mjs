@@ -55,6 +55,8 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /Add Contact Card/);
   assert.match(admin, /class="contact-card-admin-form" id="contact-card-admin-form" hidden/);
   assert.doesNotMatch(admin, /class="contact-card-admin-form hidden"/);
+  assert.match(admin, /contact-card-admin-form'\)\.classList\.remove\('hidden'\)/);
+  assert.match(admin, /\/card\/admin\.js\?v=2/);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
 });
 

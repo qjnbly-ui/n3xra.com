@@ -294,6 +294,35 @@
       "destination": "/demo/files.html"
     }
   ],
+  "headers": [
+    {
+      "source": "/n3xra-admin/contact-cards",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/n3xra-admin/contact-cards/index.html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/card/admin.js",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "private, no-store, max-age=0"
+        }
+      ]
+    }
+  ],
   "crons": [
     {
       "path": "/api/cleanup-recording-chunks",
