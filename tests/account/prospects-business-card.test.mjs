@@ -62,7 +62,9 @@ test("Groq business-card analysis uses vision input and normalizes extracted con
         job_title: "Owner",
         company_name: "Example Studio",
         email: "LINDSAY@EXAMPLE.COM",
+        emails: ["LINDSAY@EXAMPLE.COM", "studio@example.com"],
         phone: "541-555-0123",
+        phones: ["541-555-0123", "541-555-0199"],
         website_url: "example.com",
         address: "123 Main St",
         interest_tags: ["Website", "Website", "Communications"],
@@ -81,7 +83,9 @@ test("Groq business-card analysis uses vision input and normalizes extracted con
   assert.equal(requestBody.response_format.type, "json_object");
   assert.equal(requestBody.messages[1].content[1].type, "image_url");
   assert.equal(result.details.email, "lindsay@example.com");
+  assert.deepEqual(result.details.emails, ["lindsay@example.com", "studio@example.com"]);
   assert.equal(result.details.phoneE164, "+15415550123");
+  assert.deepEqual(result.details.phonesE164, ["+15415550123", "+15415550199"]);
   assert.equal(result.details.websiteUrl, "https://example.com/");
   assert.deepEqual(result.details.interestTags, ["Website", "Communications"]);
   assert.equal(result.details.confidence, 1);

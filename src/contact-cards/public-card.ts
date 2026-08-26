@@ -10,7 +10,9 @@ interface ContactCard {
   company_name: string;
   bio: string;
   email: string | null;
+  additional_emails: string[];
   phone_e164: string | null;
+  additional_phones: string[];
   website_url: string | null;
   location_text: string;
   links: CardLink[];
@@ -101,8 +103,8 @@ function vCard(card: ContactCard): string {
     `FN:${escaped(card.display_name)}`,
     card.company_name ? `ORG:${escaped(card.company_name)}` : "",
     card.headline ? `TITLE:${escaped(card.headline)}` : "",
-    card.email ? `EMAIL;TYPE=INTERNET:${card.email}` : "",
-    card.phone_e164 ? `TEL;TYPE=CELL:${card.phone_e164}` : "",
+    ...[card.email, ...(card.additional_emails || [])].filter(Boolean).map((email) => `EMAIL;TYPE=INTERNET:${email}`),
+    ...[card.phone_e164, ...(card.additional_phones || [])].filter(Boolean).map((phone) => `TEL;TYPE=CELL:${phone}`),
     card.website_url ? `URL:${card.website_url}` : "",
     card.location_text ? `ADR;TYPE=WORK:;;;;;;${escaped(card.location_text)}` : "",
     `NOTE:${escaped(`Digital contact card: ${window.location.href}`)}`,
@@ -172,7 +174,9 @@ function render(card: ContactCard): void {
 
   const contactLinks = byId("card-contact-links");
   if (card.email) addLink(contactLinks, "Email", card.email, `mailto:${card.email}`);
+  for (const email of card.additional_emails || []) addLink(contactLinks, "Email", email, `mailto:${email}`);
   if (card.phone_e164) addLink(contactLinks, "Phone", formatPhone(card.phone_e164), `tel:${card.phone_e164}`);
+  for (const phone of card.additional_phones || []) addLink(contactLinks, "Phone", formatPhone(phone), `tel:${phone}`);
   if (card.website_url) addLink(contactLinks, "Website", new URL(card.website_url).hostname.replace(/^www\./, ""), card.website_url);
   byId("card-contact-section").hidden = contactLinks.children.length === 0;
 

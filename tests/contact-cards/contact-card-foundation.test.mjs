@@ -11,6 +11,8 @@ test("public contact-card endpoint returns only the approved public fields", asy
   assert.match(publicColumns, /display_name/);
   assert.match(publicColumns, /links/);
   assert.match(publicColumns, /show_n3xra_branding/);
+  assert.match(publicColumns, /additional_emails/);
+  assert.match(publicColumns, /additional_phones/);
   assert.doesNotMatch(publicColumns, /owner_user_id/);
   assert.doesNotMatch(publicColumns, /prospect_contact_id/);
   assert.match(source, /status: "eq\.published"/);
@@ -63,7 +65,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=5/);
+  assert.match(admin, /\/card\/admin\.js\?v=6/);
   assert.match(admin, /contact-cards-admin\.css\?v=3/);
   assert.match(admin, /id="admin-card-links"/);
   assert.match(admin, /data-admin-media-input="profile"/);
@@ -105,5 +107,22 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=3/);
+  assert.match(activation, /\/card\/editor\.js\?v=4/);
+  assert.match(activation, /id="card-scan-review"/);
+  assert.match(activation, /Use all scanned details/);
+  assert.match(activation, /id="card-editor-additional-emails"/);
+  assert.match(editor, /applyScanSelection/);
+  assert.match(editor, /additional_emails/);
+});
+
+test("contact cards store additional public emails and phone numbers", async () => {
+  const [migration, publicCard] = await Promise.all([
+    read("supabase/migrations/20260826232037_add_contact_card_extra_contacts.sql"),
+    read("src/contact-cards/public-card.ts"),
+  ]);
+  assert.match(migration, /additional_emails text\[\]/);
+  assert.match(migration, /additional_phones text\[\]/);
+  assert.match(migration, /cardinality\(additional_emails\) <= 5/);
+  assert.match(publicCard, /card\.additional_emails/);
+  assert.match(publicCard, /card\.additional_phones/);
 });

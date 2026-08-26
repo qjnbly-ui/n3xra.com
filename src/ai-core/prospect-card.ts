@@ -5,7 +5,9 @@ export interface ProspectCardDetails {
   jobTitle: string;
   companyName: string;
   email: string;
+  emails: string[];
   phoneE164: string;
+  phonesE164: string[];
   websiteUrl: string;
   addressText: string;
   interestTags: string[];
@@ -57,6 +59,11 @@ function normalizeTags(value: unknown): string[] {
   return Array.from(new Set(value.map((tag) => clean(tag, 80)).filter(Boolean))).slice(0, 12);
 }
 
+function normalizeList(value: unknown, normalizer: (item: unknown) => string, fallback: unknown): string[] {
+  const source = [...(fallback ? [fallback] : []), ...(Array.isArray(value) ? value : [])];
+  return Array.from(new Set(source.map(normalizer).filter(Boolean))).slice(0, 6);
+}
+
 function normalizeConfidence(value: unknown): number {
   const confidence = Number(value);
   if (!Number.isFinite(confidence)) return 0;
@@ -81,14 +88,18 @@ export function validateProspectCardImage(imageDataUrl: string): void {
 
 export function normalizeProspectCardDetails(value: unknown): ProspectCardDetails {
   const record = value && typeof value === "object" ? value as Record<string, unknown> : {};
+  const emails = normalizeList(record.emails, normalizeEmail, record.email);
+  const phonesE164 = normalizeList(record.phones, normalizePhone, record.phone);
   return {
     fullName: clean(record.full_name, 180),
     firstName: clean(record.first_name, 100),
     lastName: clean(record.last_name, 100),
     jobTitle: clean(record.job_title, 180),
     companyName: clean(record.company_name, 220),
-    email: normalizeEmail(record.email),
-    phoneE164: normalizePhone(record.phone),
+    email: emails[0] || "",
+    emails,
+    phoneE164: phonesE164[0] || "",
+    phonesE164,
     websiteUrl: normalizeUrl(record.website_url),
     addressText: clean(record.address, 500),
     interestTags: normalizeTags(record.interest_tags),
@@ -125,7 +136,7 @@ export async function analyzeProspectBusinessCard(
           content: [
             {
               type: "text",
-              text: "Read this business card and return this exact JSON shape: {\"full_name\":\"\",\"first_name\":\"\",\"last_name\":\"\",\"job_title\":\"\",\"company_name\":\"\",\"email\":\"\",\"phone\":\"\",\"website_url\":\"\",\"address\":\"\",\"interest_tags\":[],\"notes\":\"\",\"confidence\":0}. Format phone as an international number when the country is clear. Interest tags may include only services or business categories explicitly printed on the card. Confidence must be between 0 and 1.",
+              text: "Read this business card and return this exact JSON shape: {\"full_name\":\"\",\"first_name\":\"\",\"last_name\":\"\",\"job_title\":\"\",\"company_name\":\"\",\"email\":\"\",\"emails\":[],\"phone\":\"\",\"phones\":[],\"website_url\":\"\",\"address\":\"\",\"interest_tags\":[],\"notes\":\"\",\"confidence\":0}. Put every clearly printed email address in emails and every clearly printed phone number in phones, with the primary value first; also repeat the first one in email or phone for compatibility. Format phones as international numbers when the country is clear. Interest tags may include only services or business categories explicitly printed on the card. Confidence must be between 0 and 1.",
             },
             { type: "image_url", image_url: { url: imageDataUrl } },
           ],

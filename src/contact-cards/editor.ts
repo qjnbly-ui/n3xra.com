@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 interface CardLink { label: string; url: string; }
-interface ScanDetails { fullName?: string; companyName?: string; jobTitle?: string; email?: string; phoneE164?: string; websiteUrl?: string; addressText?: string; confidence?: number; }
+interface ScanDetails { fullName?: string; companyName?: string; jobTitle?: string; email?: string; emails?: string[]; phoneE164?: string; phonesE164?: string[]; websiteUrl?: string; addressText?: string; confidence?: number; }
 type CardRow = Record<string, unknown> & { id: string; slug: string; links?: CardLink[] };
 type MediaType = "profile" | "logo" | "background";
 type SectionKey = "about" | "contact" | "links";
@@ -35,6 +35,11 @@ const scanInput = document.querySelector<HTMLInputElement>("#card-scan-input");
 const scanButton = document.querySelector<HTMLButtonElement>("#card-scan-analyze");
 const scanStatus = document.querySelector<HTMLElement>("#card-scan-status");
 const scanPreview = document.querySelector<HTMLElement>("#card-scan-preview");
+const scanPanel = document.querySelector<HTMLElement>("#card-scan-panel");
+const scanReview = document.querySelector<HTMLDialogElement>("#card-scan-review");
+const scanReviewFields = document.querySelector<HTMLElement>("#card-scan-review-fields");
+const scanApplySelected = document.querySelector<HTMLButtonElement>("#card-scan-apply-selected");
+const scanApplyAll = document.querySelector<HTMLButtonElement>("#card-scan-apply-all");
 const requestState = document.querySelector<HTMLElement>("#card-request-state");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card: CardRow | null = null;
@@ -43,6 +48,15 @@ let accessToken = "";
 let pendingScanDataUrl = "";
 let slugTimer = 0;
 let sectionOrder: SectionKey[] = [...DEFAULT_SECTION_ORDER];
+let pendingScanDetails: ScanDetails | null = null;
+
+const repeatableContainers = {
+  "activation-email": document.querySelector<HTMLElement>("#card-activation-additional-emails"),
+  "activation-phone": document.querySelector<HTMLElement>("#card-activation-additional-phones"),
+  "editor-email": document.querySelector<HTMLElement>("#card-editor-additional-emails"),
+  "editor-phone": document.querySelector<HTMLElement>("#card-editor-additional-phones"),
+};
+type RepeatableKey = keyof typeof repeatableContainers;
 
 function showStatus(message = "", isError = false): void { if (status) { status.textContent = message; status.style.color = isError ? "#a33041" : ""; } }
 function showMediaStatus(message = "", isError = false): void { if (mediaStatus) { mediaStatus.textContent = message; mediaStatus.style.color = isError ? "#a33041" : ""; } }
@@ -104,6 +118,19 @@ async function removeMedia(type: MediaType): Promise<void> {
 
 function normalizePhone(value: string): string | null { let digits = value.replace(/\D/g, ""); if (!digits) return null; if (digits.length === 10) digits = `1${digits}`; if (!/^[1-9][0-9]{7,14}$/.test(digits)) throw new Error("Enter a valid phone number with area code."); return `+${digits}`; }
 function normalizeUrl(value: string): string | null { const raw = value.trim(); if (!raw) return null; const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`); if (!['http:', 'https:'].includes(url.protocol)) throw new Error("Links must use http or https."); return url.toString(); }
+function normalizeEmail(value: string): string | null { const email = value.trim().toLowerCase(); if (!email) return null; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error("Enter a valid email address."); return email; }
+
+function addContactRow(key: RepeatableKey, value = ""): void {
+  const container = repeatableContainers[key]; if (!container || container.children.length >= 5) return;
+  const isEmail = key.endsWith("email"); const row = document.createElement("div"); row.className = "card-repeatable-row";
+  const input = document.createElement("input"); input.type = isEmail ? "email" : "tel"; input.maxLength = isEmail ? 320 : 40; input.placeholder = isEmail ? "Additional email address" : "Additional phone number"; input.value = value; input.dataset.additionalContact = isEmail ? "email" : "phone";
+  const remove = document.createElement("button"); remove.type = "button"; remove.textContent = "×"; remove.setAttribute("aria-label", `Remove additional ${isEmail ? "email" : "phone number"}`); remove.addEventListener("click", () => row.remove()); row.append(input, remove); container.append(row);
+}
+function renderContacts(key: RepeatableKey, values: unknown): void { const container = repeatableContainers[key]; if (!container) return; container.replaceChildren(); if (Array.isArray(values)) for (const value of values.slice(0, 5)) if (String(value || "").trim()) addContactRow(key, String(value)); }
+function collectContacts(key: RepeatableKey): string[] {
+  const container = repeatableContainers[key]; if (!container) return []; const isEmail = key.endsWith("email");
+  return Array.from(new Set(Array.from(container.querySelectorAll<HTMLInputElement>("[data-additional-contact]")).map((input) => isEmail ? normalizeEmail(input.value) : normalizePhone(input.value)).filter((value): value is string => Boolean(value))));
+}
 
 function addLinkRow(link: CardLink = { label: "", url: "" }): void {
   if (!linksContainer || linksContainer.children.length >= 12) return; const row = document.createElement("div"); row.className = "card-editor-link-row";
@@ -128,9 +155,9 @@ function fillForm(row: CardRow): void {
   for (const name of ["display_name", "headline", "company_name", "bio", "email", "phone_e164", "website_url", "location_text", "accent_color", "status", "slug", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) {
     const control = form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (control) control.value = String(row[name] ?? "");
   }
-  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) branding.checked = row.show_n3xra_branding !== false;
+  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) branding.checked = row.show_n3xra_branding !== false; renderContacts("editor-email", row.additional_emails); renderContacts("editor-phone", row.additional_phones);
   setRequestState(row); sectionOrder = validSectionOrder(row.section_order); renderSectionOrder(); void loadMediaPreviews(row); linksContainer?.replaceChildren(); for (const link of row.links || []) addLinkRow(link); if (!row.links?.length) addLinkRow();
-  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; form.hidden = false; activation?.setAttribute("hidden", "");
+  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", "");
 }
 
 async function checkSlug(rawSlug: string, current = ""): Promise<boolean> {
@@ -153,14 +180,37 @@ async function prepareScan(file: File): Promise<void> {
   setScanStatus("Preparing photo…"); const blob = await compressCard(file); pendingScanDataUrl = await blobDataUrl(blob); if (scanPreview) { scanPreview.replaceChildren(); const image = document.createElement("img"); image.src = URL.createObjectURL(blob); image.alt = "Business card preview"; scanPreview.append(image); } if (scanButton) scanButton.disabled = false; setScanStatus("Photo ready. Scan it, then review the fields.", "success");
 }
 function activationControl(name: string): HTMLInputElement | null { return activationForm?.elements.namedItem(name) as HTMLInputElement | null; }
-function applyScan(details: ScanDetails): void {
-  const values: Record<string, string> = { display_name: details.fullName || "", headline: details.jobTitle || "", company_name: details.companyName || "", email: details.email || "", phone_e164: details.phoneE164 || "", website_url: details.websiteUrl || "" };
-  for (const [name, value] of Object.entries(values)) { const control = activationControl(name); if (control && value) control.value = value; }
-  if (slugInput && !slugInput.value && details.fullName) slugInput.value = slugify(details.fullName);
+function activeControl(name: string): HTMLInputElement | HTMLTextAreaElement | null { const activeForm = card ? form : activationForm; return activeForm?.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null; }
+function scanValues(details: ScanDetails): Array<{ key: string; label: string; value: string }> {
+  const emails = Array.from(new Set([details.email, ...(details.emails || [])].filter((value): value is string => Boolean(value))));
+  const phones = Array.from(new Set([details.phoneE164, ...(details.phonesE164 || [])].filter((value): value is string => Boolean(value))));
+  return [
+    { key: "display_name", label: "Name", value: details.fullName || "" }, { key: "headline", label: "Job title", value: details.jobTitle || "" }, { key: "company_name", label: "Company", value: details.companyName || "" },
+    { key: "email", label: "Primary email", value: emails[0] || "" }, ...emails.slice(1).map((value, index) => ({ key: `additional_email_${index}`, label: "Additional email", value })),
+    { key: "phone_e164", label: "Primary phone", value: phones[0] || "" }, ...phones.slice(1).map((value, index) => ({ key: `additional_phone_${index}`, label: "Additional phone", value })),
+    { key: "website_url", label: "Website", value: details.websiteUrl || "" }, { key: "location_text", label: "Location / address", value: details.addressText || "" },
+  ].filter((item) => item.value);
+}
+function applyScanSelection(useAll: boolean): void {
+  if (!pendingScanDetails || !scanReviewFields) return; const selected = new Set(useAll ? scanValues(pendingScanDetails).map((item) => item.key) : Array.from(scanReviewFields.querySelectorAll<HTMLInputElement>("input:checked")).map((input) => input.value));
+  const values = scanValues(pendingScanDetails);
+  for (const item of values) {
+    if (!selected.has(item.key)) continue;
+    if (item.key.startsWith("additional_email_")) addContactRow(card ? "editor-email" : "activation-email", item.value);
+    else if (item.key.startsWith("additional_phone_")) addContactRow(card ? "editor-phone" : "activation-phone", item.value);
+    else { const control = activeControl(item.key); if (control) control.value = item.value; }
+  }
+  if (!card && slugInput && !slugInput.value && pendingScanDetails.fullName) slugInput.value = slugify(pendingScanDetails.fullName);
+  if (!card && slugInput?.value) void checkSlug(slugInput.value); setScanStatus("Scanned details added. Review them, then save your changes.", "success"); scanReview?.close();
+}
+function showScanReview(details: ScanDetails): void {
+  if (!scanReview || !scanReviewFields) return; pendingScanDetails = details; scanReviewFields.replaceChildren();
+  for (const item of scanValues(details)) { const label = document.createElement("label"); label.className = "card-scan-review-row"; const checkbox = document.createElement("input"); checkbox.type = "checkbox"; checkbox.value = item.key; checkbox.checked = true; const strong = document.createElement("strong"); strong.textContent = item.label; const value = document.createElement("span"); value.textContent = item.value; label.append(checkbox, strong, value); scanReviewFields.append(label); }
+  if (!scanReviewFields.children.length) throw new Error("No contact details were recognized. Try a clearer photo."); scanReview.showModal();
 }
 async function analyzeScan(): Promise<void> {
   if (!pendingScanDataUrl || !accessToken || !scanButton) return; scanButton.disabled = true; setScanStatus("Reading the business card…");
-  try { const response = await fetch("/api/contact-card-scan", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl: pendingScanDataUrl }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "The card could not be analyzed."); const details = payload.details as ScanDetails; applyScan(details); setScanStatus(`Card scanned${details.confidence ? ` · ${Math.round(details.confidence * 100)}% confidence` : ""}. Review every field before activating.`, "success"); if (slugInput?.value) void checkSlug(slugInput.value); }
+  try { const response = await fetch("/api/contact-card-scan", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl: pendingScanDataUrl }) }); const payload = await response.json(); if (!response.ok) throw new Error(payload.error || "The card could not be analyzed."); const details = payload.details as ScanDetails; showScanReview(details); setScanStatus(`Card scanned${details.confidence ? ` · ${Math.round(details.confidence * 100)}% confidence` : ""}. Choose which details to use.`, "success"); }
   catch (error) { setScanStatus(error instanceof Error ? error.message : "The card could not be analyzed.", "error"); } finally { scanButton.disabled = false; }
 }
 
@@ -168,19 +218,22 @@ async function initialize(): Promise<void> {
   if (!supabase || !form || !activationForm || !activation) throw new Error("The Contact Card product is not configured."); const session = await getSessionOrNull(supabase); if (!session?.user) { window.location.replace(`/account/?next=${encodeURIComponent("/client-portal/contact-card/")}`); return; }
   ownerUserId = String(session.user.id || ""); accessToken = String(session.access_token || ""); const { data, error } = await supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(); if (error) throw error;
   if (data) { card = data as CardRow; fillForm(card); showStatus(""); }
-  else { const name = String(session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "").trim(); const nameControl = activationControl("display_name"); const emailControl = activationControl("email"); if (nameControl) nameControl.value = name; if (emailControl) emailControl.value = String(session.user.email || ""); if (slugInput) slugInput.value = slugify(name); activation.hidden = false; showStatus(""); if (slugInput?.value) void checkSlug(slugInput.value); }
+  else { const name = String(session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "").trim(); const nameControl = activationControl("display_name"); const emailControl = activationControl("email"); if (nameControl) nameControl.value = name; if (emailControl) emailControl.value = String(session.user.email || ""); if (slugInput) slugInput.value = slugify(name); if (scanPanel) scanPanel.hidden = false; activation.hidden = false; showStatus(""); if (slugInput?.value) void checkSlug(slugInput.value); }
   document.body.classList.remove("is-loading");
 }
 
 slugInput?.addEventListener("input", () => { slugInput.value = slugify(slugInput.value); window.clearTimeout(slugTimer); slugTimer = window.setTimeout(() => void checkSlug(slugInput.value), 350); });
 scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0]; if (!file) return; void prepareScan(file).catch((error: unknown) => setScanStatus(error instanceof Error ? error.message : "The photo could not be prepared.", "error")).finally(() => { scanInput.value = ""; }); });
 scanButton?.addEventListener("click", () => void analyzeScan());
+scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
+scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
+document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => addContactRow(button.dataset.addContact as RepeatableKey)));
 
 activationForm?.addEventListener("submit", (event) => {
   event.preventDefault(); void (async () => {
     if (!supabase || !activationForm) return; const button = activationForm.querySelector<HTMLButtonElement>('button[type="submit"]'); if (button) button.disabled = true; if (activationStatus) activationStatus.textContent = "Activating…";
     try { const values = new FormData(activationForm); const slug = slugify(values.get("slug")); if (!(await checkSlug(slug))) throw new Error("Choose an available card address."); const displayName = String(values.get("display_name") || "").trim(); if (!displayName) throw new Error("Enter the name to show on the card.");
-      const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: String(values.get("email") || "").trim().toLowerCase() || null, phone_e164: normalizePhone(String(values.get("phone_e164") || "")), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "published", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
+      const primaryEmail = normalizeEmail(String(values.get("email") || "")); const primaryPhone = normalizePhone(String(values.get("phone_e164") || "")); const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("activation-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("activation-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "published", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
       const { data, error } = await supabase.from("contact_card_profiles").insert(payload).select("*").single(); if (error) throw error; card = data as CardRow; fillForm(card); if (activationStatus) activationStatus.textContent = ""; showStatus("Your Contact Card is connected and live."); window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (error) { const message = error instanceof Error ? error.message : "The Contact Card could not be activated."; if (activationStatus) activationStatus.textContent = message.includes("duplicate") ? "That card address is already taken." : message; } finally { if (button) button.disabled = false; }
   })();
@@ -194,7 +247,7 @@ form?.addEventListener("submit", (event) => {
   event.preventDefault(); void (async () => {
     if (!supabase || !card || !form) return; const button = form.querySelector<HTMLButtonElement>('button[type="submit"]'); if (button) button.disabled = true; if (saveStatus) saveStatus.textContent = "Saving…";
     try { const values = new FormData(form); const currentRequestState = String(card.physical_card_status || "not_requested"); const requestChecked = values.get("request_physical_card") === "on"; const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested"; const slug = slugify(values.get("slug")); if (slug !== card.slug && !(await checkSlug(slug, card.slug))) throw new Error("Choose an available card address.");
-      const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: String(values.get("email") || "").trim().toLowerCase() || null, phone_e164: normalizePhone(String(values.get("phone_e164") || "")), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+      const primaryEmail = normalizeEmail(String(values.get("email") || "")); const primaryPhone = normalizePhone(String(values.get("phone_e164") || "")); const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
       if (!payload.display_name) throw new Error("Your card needs a display name."); if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country)) throw new Error("Complete the mailing address before requesting a physical card.");
       const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card.id).select("*").single(); if (error) throw error; card = data as CardRow; fillForm(card); if (saveStatus) saveStatus.textContent = requestChecked && currentRequestState === "not_requested" ? "Changes saved and physical card requested." : "Changes saved.";
     } catch (error) { if (saveStatus) saveStatus.textContent = error instanceof Error ? error.message : "Changes could not be saved."; } finally { if (button) button.disabled = false; }
