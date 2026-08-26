@@ -5,6 +5,7 @@ import { portalLoginUrl, resolvePortalTenant, scopeRowsToPortalTenant } from "/c
 
 const adminMode = document.body.dataset.billingRole === "admin";
 const content = document.getElementById("billing-content");
+const productContent = document.getElementById("product-billing-content");
 const status = document.getElementById("billing-status");
 const screen = document.getElementById("portal-status");
 const dialog = document.getElementById("billing-review-dialog");
@@ -19,6 +20,7 @@ let currentUser;
 let websites = [];
 let selectedWorkspaceKey = "";
 let pendingWorkspaceKey = "";
+let productRecords = [];
 
 const money = (value) => new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(Number(value || 0) / 100);
 const date = (value) => value ? new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value)) : "Not scheduled";
@@ -26,6 +28,33 @@ const dateTime = (value) => value ? new Intl.DateTimeFormat(undefined, { dateSty
 const escape = (value = "") => String(value).replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;");
 const label = (value = "") => String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 const localInput = (value) => value ? new Date(new Date(value).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
+
+function productBillingCard(record) {
+  const { organization, product, subscription, entitlement, workspace, can_manage: canManage } = record;
+  const subscriptionStatus = subscription?.status || "not_started";
+  const activeBilling = ["active", "trialing", "past_due", "unpaid", "paused"].includes(subscriptionStatus);
+  const checkoutPending = subscriptionStatus === "checkout_pending";
+  const serviceReady = ["active", "trialing", "past_due"].includes(entitlement?.status);
+  const state = activeBilling ? subscriptionStatus : checkoutPending ? "checkout_pending" : serviceReady ? "ready_to_activate" : "available";
+  const stateLabel = activeBilling ? label(subscriptionStatus) : checkoutPending ? "Checkout ready" : serviceReady ? "Billing setup needed" : "Available";
+  const action = activeBilling
+    ? `<button class="portal-button" type="button" data-product-portal="${organization.id}">Manage all payments in Stripe</button>`
+    : canManage
+      ? `<button class="portal-button" type="button" data-product-checkout="${organization.id}">${checkoutPending ? "Continue secure checkout" : "Activate Communications"}</button>`
+      : `<p class="billing-product-note">An account administrator can activate this service.</p>`;
+  return `<article class="billing-card billing-product-card" data-organization="${organization.id}">
+    <div class="billing-card-head"><div><p class="portal-kicker">${escape(organization.name)}</p><h3>${escape(product.name)}</h3><p>${escape(product.description)}</p></div><span class="portal-badge" data-billing-state="${escape(state)}">${escape(stateLabel)}</span></div>
+    <div class="billing-product-price"><div><span>Due at activation</span><strong>${money(product.setup_fee_cents)}</strong><small>One-time setup</small></div><b>+</b><div><span>Ongoing plan</span><strong>${money(product.monthly_price_cents)}</strong><small>Per month · 500 SMS segments included</small></div></div>
+    <div class="billing-product-summary"><p>${workspace ? `${escape(workspace.program_name)} is connected to this account.` : "Your Communications workspace will be connected after activation."}</p>${subscription?.current_period_end ? `<p>Next billing date: <strong>${date(subscription.current_period_end)}</strong></p>` : ""}</div>
+    <div class="portal-form-actions billing-primary-actions">${action}</div>
+  </article>`;
+}
+
+function renderProductBilling() {
+  if (!productContent) return;
+  productContent.innerHTML = productRecords.length ? productRecords.map(productBillingCard).join("") : "";
+  productContent.hidden = productRecords.length === 0;
+}
 
 function workspaceKey(context = {}) {
   if (context.websiteId) return `website:${context.websiteId}`;
@@ -259,6 +288,10 @@ function openReview(title, body, confirmLabel, action) {
 async function load() {
   const projectId = new URLSearchParams(location.search).get("project");
   const tenantResolution = adminMode ? null : await resolvePortalTenant(supabase);
+  if (!adminMode) {
+    productRecords = (await invoke("communications-billing", { action: "status" })).products || [];
+    renderProductBilling();
+  }
   records = await invoke("get-website-billing-status", adminMode || tenantResolution?.mode !== "unbound"
     ? {}
     : (projectId ? { project_id: projectId } : {}));
@@ -467,6 +500,25 @@ content.addEventListener("click", async (event) => {
   }
 });
 
+productContent?.addEventListener("click", async (event) => {
+  const checkout = event.target.closest("[data-product-checkout]");
+  const portal = event.target.closest("[data-product-portal]");
+  if (!checkout && !portal) return;
+  const target = checkout || portal;
+  target.disabled = true;
+  try {
+    status.textContent = checkout ? "Opening secure Stripe Checkout…" : "Opening your complete Stripe billing dashboard…";
+    const result = await invoke("communications-billing", {
+      action: checkout ? "checkout" : "portal",
+      organization_id: checkout?.dataset.productCheckout || portal.dataset.productPortal,
+    });
+    location.href = result.url;
+  } catch (error) {
+    target.disabled = false;
+    status.textContent = error?.message || "Billing action failed.";
+  }
+});
+
 dialogConfirm?.addEventListener("click", async () => {
   if (!dialogAction) return;
   dialogConfirm.disabled = true;
@@ -489,6 +541,9 @@ async function init() {
     renderSelectedBilling();
   });
   await load();
+  const billingResult = new URLSearchParams(location.search).get("billing");
+  if (billingResult === "success") status.textContent = "Billing setup completed. Stripe is confirming the subscription details now.";
+  if (billingResult === "canceled") status.textContent = "Checkout was canceled. Nothing was charged.";
   document.body.classList.remove("portal-loading");
   screen.hidden = true;
 }

@@ -24,8 +24,8 @@ test("website billing shows accepted items separately and keeps controls seconda
   assert.match(billing, /They want to pay \$\{offer\.interval\}/);
   assert.match(billing, /Pay \$\{money\(offer\.amount\)\} yearly · save 10%/);
   assert.match(billing, /FREEBUILD/);
-  assert.match(page, /billing\.css\?v=7/);
-  assert.match(page, /billing\.js\?v=12/);
+  assert.match(page, /billing\.css\?v=8/);
+  assert.match(page, /billing\.js\?v=13/);
 });
 
 test("website Stripe portal uses the selected project's customer and permits administrator testing", async () => {
@@ -40,7 +40,7 @@ test("website Stripe portal uses the selected project's customer and permits adm
   assert.match(portal, /eq\("user_id", project\.client_user_id\)/);
   assert.match(portal, /console\.error\("create-website-portal-session failed:"/);
   assert.match(billing, /error\.context\?\.clone\?\.\(\)\.json\(\)/);
-  assert.match(clientPage, /billing\.js\?v=12/);
+  assert.match(clientPage, /billing\.js\?v=13/);
 });
 
 test("website billing and the organization panel synchronize their selection", async () => {

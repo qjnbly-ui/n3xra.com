@@ -7,6 +7,37 @@
 
 .billing-card + .billing-card { margin-top: 18px; }
 
+.billing-group-heading {
+  margin: 30px 0 14px;
+  padding-top: 28px;
+  border-top: 1px solid #dfe3e8;
+}
+
+.billing-group-heading h2 { margin: 4px 0 0; font-family: "Fraunces", serif; }
+
+.billing-product-card { border-color: #b9dcd5; background: linear-gradient(145deg, #fff 0%, #f2faf8 100%); }
+
+.billing-product-price {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  gap: 18px;
+  padding: 24px 0;
+}
+
+.billing-product-price > div { padding: 16px; border-radius: 12px; background: rgba(255, 255, 255, .82); }
+.billing-product-price span,
+.billing-product-price strong,
+.billing-product-price small { display: block; }
+.billing-product-price span { color: #68758a; font-size: .78rem; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+.billing-product-price strong { margin-top: 6px; font-family: "Fraunces", serif; font-size: 1.65rem; }
+.billing-product-price small { margin-top: 3px; color: #68758a; }
+.billing-product-price > b { color: #14796f; font-size: 1.4rem; }
+.billing-product-summary { padding: 16px 0; border-top: 1px solid #dfe3e8; color: #59677d; }
+.billing-product-summary p { margin: 0; }
+.billing-product-summary p + p { margin-top: 6px; }
+.billing-product-note { margin: 0; color: #68758a; }
+
 .billing-card-head {
   display: flex;
   align-items: flex-start;
@@ -265,6 +296,8 @@
 .billing-email-preview { width: 100%; min-height: 430px; border: 1px solid #dfe3e8; border-radius: 12px; background: #fff; }
 
 @media (max-width: 700px) {
+  .billing-product-price { grid-template-columns: 1fr; gap: 10px; }
+  .billing-product-price > b { display: none; }
   .billing-detail-grid { grid-template-columns: 1fr; }
   .billing-card { padding: 16px; border-radius:14px; }
   .billing-card + .billing-card { margin-top:12px; }

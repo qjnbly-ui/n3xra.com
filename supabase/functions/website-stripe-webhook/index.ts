@@ -18,6 +18,9 @@ import {
   unixDateOnly,
 } from "../_shared/operations-stripe.mjs";
 
+const COMMUNICATIONS_APP = "n3xra_communications";
+const COMMUNICATIONS_PRODUCT_KEY = "communications";
+
 function serviceClient() {
   const url = Deno.env.get("SUPABASE_URL");
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
@@ -43,7 +46,7 @@ function unixDate(value?: number | null) {
 
 async function syncPaymentMethod(admin: ReturnType<typeof createClient>, stripe: Stripe, stripeCustomerId: string) {
   const customer = await stripe.customers.retrieve(stripeCustomerId, { expand: ["invoice_settings.default_payment_method"] });
-  if (customer.deleted || appFrom(customer.metadata) !== WEBSITE_APP) return false;
+  if (customer.deleted || ![WEBSITE_APP, COMMUNICATIONS_APP].includes(appFrom(customer.metadata))) return false;
   const method = customer.invoice_settings.default_payment_method;
   let paymentMethod = typeof method === "object" && method && !("deleted" in method) ? method : null;
   if (!paymentMethod) {
@@ -57,6 +60,86 @@ async function syncPaymentMethod(admin: ReturnType<typeof createClient>, stripe:
     payment_method_exp_month: paymentMethod?.card?.exp_month || null,
     payment_method_exp_year: paymentMethod?.card?.exp_year || null,
   }).eq("stripe_customer_id", stripeCustomerId);
+  return true;
+}
+
+async function syncCommunicationsSubscription(admin: ReturnType<typeof createClient>, subscription: Stripe.Subscription) {
+  if (appFrom(subscription.metadata) !== COMMUNICATIONS_APP) return false;
+  const organizationId = String(subscription.metadata.organization_id || "").trim();
+  const productKey = String(subscription.metadata.product_key || COMMUNICATIONS_PRODUCT_KEY).trim();
+  if (!organizationId || productKey !== COMMUNICATIONS_PRODUCT_KEY) return false;
+  const stripeCustomerId = customerId(subscription.customer);
+  if (!stripeCustomerId) return false;
+  const period = subscriptionPeriod(subscription);
+  const firstItem = subscription.items.data[0];
+  const status = mapSubscriptionStatus(subscription.status);
+  const entitlementStatus = status === "unpaid" ? "past_due" : status === "incomplete" ? "paused" : status;
+  const activePortal = ["active", "trialing", "past_due"].includes(entitlementStatus);
+  const { data: catalog, error: catalogError } = await admin
+    .from("n3xra_product_catalog")
+    .select("setup_fee_cents,monthly_price_cents")
+    .eq("product_key", productKey)
+    .single();
+  if (catalogError) throw new Error(catalogError.message);
+  const stored = await admin.from("organization_product_subscriptions").upsert({
+    organization_id: organizationId,
+    product_key: productKey,
+    stripe_customer_id: stripeCustomerId,
+    stripe_subscription_id: subscription.id,
+    stripe_price_id: firstItem?.price?.id || null,
+    status,
+    currency: firstItem?.price?.currency || "usd",
+    setup_fee_cents: Number(catalog.setup_fee_cents || 0),
+    monthly_price_cents: Number(firstItem?.price?.unit_amount || catalog.monthly_price_cents || 0),
+    current_period_start: unixDate(period.start),
+    current_period_end: unixDate(period.end),
+    cancel_at_period_end: Boolean(subscription.cancel_at_period_end || subscription.cancel_at),
+    checkout_url: null,
+    checkout_expires_at: null,
+  }, { onConflict: "organization_id,product_key" });
+  if (stored.error) throw new Error(stored.error.message);
+
+  const { data: existingEntitlement } = await admin
+    .from("organization_product_entitlements")
+    .select("metadata,starts_at")
+    .eq("organization_id", organizationId)
+    .eq("product_key", productKey)
+    .maybeSingle();
+  const entitlement = await admin.from("organization_product_entitlements").upsert({
+    organization_id: organizationId,
+    product_key: productKey,
+    status: entitlementStatus,
+    portal_enabled: activePortal,
+    source: "subscription",
+    external_reference: subscription.id,
+    starts_at: existingEntitlement?.starts_at || (activePortal ? new Date().toISOString() : null),
+    ends_at: entitlementStatus === "canceled" ? unixDate(period.end) || new Date().toISOString() : null,
+    metadata: {
+      ...(existingEntitlement?.metadata || {}),
+      billing_source: "stripe",
+      stripe_customer_id: stripeCustomerId,
+    },
+  }, { onConflict: "organization_id,product_key" });
+  if (entitlement.error) throw new Error(entitlement.error.message);
+  await admin.from("organizations").update({ stripe_customer_id: stripeCustomerId }).eq("id", organizationId);
+  return true;
+}
+
+async function syncCommunicationsInvoice(
+  admin: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+) {
+  const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id || null;
+  let subscription: Stripe.Subscription | null = null;
+  if (subscriptionId) subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const billingMetadata = subscription?.metadata || invoice.metadata;
+  if (appFrom(billingMetadata) !== COMMUNICATIONS_APP) return false;
+  if (subscription) await syncCommunicationsSubscription(admin, subscription);
+  if (invoice.status === "paid" && subscriptionId) {
+    const update = await admin.from("organization_product_subscriptions").update({ setup_fee_paid: true }).eq("stripe_subscription_id", subscriptionId);
+    if (update.error) throw new Error(update.error.message);
+  }
   return true;
 }
 
@@ -399,19 +482,34 @@ Deno.serve(async (request) => {
         } else if (session.payment_status === "paid") {
           await activateSnapshot(admin, snapshot.id, snapshot.project_id);
         }
+      } else if (appFrom(session.metadata) === COMMUNICATIONS_APP) {
+        handled = true;
+        const stripeCustomerId = customerId(session.customer);
+        if (stripeCustomerId) await syncPaymentMethod(admin, stripe, stripeCustomerId);
+        if (typeof session.subscription === "string") {
+          await syncCommunicationsSubscription(admin, await stripe.subscriptions.retrieve(session.subscription));
+          if (session.payment_status === "paid" || session.payment_status === "no_payment_required") {
+            const paid = await admin.from("organization_product_subscriptions").update({ setup_fee_paid: true }).eq("stripe_subscription_id", session.subscription);
+            if (paid.error) throw new Error(paid.error.message);
+          }
+        }
       }
     } else if (event.type.startsWith("customer.subscription.")) {
-      handled = await syncSubscription(admin, object as Stripe.Subscription);
+      const subscription = object as Stripe.Subscription;
+      handled = appFrom(subscription.metadata) === COMMUNICATIONS_APP
+        ? await syncCommunicationsSubscription(admin, subscription)
+        : await syncSubscription(admin, subscription);
     } else if (["invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.voided"].includes(event.type)) {
-      handled = await syncInvoice(admin, stripe, object as Stripe.Invoice, event.type);
-      if (!handled) handled = await syncGenericOperationsInvoice(admin, object as Stripe.Invoice);
+      const invoice = object as Stripe.Invoice;
+      const websiteHandled = await syncInvoice(admin, stripe, invoice, event.type);
+      const communicationsHandled = websiteHandled ? false : await syncCommunicationsInvoice(admin, stripe, invoice);
+      handled = websiteHandled || await syncGenericOperationsInvoice(admin, invoice) || communicationsHandled;
       if (handled && event.type === "invoice.payment_failed") {
-        const invoice = object as Stripe.Invoice;
-        await notifyAdmin(admin, "Website payment failed", "A website invoice payment failed. Review the website billing account.", { stripe_invoice_id: invoice.id });
+        await notifyAdmin(admin, "Stripe payment failed", "A customer invoice payment failed. Review the billing account.", { stripe_invoice_id: invoice.id });
       }
     } else if (event.type === "customer.updated") {
       const customer = object as Stripe.Customer;
-      if (appFrom(customer.metadata) === WEBSITE_APP) handled = await syncPaymentMethod(admin, stripe, customer.id);
+      if ([WEBSITE_APP, COMMUNICATIONS_APP].includes(appFrom(customer.metadata))) handled = await syncPaymentMethod(admin, stripe, customer.id);
     } else if (event.type === "payment_method.attached" || event.type === "payment_method.detached") {
       const method = object as Stripe.PaymentMethod;
       const id = typeof method.customer === "string" ? method.customer : method.customer?.id;
