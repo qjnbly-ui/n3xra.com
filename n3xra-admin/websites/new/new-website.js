@@ -111,7 +111,16 @@ function renderEditingWebsite(website) {
 
 async function invokeProjectAdmin(body) {
   const { data, error } = await supabase.functions.invoke("website-project-admin", { body });
-  if (error || data?.error) throw new Error(data?.error || error?.message || "Website project setup failed.");
+  let functionError = "";
+  if (error?.context) {
+    try {
+      const details = await error.context.json();
+      functionError = String(details?.error || details?.message || "").trim();
+    } catch {
+      functionError = "";
+    }
+  }
+  if (error || data?.error) throw new Error(data?.error || functionError || error?.message || "Website project setup failed.");
   return data;
 }
 

@@ -863,7 +863,7 @@ Deno.serve(async (request) => {
         const previewEnvironment = await websitePreviewEnvironment(adminClient, website);
         await configureVercelPreviewEnvironment(configuration, String(vercelProject.id), previewEnvironment);
 
-        const deploymentResult = await vercelRequest(configuration, "/v13/deployments", {
+        const deploymentResult = await vercelRequest(configuration, "/v13/deployments?skipAutoDetectionConfirmation=1", {
           method: "POST",
           body: JSON.stringify({
             name: targetProjectName,
