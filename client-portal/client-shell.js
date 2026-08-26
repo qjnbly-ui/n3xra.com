@@ -43,7 +43,7 @@ const routeDetails = {
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
   "/website-onboarding/": { key: "onboarding", kicker: "Website workspace", title: "Onboarding", description: "Provide the information and files needed to move this website forward." },
-  "/client-portal/billing/": { key: "billing", kicker: "Website workspace", title: "Billing", description: "Payment status, invoices, subscriptions, and secure billing controls." },
+  "/client-portal/billing/": { key: "billing", kicker: "Account services", title: "Payments & Billing", description: "Activate services, review subscriptions, invoices, and secure payment controls in one place." },
 };
 
 const homeViews = {
