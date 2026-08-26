@@ -601,6 +601,14 @@ function syncAdminPageClasses(page) {
   [...page.body.classList].filter(shouldSync).forEach((className) => document.body.classList.add(className));
 }
 
+function syncAdminPageDataset(page) {
+  for (const key of ["adminView", "billingRole"]) {
+    const value = page.body.dataset[key];
+    if (value === undefined) delete document.body.dataset[key];
+    else document.body.dataset[key] = value;
+  }
+}
+
 function syncAdminPageOverlays(page) {
   const selector = ":scope > dialog, :scope > .portal-status";
   document.body.querySelectorAll(selector).forEach((element) => element.remove());
@@ -624,9 +632,9 @@ function websitePageController(page) {
 }
 
 async function startWebsiteWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=17");
+  const productShell = await import("/account/admin/product-shell.js?v=18");
   await productShell.startProductShell();
-  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=14");
+  const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=15");
   websiteWorkspace.startWebsiteAdminWorkspace();
 
   const controllerUrl = websitePageController(page);
@@ -637,7 +645,7 @@ async function startWebsiteWorkspace(page) {
 }
 
 async function startNativeProductWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=17");
+  const productShell = await import("/account/admin/product-shell.js?v=18");
   await productShell.startProductShell();
   const controllerUrl = websitePageController(page);
   if (!controllerUrl) throw new Error("This product workspace has no controller.");
@@ -682,6 +690,7 @@ export async function navigateAdminWorkspace(destination, {
 
   await installWorkspaceStyles(page);
   syncAdminPageClasses(page);
+  syncAdminPageDataset(page);
   const importedMain = document.importNode(nextMain, true);
   const currentNavigation = currentMain.querySelector(":scope > .portal-layout > .portal-nav");
   const importedNavigation = importedMain.querySelector(":scope > .portal-layout > .portal-nav");
@@ -689,7 +698,6 @@ export async function navigateAdminWorkspace(destination, {
   currentMain.replaceWith(importedMain);
   syncAdminPageOverlays(page);
   document.documentElement.classList.toggle("website-admin-root", websiteWorkspacePaths.has(normalizePath(url.pathname)));
-  document.body.dataset.adminView = page.body.dataset.adminView || "";
   document.title = page.title || document.title;
   if (history === "push") {
     window.history.replaceState({ ...window.history.state, n3xraAdminScroll: preservedScroll }, "", window.location.href);

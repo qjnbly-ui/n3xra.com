@@ -76,6 +76,14 @@ test("soft admin navigation preserves the shared enhanced-select stylesheet", as
   );
 });
 
+test("soft admin navigation carries page roles without leaking them into another workspace", async () => {
+  const navigation = await readFile(path.join(projectRoot, "account/admin/admin-navigation.js"), "utf8");
+  assert.match(navigation, /for \(const key of \["adminView", "billingRole"\]\)/);
+  assert.match(navigation, /if \(value === undefined\) delete document\.body\.dataset\[key\]/);
+  assert.match(navigation, /syncAdminPageDataset\(page\)/);
+  assert.doesNotMatch(navigation, /document\.body\.dataset\.adminView = page\.body\.dataset\.adminView \|\| ""/);
+});
+
 test("enhanced admin select menus use the top layer so dialogs cannot cover them", async () => {
   const [source, css] = await Promise.all([
     readFile(path.join(projectRoot, "account/admin/admin-select.js"), "utf8"),

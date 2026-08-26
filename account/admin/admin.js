@@ -1,6 +1,6 @@
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js?v=3";
-import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=27";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
 import { initializeAdminSelects } from "/account/admin/admin-select.js?v=4";
 

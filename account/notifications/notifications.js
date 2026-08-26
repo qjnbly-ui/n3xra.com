@@ -2,7 +2,7 @@ import {
   hasConfig,
 } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js?v=3";
-import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=26";
+import { arrangeAdminWorkspace, renderAdminNavigation } from "/account/admin/admin-navigation.js?v=27";
 import {
   renderNotificationMessageHtml,
 } from "/account/notifications/notification-message-format.js?v=1";

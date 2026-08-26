@@ -3,7 +3,8 @@ import { verifyPlatformAdmin } from "/client-portal/admin-access.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { portalLoginUrl, resolvePortalTenant, scopeRowsToPortalTenant } from "/client-portal/tenant-context.js";
 
-const adminMode = document.body.dataset.billingRole === "admin";
+const adminMode = document.body.dataset.billingRole === "admin"
+  || window.location.pathname.startsWith("/n3xra-admin/");
 const content = document.getElementById("billing-content");
 const productContent = document.getElementById("product-billing-content");
 const status = document.getElementById("billing-status");
