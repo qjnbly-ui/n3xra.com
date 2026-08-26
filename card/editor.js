@@ -17,6 +17,7 @@ const saveStatus = document.querySelector("#card-save-status");
 const linksContainer = document.querySelector("#card-editor-links");
 const addLinkButton = document.querySelector("#card-editor-add-link");
 const publicLink = document.querySelector("#card-public-link");
+const editorToolbar = document.querySelector("#card-editor-toolbar");
 const publicAddress = document.querySelector("#card-public-address");
 const mediaStatus = document.querySelector("#card-media-status");
 const sectionOrderContainer = document.querySelector("#card-editor-section-order");
@@ -241,6 +242,8 @@ function fillForm(row) {
         publicLink.href = url;
         publicLink.hidden = false;
     }
+    if (editorToolbar)
+        editorToolbar.hidden = false;
     if (publicAddress)
         publicAddress.textContent = url;
     form.hidden = false;

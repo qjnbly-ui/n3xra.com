@@ -25,6 +25,7 @@ const saveStatus = document.querySelector<HTMLElement>("#card-save-status");
 const linksContainer = document.querySelector<HTMLElement>("#card-editor-links");
 const addLinkButton = document.querySelector<HTMLButtonElement>("#card-editor-add-link");
 const publicLink = document.querySelector<HTMLAnchorElement>("#card-public-link");
+const editorToolbar = document.querySelector<HTMLElement>("#card-editor-toolbar");
 const publicAddress = document.querySelector<HTMLElement>("#card-public-address");
 const mediaStatus = document.querySelector<HTMLElement>("#card-media-status");
 const sectionOrderContainer = document.querySelector<HTMLElement>("#card-editor-section-order");
@@ -129,7 +130,7 @@ function fillForm(row: CardRow): void {
   }
   const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) branding.checked = row.show_n3xra_branding !== false;
   setRequestState(row); sectionOrder = validSectionOrder(row.section_order); renderSectionOrder(); void loadMediaPreviews(row); linksContainer?.replaceChildren(); for (const link of row.links || []) addLinkRow(link); if (!row.links?.length) addLinkRow();
-  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (publicAddress) publicAddress.textContent = url; form.hidden = false; activation?.setAttribute("hidden", "");
+  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; form.hidden = false; activation?.setAttribute("hidden", "");
 }
 
 async function checkSlug(rawSlug: string, current = ""): Promise<boolean> {
