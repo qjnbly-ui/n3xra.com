@@ -36,7 +36,10 @@ test("manual website creation supplies tenant identity and opens one flexible bu
   assert.match(controller, /action: "create-direct-website-project"/);
   assert.match(controller, /action: "provision-website-github"/);
   assert.match(controller, /action: "provision-website-vercel"/);
+  assert.match(controller, /if \(pageTitle\) pageTitle\.textContent = "Edit website"/);
+  assert.match(controller, /if \(workspaceTitle\) workspaceTitle\.textContent = `Edit \$\{website\.name\}`/);
   assert.match(html, /Add proposal, onboarding, or client access later/);
+  assert.match(html, /new-website\.js\?v=3/);
 });
 
 test("direct builds remain attachable to later client work without bypassing trusted provisioning", async () => {

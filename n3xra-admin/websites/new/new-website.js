@@ -92,8 +92,10 @@ function renderOrganizationOptions(organizations) {
 function renderEditingWebsite(website) {
   editingWebsite = website;
   document.title = `N3XRA | Edit ${website.name}`;
-  document.getElementById("page-title").textContent = "Edit website";
-  document.getElementById("workspace-title").textContent = `Edit ${website.name}`;
+  const pageTitle = document.getElementById("page-title");
+  const workspaceTitle = document.getElementById("workspace-title");
+  if (pageTitle) pageTitle.textContent = "Edit website";
+  if (workspaceTitle) workspaceTitle.textContent = `Edit ${website.name}`;
   saveButton.textContent = "Save website";
   nameInput.value = website.name || "";
   slugInput.value = website.slug || "";
