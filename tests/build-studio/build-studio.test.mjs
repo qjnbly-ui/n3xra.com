@@ -20,6 +20,8 @@ test("Build Studio UI keeps repository mutations behind explicit controls", asyn
   const [source, markup] = await Promise.all([read("src/build-studio/build-studio.ts"), read("n3xra-admin/build-studio/index.html")]);
   assert.match(source, /\/checkpoint/);
   assert.match(source, /\/push/);
+  assert.match(source, /session\.previewState === "ready"/);
+  assert.match(source, /searchParams\.set\("refresh"/);
   assert.match(markup, /Changes stay on this branch/);
   assert.doesNotMatch(source, /OPENAI_API_KEY/);
 });
@@ -50,6 +52,8 @@ test("Build worker ships as a persistent Render service", async () => {
   assert.match(worker, /\["install", "--no-audit", "--no-fund"\]/);
   assert.match(worker, /"x-frame-options"/);
   assert.match(worker, /"content-security-policy"/);
+  assert.match(worker, /removeAllListeners\("exit"\)/);
+  assert.match(worker, /session\.previewProcess !== previewProcess/);
   assert.match(dockerfile, /@openai\/codex@0\.143\.0/);
   assert.match(dockerfile, /N3XRA_BUILD_HOST=0\.0\.0\.0/);
 });

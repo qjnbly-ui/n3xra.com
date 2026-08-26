@@ -93,7 +93,17 @@ function renderPreview(session: BuildSession) {
   dot.classList.toggle("is-ready", session.previewState === "ready");
   dot.classList.toggle("is-error", session.previewState === "failed");
   label.textContent = session.previewState === "ready" ? "Live preview" : session.previewState === "failed" ? "Preview needs attention" : "Preview starting";
-  if (session.previewUrl && previewFrame.src !== session.previewUrl) previewFrame.src = session.previewUrl;
+  const previousState = previewFrame.dataset.previewState || "offline";
+  const previousUrl = previewFrame.dataset.previewUrl || "";
+  if (session.previewState === "ready" && session.previewUrl && (previousState !== "ready" || previousUrl !== session.previewUrl)) {
+    const previewUrl = new URL(session.previewUrl);
+    previewUrl.searchParams.set("refresh", Date.now().toString());
+    previewFrame.src = previewUrl.toString();
+    previewFrame.dataset.previewUrl = session.previewUrl;
+  } else if (session.previewState === "starting" && previousState === "ready") {
+    previewFrame.src = "about:blank";
+  }
+  previewFrame.dataset.previewState = session.previewState;
 }
 
 function handleWorkerEvent(event: WorkerEvent) {

@@ -138,7 +138,11 @@ async function prepareRepository(session: Session) {
 }
 
 async function startPreview(session: Session) {
-  session.previewProcess?.kill("SIGTERM"); session.previewState = "starting";
+  if (session.previewProcess) {
+    session.previewProcess.removeAllListeners("exit");
+    session.previewProcess.kill("SIGTERM");
+  }
+  session.previewState = "starting";
   const packageJson = JSON.parse(await readFile(join(session.cwd, "package.json"), "utf8")) as Json;
   const packageManager = existsSync(join(session.cwd, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(session.cwd, "yarn.lock")) ? "yarn" : "npm";
   if (!existsSync(join(session.cwd, "node_modules"))) {
@@ -156,10 +160,15 @@ async function startPreview(session: Session) {
   }
   const script = packageJson.scripts?.dev ? "dev" : packageJson.scripts?.start ? "start" : "preview";
   const args = packageManager === "npm" ? ["run", script, "--", "--host", "127.0.0.1", "--port", String(session.previewPort)] : [script, "--host", "127.0.0.1", "--port", String(session.previewPort)];
-  session.previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, BROWSER: "none" }, stdio: ["ignore", "pipe", "pipe"] });
+  const previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, BROWSER: "none" }, stdio: ["ignore", "pipe", "pipe"] });
+  session.previewProcess = previewProcess;
   const ready = (chunk: Buffer) => { if (/localhost|127\.0\.0\.1|ready|started/i.test(chunk.toString())) { session.previewState = "ready"; void emit(session, "preview", "Live preview is ready.", { session: publicSession(session) }); } };
-  session.previewProcess.stdout?.on("data", ready); session.previewProcess.stderr?.on("data", ready);
-  session.previewProcess.once("exit", () => { session.previewState = "failed"; void emit(session, "error", "The preview process stopped.", { session: publicSession(session) }); });
+  previewProcess.stdout?.on("data", ready); previewProcess.stderr?.on("data", ready);
+  previewProcess.once("exit", () => {
+    if (session.previewProcess !== previewProcess) return;
+    session.previewState = "failed";
+    void emit(session, "error", "The preview process stopped.", { session: publicSession(session) });
+  });
 }
 
 async function openProject(user: Identity, websiteId: string) {
