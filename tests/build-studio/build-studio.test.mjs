@@ -38,10 +38,14 @@ test("Build worker uses App Server over stdio and server-managed sessions", asyn
 });
 
 test("Build worker ships as a persistent Render service", async () => {
-  const [blueprint, dockerfile] = await Promise.all([read("render.yaml"), read("services/build-worker/Dockerfile")]);
+  const [blueprint, dockerfile, worker] = await Promise.all([read("render.yaml"), read("services/build-worker/Dockerfile"), read("services/build-worker/src/server.ts")]);
   assert.match(blueprint, /mountPath: \/var\/data/);
   assert.match(blueprint, /CODEX_HOME/);
   assert.match(blueprint, /SUPABASE_SERVICE_ROLE_KEY[\s\S]*sync: false/);
+  assert.match(blueprint, /GITHUB_APP_PRIVATE_KEY[\s\S]*sync: false/);
+  assert.doesNotMatch(blueprint, /GITHUB_TOKEN/);
+  assert.match(worker, /repositories: \[repository\]/);
+  assert.match(worker, /permissions: \{ contents: "write" \}/);
   assert.match(dockerfile, /@openai\/codex@0\.143\.0/);
   assert.match(dockerfile, /N3XRA_BUILD_HOST=0\.0\.0\.0/);
 });

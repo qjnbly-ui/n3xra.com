@@ -10,7 +10,11 @@ This private, persistent worker powers Build Studio. It keeps ChatGPT-managed Co
 - `N3XRA_BUILD_WORKSPACE_ROOT` — a dedicated absolute directory
 - `N3XRA_BUILD_ALLOWED_ORIGIN` — normally `https://n3xra.com`
 - `N3XRA_BUILD_PUBLIC_URL` — the private worker's HTTPS URL
-- `GITHUB_TOKEN` — repository-scoped token (replace with GitHub App installation tokens in production)
+- `GITHUB_APP_CLIENT_ID`
+- `GITHUB_APP_PRIVATE_KEY`
+- `GITHUB_APP_INSTALLATION_ID`
+
+The worker creates a short-lived installation token for only the selected website repository. Render's own GitHub connection remains limited to the `n3xra.com` deployment repository.
 - `PORT` — defaults to `4317`
 
 Install the Codex CLI on the worker, compile this service with `npm run build:build-worker`, and start `node dist/build-worker/server.js`. Then set `buildWorkerUrl` in `shared/config.js` to the worker's HTTPS URL.
@@ -19,6 +23,6 @@ Run the worker behind authenticated HTTPS. Do not expose the Codex App Server it
 
 ## Render deployment
 
-The repository includes `render.yaml` and a pinned Docker image definition. Create a Render Blueprint from this repository, enter the four secret environment values requested by Render, and use the attached `/var/data` disk. After the service is live, set its HTTPS address as `buildWorkerUrl` in `shared/config.js`.
+The repository includes `render.yaml` and a pinned Docker image definition. Create a Render Blueprint from this repository, enter the Supabase and N3XRA GitHub App secret environment values requested by Render, and use the attached `/var/data` disk. After the service is live, set its HTTPS address as `buildWorkerUrl` in `shared/config.js`.
 
 The persistent disk retains checked-out workspaces and the ChatGPT-managed Codex sign-in across restarts. The worker is intentionally separate from the Vercel website because it runs long-lived repository and preview processes.

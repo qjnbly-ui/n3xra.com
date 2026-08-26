@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
-import { createHash, randomUUID } from "node:crypto";
+import { createHash, createSign, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
@@ -15,7 +15,7 @@ type Session = {
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess;
 };
 
-const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT"] as const;
+const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
 for (const name of required) if (!process.env[name]) throw new Error(`${name} is required.`);
 const env = process.env as NodeJS.ProcessEnv & Record<typeof required[number], string>;
 const port = Number(process.env.PORT || 4317);
@@ -64,9 +64,34 @@ async function command(commandName: string, args: string[], cwd: string, extraEn
   });
 }
 
-async function gitEnvironment(sessionId: string) {
-  const token = process.env.GITHUB_TOKEN;
-  if (!token) return {};
+function base64Url(value: string | Buffer) {
+  return Buffer.from(value).toString("base64url");
+}
+
+async function githubInstallationToken(repositoryFullName: string) {
+  if (!/^[^/\s]+\/[^/\s]+$/.test(repositoryFullName)) throw new Error("Invalid GitHub repository.");
+  const now = Math.floor(Date.now() / 1000);
+  const header = base64Url(JSON.stringify({ alg: "RS256", typ: "JWT" }));
+  const payload = base64Url(JSON.stringify({ iat: now - 60, exp: now + 540, iss: env.GITHUB_APP_CLIENT_ID }));
+  const unsigned = `${header}.${payload}`;
+  const signer = createSign("RSA-SHA256");
+  signer.update(unsigned);
+  signer.end();
+  const privateKey = env.GITHUB_APP_PRIVATE_KEY.replace(/\\n/g, "\n");
+  const jwt = `${unsigned}.${signer.sign(privateKey).toString("base64url")}`;
+  const repository = repositoryFullName.split("/")[1];
+  const response = await fetch(`https://api.github.com/app/installations/${encodeURIComponent(env.GITHUB_APP_INSTALLATION_ID)}/access_tokens`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${jwt}`, Accept: "application/vnd.github+json", "Content-Type": "application/json", "X-GitHub-Api-Version": "2022-11-28" },
+    body: JSON.stringify({ repositories: [repository], permissions: { contents: "write" } }),
+  });
+  const data = await response.json().catch(() => ({})) as Json;
+  if (!response.ok || !data.token) throw new Error(String(data.message || "GitHub App authentication failed."));
+  return String(data.token);
+}
+
+async function gitEnvironment(sessionId: string, repositoryFullName: string) {
+  const token = await githubInstallationToken(repositoryFullName);
   const script = safePath(join(workspaceRoot, ".credentials", `${sessionId}-askpass.sh`));
   await mkdir(dirname(script), { recursive: true });
   await writeFile(script, "#!/bin/sh\ncase \"$1\" in *Username*) printf '%s' 'x-access-token' ;; *) printf '%s' \"$N3XRA_GITHUB_TOKEN\" ;; esac\n", { mode: 0o700 });
@@ -94,7 +119,7 @@ async function updateStatus(session: Session) {
 
 async function prepareRepository(session: Session) {
   await mkdir(workspaceRoot, { recursive: true });
-  const gitEnv = await gitEnvironment(session.id);
+  const gitEnv = await gitEnvironment(session.id, session.repositoryFullName);
   if (!existsSync(join(session.cwd, ".git"))) {
     await mkdir(dirname(session.cwd), { recursive: true });
     await command("git", ["clone", `https://github.com/${session.repositoryFullName}.git`, session.cwd], workspaceRoot, gitEnv);
@@ -162,7 +187,7 @@ const server = createServer(async (req, res) => {
     if (action === "events" && req.method === "GET") { headers(res, 200, "text/event-stream"); res.write(": connected\n\n"); const set = listeners.get(session.id) || new Set(); set.add(res); listeners.set(session.id, set); req.once("close", () => set.delete(res)); return; }
     if (action === "messages" && req.method === "POST") { const input = await body(req); const text = String(input.text || "").trim(); if (!text) return json(res, 400, { error: "A build instruction is required." }); await emit(session, "user_message", text); const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes.\n\n"; const turn = await codex.startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`); turnSessions.set(turn.turn.id, session.id); return json(res, 202, { accepted: true }); }
     if (action === "checkpoint" && req.method === "POST") { const input = await body(req); await command("git", ["add", "--all"], session.cwd); await command("git", ["commit", "-m", String(input.message || "Build Studio checkpoint").slice(0, 120)], session.cwd); const state = await updateStatus(session); await emit(session, "checkpoint", "Checkpoint saved to the branch.", { session: state }); return json(res, 200, { session: state }); }
-    if (action === "push" && req.method === "POST") { await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id)); const state = await updateStatus(session); await emit(session, "push", "Branch pushed to GitHub.", { session: state }); return json(res, 200, { session: state }); }
+    if (action === "push" && req.method === "POST") { await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id, session.repositoryFullName)); const state = await updateStatus(session); await emit(session, "push", "Branch pushed to GitHub.", { session: state }); return json(res, 200, { session: state }); }
     if (action === "preview/restart" && req.method === "POST") { await startPreview(session); return json(res, 202, { session: publicSession(session) }); }
     return json(res, 405, { error: "Method not allowed." });
   } catch (error) { json(res, /Authentication|required|expired|access/.test(String((error as Error).message)) ? 401 : 500, { error: error instanceof Error ? error.message : "Build worker error." }); }
