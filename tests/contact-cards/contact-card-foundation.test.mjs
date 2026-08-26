@@ -40,11 +40,13 @@ test("private card media is only served for published profiles", async () => {
 });
 
 test("friendly card URLs and separate customer and admin entry points are connected", async () => {
-  const [vercel, account, activation, admin, prospects] = await Promise.all([
+  const [vercel, account, activation, admin, adminLogic, adminStyles, prospects] = await Promise.all([
     read("vercel.json"),
     read("account/index.html"),
     read("client-portal/contact-card/index.html"),
     read("n3xra-admin/contact-cards/index.html"),
+    read("src/contact-cards/admin.ts"),
+    read("n3xra-admin/contact-cards/contact-cards-admin.css"),
     read("account/admin/prospects/index.html"),
   ]);
   assert.match(vercel, /"source": "\/card\/:slug"/);
@@ -55,8 +57,16 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /Add Contact Card/);
   assert.match(admin, /class="contact-card-admin-form" id="contact-card-admin-form" hidden/);
   assert.doesNotMatch(admin, /class="contact-card-admin-form hidden"/);
-  assert.match(admin, /contact-card-admin-form'\)\.classList\.remove\('hidden'\)/);
-  assert.match(admin, /\/card\/admin\.js\?v=2/);
+  assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
+  assert.match(admin, /id="contact-card-modal-close"/);
+  assert.match(admin, /id="contact-card-modal-backdrop"/);
+  assert.match(admin, /\/card\/admin\.js\?v=3/);
+  assert.match(admin, /contact-cards-admin\.css\?v=2/);
+  assert.match(adminLogic, /function openModal/);
+  assert.match(adminLogic, /modalClose\?\.addEventListener\("click", closeModal\)/);
+  assert.match(adminLogic, /event\.key === "Escape"/);
+  assert.match(adminStyles, /\.contact-card-modal \{ position:fixed/);
+  assert.match(adminStyles, /@media\(max-width:800px\).*\.contact-card-modal\{align-items:end/s);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
 });
 

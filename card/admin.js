@@ -1,7 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 const form = document.querySelector("#contact-card-admin-form");
-const empty = document.querySelector("#contact-card-empty");
 const list = document.querySelector("#contact-card-list");
 const count = document.querySelector("#contact-card-count");
 const search = document.querySelector("#contact-card-search");
@@ -9,9 +8,13 @@ const newButton = document.querySelector("#contact-card-new");
 const deleteButton = document.querySelector("#contact-card-delete");
 const formStatus = document.querySelector("#contact-card-form-status");
 const publicLink = document.querySelector("#contact-card-public-link");
+const modal = document.querySelector("#contact-card-modal");
+const modalClose = document.querySelector("#contact-card-modal-close");
+const modalBackdrop = document.querySelector("#contact-card-modal-backdrop");
 let cards = [];
 let accounts = [];
 let selectedId = "";
+let modalReturnFocus = null;
 function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function slugify(value) { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 function normalizePhone(value) { let digits = String(value || "").replace(/\D/g, ""); if (!digits)
@@ -26,6 +29,25 @@ function setFormStatus(message = "", tone = "") { if (formStatus) {
     formStatus.textContent = message;
     formStatus.className = tone ? `is-${tone}` : "";
 } }
+function openModal(preferredFocus) {
+    if (!modal || !form)
+        return;
+    if (modal.hidden)
+        modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    modal.hidden = false;
+    form.hidden = false;
+    document.body.classList.add("contact-card-modal-open");
+    window.requestAnimationFrame(() => preferredFocus?.focus());
+}
+function closeModal() {
+    if (!modal || !form)
+        return;
+    modal.hidden = true;
+    form.hidden = true;
+    document.body.classList.remove("contact-card-modal-open");
+    modalReturnFocus?.focus();
+    modalReturnFocus = null;
+}
 async function invoke(action) {
     if (!supabase)
         throw new Error("Supabase is not configured.");
@@ -49,11 +71,9 @@ function renderOwnerOptions(selected = "", locked = false) {
     select.disabled = locked;
 }
 function showCard(card) {
-    if (!form || !empty)
+    if (!form)
         return;
-    empty.hidden = true;
     form.classList.remove("hidden");
-    form.hidden = false;
     selectedId = String(card?.id || "");
     form.reset();
     field("id").value = selectedId;
@@ -77,6 +97,7 @@ function showCard(card) {
     }
     setFormStatus();
     renderList();
+    openModal(card ? field("slug") : field("owner_user_id"));
 }
 async function loadData(selectId = selectedId) {
     if (!supabase)
@@ -132,13 +153,15 @@ deleteButton?.addEventListener("click", () => { void (async () => { if (!supabas
     return; const selected = cards.find((item) => item.id === selectedId); if (!selected || !window.confirm(`Delete the Contact Card for ${selected.display_name}? This cannot be undone.`))
     return; setFormStatus("Deleting Contact Card…"); const mediaPaths = [selected.profile_image_path, selected.company_logo_path, selected.background_image_path].filter(Boolean); if (mediaPaths.length)
     await supabase.storage.from("contact-card-media").remove(mediaPaths); const { error } = await supabase.from("contact_card_profiles").delete().eq("id", selectedId); if (error)
-    return setFormStatus(error.message, "error"); selectedId = ""; if (form)
-    form.hidden = true; if (empty)
-    empty.hidden = false; await loadData(); })(); });
+    return setFormStatus(error.message, "error"); selectedId = ""; closeModal(); await loadData(); })(); });
 newButton?.addEventListener("click", () => showCard(null));
 search?.addEventListener("input", renderList);
 list?.addEventListener("click", (event) => { const id = event.target.closest("[data-card-id]")?.dataset.cardId; const selected = cards.find((item) => item.id === id); if (selected)
     showCard(selected); });
+modalClose?.addEventListener("click", closeModal);
+modalBackdrop?.addEventListener("click", closeModal);
+document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden)
+    closeModal(); });
 void (async () => { if (!supabase)
     throw new Error("Supabase is not configured."); const session = await getSessionOrNull(supabase); if (!session?.user) {
     window.location.replace("/account/?next=/n3xra-admin/contact-cards/");
