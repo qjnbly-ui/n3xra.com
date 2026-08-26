@@ -29,6 +29,15 @@ function setFormStatus(message = "", tone = "") { if (formStatus) {
     formStatus.textContent = message;
     formStatus.className = tone ? `is-${tone}` : "";
 } }
+function saveErrorMessage(error) {
+    const details = error && typeof error === "object" ? error : {};
+    const message = error instanceof Error ? error.message : String(details.message || details.details || details.hint || "");
+    if (details.code === "23505")
+        return "That account already has a card, or that public address is taken.";
+    if (details.code === "42501")
+        return "Your administrator session does not have permission to save this Contact Card. Sign in again and try once more.";
+    return message || "The Contact Card could not be saved. Review the information and try again.";
+}
 function openModal(preferredFocus) {
     if (!modal || !form)
         return;
@@ -142,8 +151,7 @@ form?.addEventListener("submit", (event) => { event.preventDefault(); void (asyn
     setFormStatus("Contact Card saved.", "success");
 }
 catch (error) {
-    const message = error instanceof Error ? error.message : "The Contact Card could not be saved.";
-    setFormStatus(message.includes("duplicate") ? "That account already has a card, or that public address is taken." : message, "error");
+    setFormStatus(saveErrorMessage(error), "error");
 }
 finally {
     if (button)

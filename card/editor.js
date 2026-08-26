@@ -209,11 +209,11 @@ function setRequestState(row) {
         return;
     const state = String(row.physical_card_status || "not_requested");
     const toggle = form.elements.namedItem("request_physical_card");
-    requestState.className = `card-request-state${state === "not_requested" ? "" : state === "shipped" ? " is-shipped" : " is-requested"}`;
-    requestState.textContent = state === "not_requested" ? "No physical card requested yet." : state === "requested" ? "Request received. N3XRA will review the mailing details." : state === "processing" ? "Your physical card is being prepared." : "Your physical card has shipped.";
+    requestState.className = `card-request-state${state === "not_requested" ? "" : ["shipped", "delivered"].includes(state) ? " is-shipped" : " is-requested"}`;
+    requestState.textContent = state === "not_requested" ? "No physical card requested yet." : state === "requested" ? "Request received. N3XRA will review the mailing details." : state === "processing" ? "Your physical card is being prepared." : state === "delivered" ? "Your physical card has been delivered." : "Your physical card has shipped.";
     if (toggle) {
         toggle.checked = state !== "not_requested";
-        toggle.disabled = ["processing", "shipped"].includes(state);
+        toggle.disabled = ["processing", "shipped", "delivered"].includes(state);
     }
 }
 function fillForm(row) {
@@ -431,7 +431,7 @@ form?.addEventListener("submit", (event) => {
             const values = new FormData(form);
             const currentRequestState = String(card.physical_card_status || "not_requested");
             const requestChecked = values.get("request_physical_card") === "on";
-            const physicalStatus = ["processing", "shipped"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested";
+            const physicalStatus = ["processing", "shipped", "delivered"].includes(currentRequestState) ? currentRequestState : requestChecked ? "requested" : "not_requested";
             const slug = slugify(values.get("slug"));
             if (slug !== card.slug && !(await checkSlug(slug, card.slug)))
                 throw new Error("Choose an available card address.");

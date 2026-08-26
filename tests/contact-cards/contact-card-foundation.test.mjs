@@ -60,9 +60,11 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=3/);
+  assert.match(admin, /\/card\/admin\.js\?v=4/);
   assert.match(admin, /contact-cards-admin\.css\?v=2/);
   assert.match(adminLogic, /function openModal/);
+  assert.match(adminLogic, /function saveErrorMessage/);
+  assert.match(adminLogic, /details\.code === "23505"/);
   assert.match(adminLogic, /modalClose\?\.addEventListener\("click", closeModal\)/);
   assert.match(adminLogic, /event\.key === "Escape"/);
   assert.match(adminStyles, /\.contact-card-modal \{ position:fixed/);
@@ -71,9 +73,21 @@ test("friendly card URLs and separate customer and admin entry points are connec
 });
 
 test("customers can activate their own card and physical requests are protected", async () => {
-  const migration = await read("supabase/migrations/20260826043457_contact_card_profiles.sql");
+  const [migration, adminOverride, editor, activation] = await Promise.all([
+    read("supabase/migrations/20260826043457_contact_card_profiles.sql"),
+    read("supabase/migrations/20260826124620_allow_admin_partial_contact_cards.sql"),
+    read("src/contact-cards/editor.ts"),
+    read("client-portal/contact-card/index.html"),
+  ]);
   assert.match(migration, /for insert to authenticated[\s\S]*auth\.uid\(\)\) = owner_user_id/i);
   assert.match(migration, /physical_card_status text not null default 'not_requested'/);
   assert.match(migration, /guard_contact_card_customer_updates/);
   assert.match(migration, /Only N3XRA can update card fulfillment status/);
+  assert.match(adminOverride, /drop constraint contact_card_profiles_shipping_check/);
+  assert.match(adminOverride, /'delivered'/);
+  assert.match(adminOverride, /Complete the mailing address before requesting a physical card/);
+  assert.match(adminOverride, /physical_card_status = 'not_requested'/);
+  assert.match(editor, /state === "delivered"/);
+  assert.match(editor, /Complete the mailing address before requesting a physical card/);
+  assert.match(activation, /\/card\/editor\.js\?v=3/);
 });
