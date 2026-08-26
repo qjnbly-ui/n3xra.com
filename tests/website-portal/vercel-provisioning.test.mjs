@@ -35,8 +35,11 @@ test("trusted admin action creates one linked Vercel project and an explicit pre
   assert.match(edge, /PUBLIC_N3XRA_PORTAL_URL/);
   assert.match(edge, /\/v10\/projects\/\$\{encodeURIComponent\(projectId\)\}\/env\?upsert=true/);
   assert.match(edge, /target: \["preview"\]/);
+  assert.match(edge, /customEnvironmentIds: \[customEnvironmentId\]/);
+  assert.match(edge, /ensureVercelStagingEnvironment/);
+  assert.match(edge, /copyEnvVarsFrom: "preview"/);
   assert.match(action, /\/v13\/deployments\?forceNew=1/);
-  assert.match(action, /target: "preview"/);
+  assert.match(action, /target: "staging"/);
   assert.match(action, /projectSettings:[\s\S]*framework: "astro"[\s\S]*outputDirectory: "dist"/);
   assert.match(action, /finish_website_vercel_provisioning/);
   assert.doesNotMatch(action, /domains|productionBranch|target: "production"/i);

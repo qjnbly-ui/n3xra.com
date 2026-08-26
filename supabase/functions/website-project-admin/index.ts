@@ -319,6 +319,7 @@ async function websitePreviewEnvironment(
 async function configureVercelPreviewEnvironment(
   configuration: VercelConfiguration,
   projectId: string,
+  customEnvironmentId: string,
   environment: Record<string, string>,
 ) {
   const result = await vercelRequest(
@@ -331,12 +332,48 @@ async function configureVercelPreviewEnvironment(
         value,
         type: "encrypted",
         target: ["preview"],
+        customEnvironmentIds: [customEnvironmentId],
       }))),
     },
   );
   if (!result.response.ok) {
     throw new Error(`Vercel could not configure the personalized preview${result.data?.error?.message ? `: ${text(result.data.error.message, 300)}` : "."}`);
   }
+}
+
+async function ensureVercelStagingEnvironment(
+  configuration: VercelConfiguration,
+  projectId: string,
+) {
+  const path = `/v9/projects/${encodeURIComponent(projectId)}/custom-environments`;
+  const existingResult = await vercelRequest(configuration, path);
+  if (!existingResult.response.ok) {
+    throw new Error(`Vercel could not read the staging environment${existingResult.data?.error?.message ? `: ${text(existingResult.data.error.message, 300)}` : "."}`);
+  }
+  const environments = Array.isArray(existingResult.data?.environments)
+    ? existingResult.data.environments
+    : Array.isArray(existingResult.data)
+      ? existingResult.data
+      : [];
+  let staging = environments.find((environment: Record<string, any>) => environment.slug === "staging") || null;
+  if (!staging) {
+    const createdResult = await vercelRequest(configuration, path, {
+      method: "POST",
+      body: JSON.stringify({
+        slug: "staging",
+        description: "N3XRA managed website review environment",
+        copyEnvVarsFrom: "preview",
+      }),
+    });
+    if (!createdResult.response.ok) {
+      throw new Error(`Vercel could not create the staging environment${createdResult.data?.error?.message ? `: ${text(createdResult.data.error.message, 300)}` : "."}`);
+    }
+    staging = createdResult.data;
+  }
+  if (!staging?.id || staging.slug !== "staging") {
+    throw new Error("Vercel returned an invalid staging environment.");
+  }
+  return staging;
 }
 
 async function createProposal(
@@ -860,15 +897,16 @@ Deno.serve(async (request) => {
           throw new Error("Vercel returned project details that did not match the requested website workspace.");
         }
 
+        const stagingEnvironment = await ensureVercelStagingEnvironment(configuration, String(vercelProject.id));
         const previewEnvironment = await websitePreviewEnvironment(adminClient, website);
-        await configureVercelPreviewEnvironment(configuration, String(vercelProject.id), previewEnvironment);
+        await configureVercelPreviewEnvironment(configuration, String(vercelProject.id), String(stagingEnvironment.id), previewEnvironment);
 
         const deploymentResult = await vercelRequest(configuration, "/v13/deployments?forceNew=1", {
           method: "POST",
           body: JSON.stringify({
             name: targetProjectName,
             project: vercelProject.id,
-            target: "preview",
+            target: "staging",
             projectSettings: {
               framework: "astro",
               installCommand: "npm install",
