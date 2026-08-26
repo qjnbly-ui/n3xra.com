@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=18";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=19";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=2";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";

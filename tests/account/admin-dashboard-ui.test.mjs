@@ -124,11 +124,11 @@ test("customer app cards use consistent N3XRA product names and clear access sta
   assert.match(css, /\.app-card\.is-action-required\s*{/);
   assert.match(script, /function websiteAppState\(status\)/);
   assert.match(html, /My products[\s\S]*Your products[\s\S]*Explore N3XRA products[\s\S]*More from N3XRA/);
-  assert.match(html, /id="communications-product-link" href="\/nexra-communications\/request\/"/);
+  assert.match(html, /id="communications-product-link" href="\/client-portal\/billing\/\?product=communications"/);
   assert.match(html, /id="website-portal-link" href="\/website-request\/"/);
   assert.match(html, /id="partner-portal-link" href="\/partners\/#apply"/);
   assert.match(html, /id="investment-interest-link" href="\/invest\/#ownership-updates"/);
-  assert.match(script, /communicationsProductLink\.href = hasCommunicationsAccess[\s\S]*"\/client-portal\/communications\/"[\s\S]*"\/nexra-communications\/request\/"/);
+  assert.match(script, /communicationsProductLink\.href = hasCommunicationsAccess[\s\S]*organization=\$\{encodeURIComponent\(communicationsEntitlement\.organization_id\)\}[\s\S]*"\/client-portal\/billing\/\?product=communications"/);
   assert.match(script, /websitePortalLink\.href = "\/client-portal\/"[\s\S]*websitePortalLink\.href = "\/website-request\/"/);
   assert.match(script, /placeMoreFromN3xraCard\(partnerPortalCard, isApprovedPartner\)/);
   assert.match(script, /ownershipUpdateStatus = !interest[\s\S]*"Withdrawn"[\s\S]*"Submitted"/);

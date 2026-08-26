@@ -6,9 +6,10 @@ const root = new URL("../../", import.meta.url);
 const read = (path) => readFile(new URL(path, root), "utf8");
 
 test("carrier onboarding collects the current Twilio business, campaign, consent, and attestation fields", async () => {
-  const [page, source] = await Promise.all([
+  const [page, source, organizationResolver] = await Promise.all([
     read("client-portal/communications/onboarding/index.html"),
     read("src/client-portal/communications-onboarding.ts"),
+    read("src/client-portal/communications-organization.ts"),
   ]);
 
   for (const field of [
@@ -33,7 +34,34 @@ test("carrier onboarding collects the current Twilio business, campaign, consent
   assert.match(page, /N3XRA reviews the completed application before sending anything to Twilio or purchasing a number/);
   assert.match(source, /save_communications_carrier_onboarding/);
   assert.match(source, /input_submit: submit/);
-  assert.match(source, /role", "account_admin"/);
+  assert.match(source, /requireAccountAdmin: true/);
+  assert.match(organizationResolver, /role", "account_admin"/);
+});
+
+test("Communications follows the selected organization and never borrows another tenant's workspace", async () => {
+  const [resolver, app, onboarding, context, account] = await Promise.all([
+    read("src/client-portal/communications-organization.ts"),
+    read("src/client-portal/communications-app.ts"),
+    read("src/client-portal/communications-onboarding.ts"),
+    read("client-portal/client-workspace-context.js"),
+    read("account/account.js"),
+  ]);
+
+  assert.match(resolver, /n3xra-client-workspace-context/);
+  assert.match(resolver, /document\.body\.dataset\.portalWebsiteId/);
+  assert.match(resolver, /get\("organization"\)/);
+  assert.match(resolver, /organizationForWebsite/);
+  assert.match(resolver, /if \(selectedWebsiteOrganizationId\)[\s\S]*return eligibleOrganization/);
+  assert.match(resolver, /\.limit\(2\)/);
+  assert.match(resolver, /organizationIds\.length === 1/);
+  assert.doesNotMatch(resolver, /records-active-organization-id|getStoredActiveOrganizationId/);
+  assert.match(app, /resolveSelectedCommunicationsOrganization/);
+  assert.match(app, /Communications is not active for the selected organization/);
+  assert.match(onboarding, /resolveSelectedCommunicationsOrganization\(supabase, session\.user\.id, \{ requireAccountAdmin: true \}\)/);
+  assert.match(context, /explicitOrganizationId/);
+  assert.match(context, /url\.searchParams\.set\("organization", website\.organization_id\)/);
+  assert.match(account, /client-portal\/billing\/\?product=communications/);
+  assert.match(account, /client-portal\/communications\/\?organization=/);
 });
 
 test("carrier onboarding persistence is tenant-scoped, account-admin-only, and server validated", async () => {

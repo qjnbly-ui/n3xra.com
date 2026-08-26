@@ -179,9 +179,11 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const domains = domainResult.data || [];
   const context = readWorkspaceContext("client", session.user.id);
   const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
+  const explicitOrganizationId = new URLSearchParams(window.location.search).get("organization");
+  const organizationWebsite = websites.find((website) => website.organization_id === explicitOrganizationId);
   let selectedId = websites.some((website) => website.id === explicitWebsiteId)
     ? explicitWebsiteId
-    : websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "";
+    : organizationWebsite?.id || (websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "");
   const selectedWebsite = websites.find((website) => website.id === selectedId);
   const portalAppKeys = tenantResolution.mode === "tenant"
     ? await visiblePortalAppKeys(supabase, selectedWebsite?.organization_id)
@@ -271,7 +273,12 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     const changed = websiteId !== selectedId;
     showOrganization(websiteId);
     closePicker();
-    if (changed) window.location.reload();
+    if (changed && String(window.location.pathname).replace(/\/+$/, "").startsWith("/client-portal/communications")) {
+      const website = websites.find((item) => item.id === websiteId);
+      const url = new URL(window.location.href);
+      url.searchParams.set("organization", website.organization_id);
+      window.location.assign(`${url.pathname}${url.search}${url.hash}`);
+    } else if (changed) window.location.reload();
   }
 
   renderOptions();

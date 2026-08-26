@@ -753,13 +753,13 @@ async function renderDashboard(message = "") {
   if (communicationsProductSummary && communicationsProductLink) {
     communicationsProductSummary.textContent = hasCommunicationsAccess
       ? "Manage your email and text communications, audiences, consent, and activity."
-      : "Connect email and text communications to your organization.";
+      : "Activate email and text communications for your organization from one secure billing flow.";
     communicationsProductLink.href = hasCommunicationsAccess
-      ? "/client-portal/communications/"
-      : "/nexra-communications/request/";
+      ? `/client-portal/communications/?organization=${encodeURIComponent(communicationsEntitlement.organization_id)}`
+      : "/client-portal/billing/?product=communications";
     communicationsProductLink.textContent = hasCommunicationsAccess
       ? "Open Communications"
-      : "Request Communications";
+      : "Activate Communications";
   }
 
   if (loanAccount && loanTrackerSummary) {

@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
-import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { initializePortalBrandShell } from "./brand-shell.js";
 import { isBrandedPortalHostname, portalLoginUrl } from "./tenant-context.js";
+import { resolveSelectedCommunicationsOrganization } from "./communications-organization.js";
 const statusLayer = document.querySelector("#communications-status");
 function escapeHtml(value) {
     return String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
@@ -32,45 +32,6 @@ function safeHttpsUrl(value) {
 function showFatal(message) {
     if (statusLayer)
         statusLayer.textContent = message;
-}
-async function resolveOrganizationId(supabase, userId) {
-    const stored = getStoredActiveOrganizationId();
-    if (stored) {
-        const [membershipResult, entitlementResult] = await Promise.all([
-            supabase.from("organization_memberships")
-                .select("organization_id")
-                .eq("organization_id", stored)
-                .eq("user_id", userId)
-                .maybeSingle(),
-            supabase.from("organization_product_entitlements")
-                .select("organization_id")
-                .eq("organization_id", stored)
-                .eq("product_key", "communications")
-                .eq("portal_enabled", true)
-                .in("status", ["trialing", "active", "past_due"])
-                .maybeSingle(),
-        ]);
-        if (membershipResult.error)
-            throw membershipResult.error;
-        if (entitlementResult.error)
-            throw entitlementResult.error;
-        if (membershipResult.data?.organization_id && entitlementResult.data?.organization_id)
-            return stored;
-    }
-    const { data, error } = await supabase
-        .from("organization_product_entitlements")
-        .select("organization_id")
-        .eq("product_key", "communications")
-        .eq("portal_enabled", true)
-        .in("status", ["trialing", "active", "past_due"])
-        .limit(1)
-        .maybeSingle();
-    if (error)
-        throw error;
-    const organizationId = String(data?.organization_id || "");
-    if (organizationId)
-        setStoredActiveOrganizationId(organizationId);
-    return organizationId;
 }
 function renderTopics(topics, metrics) {
     const list = document.querySelector("#communications-topics");
@@ -151,9 +112,9 @@ async function initialize() {
         window.location.replace(portalLoginUrl());
         return;
     }
-    const organizationId = await resolveOrganizationId(supabase, session.user.id);
+    const organizationId = await resolveSelectedCommunicationsOrganization(supabase, session.user.id);
     if (!organizationId)
-        throw new Error("Your account does not have a Communications workspace.");
+        throw new Error("Communications is not active for the selected organization. Open Billing to activate it.");
     const requestedWorkspace = String(new URLSearchParams(window.location.search).get("workspace") || "").trim().toLowerCase();
     let workspaceQuery = supabase.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,website_url,status,included_sms_segments,sms_overage_cents,mms_unit_cents").eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(1);
     if (requestedWorkspace)

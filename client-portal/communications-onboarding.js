@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
-import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { initializePortalBrandShell } from "./brand-shell.js";
 import { portalLoginUrl } from "./tenant-context.js";
+import { resolveSelectedCommunicationsOrganization } from "./communications-organization.js";
 const form = document.querySelector("#carrier-onboarding-form");
 const saveButton = document.querySelector("#save-onboarding");
 const submitButton = document.querySelector("#submit-onboarding");
@@ -31,33 +31,6 @@ function formatDate(value) {
         return "Not saved yet";
     const date = new Date(value);
     return Number.isNaN(date.getTime()) ? "Not saved yet" : new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
-}
-async function resolveOrganizationId(userId) {
-    const stored = getStoredActiveOrganizationId();
-    if (stored) {
-        const [membershipResult, ownerResult] = await Promise.all([
-            supabase.from("organization_memberships").select("organization_id,role").eq("organization_id", stored).eq("user_id", userId).eq("role", "account_admin").maybeSingle(),
-            supabase.from("organizations").select("id").eq("id", stored).eq("owner_user_id", userId).maybeSingle(),
-        ]);
-        if (membershipResult.error)
-            throw membershipResult.error;
-        if (ownerResult.error)
-            throw ownerResult.error;
-        if (membershipResult.data?.organization_id || ownerResult.data?.id)
-            return stored;
-    }
-    const [membershipResult, ownerResult] = await Promise.all([
-        supabase.from("organization_memberships").select("organization_id,role").eq("user_id", userId).eq("role", "account_admin").limit(1).maybeSingle(),
-        supabase.from("organizations").select("id").eq("owner_user_id", userId).limit(1).maybeSingle(),
-    ]);
-    if (membershipResult.error)
-        throw membershipResult.error;
-    if (ownerResult.error)
-        throw ownerResult.error;
-    const organizationId = text(membershipResult.data?.organization_id || ownerResult.data?.id);
-    if (organizationId)
-        setStoredActiveOrganizationId(organizationId);
-    return organizationId;
 }
 function field(name) {
     const control = form?.elements.namedItem(name);
@@ -236,7 +209,7 @@ async function initialize() {
         window.location.replace(portalLoginUrl());
         return;
     }
-    const organizationId = await resolveOrganizationId(session.user.id);
+    const organizationId = await resolveSelectedCommunicationsOrganization(supabase, session.user.id, { requireAccountAdmin: true });
     if (!organizationId)
         throw new Error("Account administrator access is required to complete texting onboarding.");
     const [workspaceResult, entitlementResult] = await Promise.all([

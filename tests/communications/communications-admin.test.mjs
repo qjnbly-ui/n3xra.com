@@ -198,19 +198,15 @@ test("Resend onboarding database operations are tenant-scoped, verified, audited
   assert.doesNotMatch(migration, /RESEND_API_KEY|WEBHOOK_SECRET|service_role_key/i);
 });
 
-test("the customer portal ignores a stored organization without Communications access", async () => {
-  const source = await projectFile("src/client-portal/communications-app.ts");
-  const storedBlock = source.slice(
-    source.indexOf("if (stored)"),
-    source.indexOf("const { data, error }", source.indexOf("if (stored)")),
-  );
+test("the customer portal ignores a selected organization without Communications access", async () => {
+  const source = await projectFile("src/client-portal/communications-organization.ts");
 
-  assert.match(storedBlock, /organization_memberships/);
-  assert.match(storedBlock, /organization_product_entitlements/);
-  assert.match(storedBlock, /\.eq\("product_key", "communications"\)/);
-  assert.match(storedBlock, /\.eq\("portal_enabled", true\)/);
-  assert.match(storedBlock, /entitlementResult\.data\?\.organization_id/);
-  assert.ok(storedBlock.indexOf("entitlementResult.data") < storedBlock.indexOf("return stored"));
+  assert.match(source, /organizationForWebsite/);
+  assert.match(source, /organization_product_entitlements/);
+  assert.match(source, /\.eq\("product_key", "communications"\)/);
+  assert.match(source, /\.eq\("portal_enabled", true\)/);
+  assert.match(source, /if \(selectedWebsiteOrganizationId\)[\s\S]*return eligibleOrganization/);
+  assert.doesNotMatch(source, /return stored|getStoredActiveOrganizationId/);
 });
 
 test("public email signup can collect consent before outbound delivery is active", async () => {
