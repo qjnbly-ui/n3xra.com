@@ -310,6 +310,12 @@
     .cta-copy { max-width: 720px; display: grid; justify-items: center; gap: .8rem; }
     .cta .button { color: #fff; background: var(--page-green); }
     .cta .button:hover, .cta .button:focus-visible { background: #0a211d; }
+    .pricing { background:#071b18; color:#fff; text-align:center; }
+    .pricing .section-heading { align-items:center; max-width:760px; margin-inline:auto; }
+    .price-list { max-width:760px; margin:2.4rem auto 0; border-top:1px solid rgba(255,255,255,.2); }
+    .price-row { display:flex; align-items:center; justify-content:space-between; gap:1rem; padding:1.2rem .2rem; border-bottom:1px solid rgba(255,255,255,.2); text-align:left; }
+    .price-row span { color:rgba(255,255,255,.72); }
+    .price-row strong { white-space:nowrap; font-size:1.1rem; }
 
     .reveal-ready [data-reveal] {
       opacity: 0;
@@ -497,12 +503,24 @@
       </div>
     </section>
 
+    <section class="section pricing" aria-labelledby="pricing-title">
+      <div class="page-shell">
+        <header class="section-heading" data-reveal><p class="eyebrow">Simple pricing</p><h2 id="pricing-title">One purchase. Your link stays yours.</h2></header>
+        <div class="price-list" data-reveal>
+          <div class="price-row"><span>Contact Card + one physical tap card</span><strong>$19.99</strong></div>
+          <div class="price-row"><span>Remove “Powered by N3XRA” forever</span><strong>$9.99</strong></div>
+          <div class="price-row"><span>Additional physical card</span><strong>$7.99</strong></div>
+          <div class="price-row"><span>Three additional cards</span><strong>$19.99</strong></div>
+        </div>
+      </div>
+    </section>
+
     <section class="section cta" aria-labelledby="cta-title">
       <div class="page-shell cta-panel" data-reveal>
         <div class="cta-copy">
           <p class="eyebrow">N3XRA Contact Card</p>
           <h2 id="cta-title">Ready to share one link?</h2>
-          <p>Create your account and claim your address.</p>
+          <p>$19.99 once. Includes your first physical tap card.</p>
         </div>
         <div class="cta-actions"><a class="button" href="/account/?signup=signup">Create your account</a></div>
       </div>
@@ -512,14 +530,40 @@
   <footer class="site-footer home-footer">
     <div class="page-shell footer-grid">
       <div class="footer-brand">
-        <a class="home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <a class="home-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="">
+          <span>N3XRA</span>
+        </a>
         <p>N3XRA builds custom websites, software, automation, and AI solutions for people and organizations bringing new ideas to life.</p>
       </div>
-      <nav class="footer-nav" aria-label="Company"><p>Explore</p><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/careers/">Careers</a></nav>
-      <nav class="footer-nav" aria-label="Software"><p>Software</p><a href="/contact-card/">Contact Card</a><a href="/records/">Records</a></nav>
-      <nav class="footer-nav" aria-label="Account and legal"><p>N3XRA</p><a href="/account">Dashboard</a><a href="/project-pulse/">Project Pulse</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/invest/">Invest</a></nav>
+
+      <nav class="footer-nav" aria-label="Company">
+        <p>Explore</p>
+        <a href="/projects/">Projects</a>
+        <a href="/services/">Services</a>
+        <a href="/support/">Support</a>
+        <a href="/careers/">Careers</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Software">
+        <p>Software</p>
+        <a href="/contact-card/">Contact Card</a>
+        <a href="/records/">Records</a>
+      </nav>
+
+      <nav class="footer-nav" aria-label="Account and legal">
+        <p>N3XRA</p>
+        <a href="/account">Dashboard</a>
+        <a href="/project-pulse/">Project Pulse</a>
+        <a href="/privacy/">Privacy</a>
+        <a href="/terms/">Terms</a>
+        <a href="/invest/">Invest</a>
+      </nav>
     </div>
-    <div class="page-shell footer-bottom"><p>&copy; 2026 N3XRA LLC. All rights reserved.</p><p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p></div>
+    <div class="page-shell footer-bottom">
+      <p>&copy; 2026 N3XRA LLC. All rights reserved.</p>
+      <p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p>
+    </div>
   </footer>
 
   <script>

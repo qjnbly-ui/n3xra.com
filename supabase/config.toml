@@ -7,6 +7,9 @@ verify_jwt = false
 [functions.stripe-billing]
 verify_jwt = false
 
+[functions.contact-card-billing]
+verify_jwt = false
+
 [functions.music-billing]
 verify_jwt = false
 

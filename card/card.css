@@ -159,6 +159,13 @@ a { color: inherit; }
 .card-request-state { margin: 0 0 18px; padding: 13px 15px; border: 1px solid rgba(82,97,115,.14); border-radius: 10px; color: #526173; background: #f7f9fb; font-size: .8rem; font-weight: 700; }
 .card-request-state.is-requested { color: #8a5a0a; border-color: rgba(180,118,20,.2); background: #fff8e8; }
 .card-request-state.is-shipped { color: #14725d; border-color: rgba(20,114,93,.2); background: #eef8f4; }
+.card-activation-price { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:20px; padding:15px 17px; border:1px solid rgba(18,58,51,.18); border-radius:12px; background:#f2f8f6; color:#526173; font-size:.82rem; }
+.card-activation-price strong { color:#123a33; font-size:1rem; }
+.card-commerce-button { min-height:44px; padding:0 17px; border:1px solid #123a33; border-radius:999px; color:#fff; background:#123a33; cursor:pointer; font:800 .78rem Manrope,Arial,sans-serif; }
+.card-commerce-button.is-secondary { color:#123a33; background:#fff; }
+.card-commerce-button:disabled { opacity:.55; cursor:wait; }
+.card-extra-card-actions { display:flex; flex-wrap:wrap; gap:10px; margin:0 0 20px; }
+.card-editor-branding-toggle input:disabled { opacity:.65; }
 .card-request-toggle { display: flex !important; align-items: center; gap: 10px !important; align-self: end; min-height: 46px; padding: 11px 12px; border: 1px solid #d6dbd8; border-radius: 10px; background: #fbfcfa; cursor: pointer; }
 .card-request-toggle input { width: 18px !important; min-height: 18px !important; margin: 0; accent-color: #123a33; }
 
@@ -197,6 +204,8 @@ a { color: inherit; }
   .card-scan-panel { grid-template-columns: 1fr; margin: 18px 0; }
   .card-activation-form { padding: 0 18px 18px; }
   .card-activation-actions button { width: 100%; }
+  .card-activation-price { align-items:flex-start; flex-direction:column; }
+  .card-extra-card-actions { display:grid; grid-template-columns:1fr; }
 }
 
 @media (max-width: 480px) {

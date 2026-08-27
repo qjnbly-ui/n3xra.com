@@ -138,6 +138,68 @@ async function syncOrganizationSubscription(
   }
 }
 
+async function completeContactCardCheckout(
+  adminClient: ReturnType<typeof createClient>,
+  session: Stripe.Checkout.Session
+) {
+  const orderId = String(session.metadata?.order_id || "").trim();
+  const ownerUserId = String(session.metadata?.owner_user_id || "").trim();
+  const profileId = String(session.metadata?.profile_id || session.client_reference_id || "").trim();
+  const product = String(session.metadata?.product || "").trim();
+  if (!orderId || !ownerUserId || !profileId) throw new Error("Contact Card checkout metadata is incomplete.");
+
+  const customerId = typeof session.customer === "string" ? session.customer : session.customer?.id || null;
+  const paymentIntentId = typeof session.payment_intent === "string" ? session.payment_intent : session.payment_intent?.id || null;
+  const now = new Date().toISOString();
+
+  const { error: orderError } = await adminClient
+    .from("contact_card_orders")
+    .update({ status: "paid", stripe_payment_intent_id: paymentIntentId, paid_at: now })
+    .eq("id", orderId);
+  if (orderError) throw new Error(orderError.message);
+
+  if (["base", "branding_removal"].includes(product)) {
+    const entitlementUpdates: Record<string, unknown> = {
+      owner_user_id: ownerUserId,
+      stripe_customer_id: customerId,
+      source: "stripe",
+    };
+    if (product === "base") {
+      entitlementUpdates.base_access = true;
+      entitlementUpdates.base_purchased_at = now;
+    } else {
+      entitlementUpdates.branding_removal = true;
+      entitlementUpdates.branding_purchased_at = now;
+    }
+    const { error } = await adminClient.from("contact_card_entitlements").upsert(entitlementUpdates, { onConflict: "owner_user_id" });
+    if (error) throw new Error(error.message);
+  }
+
+  if (product === "branding_removal") {
+    const { error } = await adminClient.from("contact_card_profiles").update({ show_n3xra_branding: false }).eq("id", profileId);
+    if (error) throw new Error(error.message);
+  }
+
+  if (product === "base") {
+    const collected = session as unknown as { collected_information?: { shipping_details?: { name?: string | null; address?: Stripe.Address | null } } };
+    const shipping = collected.collected_information?.shipping_details;
+    const address = shipping?.address || session.customer_details?.address;
+    const updates: Record<string, unknown> = {
+      status: "published",
+      physical_card_status: "requested",
+      shipping_name: shipping?.name || session.customer_details?.name || "Contact Card customer",
+      shipping_address_line_1: address?.line1 || "Address supplied at checkout",
+      shipping_address_line_2: address?.line2 || "",
+      shipping_city: address?.city || "City",
+      shipping_region: address?.state || "Region",
+      shipping_postal_code: address?.postal_code || "Postal code",
+      shipping_country: address?.country || "United States",
+    };
+    const { error } = await adminClient.from("contact_card_profiles").update(updates).eq("id", profileId);
+    if (error) throw new Error(error.message);
+  }
+}
+
 Deno.serve(async (request) => {
   const origin = getAppOrigin(request);
   if (request.method === "OPTIONS") {
@@ -177,6 +239,10 @@ Deno.serve(async (request) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const sessionApp = String(session.metadata?.app || "").trim().toLowerCase();
+        if (sessionApp === "n3xra_contact_card") {
+          await completeContactCardCheckout(adminClient, session);
+          break;
+        }
         if (sessionApp && sessionApp !== "n3xra_records") break;
         if (!sessionApp && typeof session.subscription === "string") {
           const candidate = await stripe.subscriptions.retrieve(session.subscription);

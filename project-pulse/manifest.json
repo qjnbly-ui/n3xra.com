@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-27T04:13:35.127Z",
-  "updatedAt": "2026-08-26T21:13:05-07:00",
-  "commit": "c10fd78",
+  "generatedAt": "2026-08-27T05:29:00.256Z",
+  "updatedAt": "2026-08-26T22:04:04-07:00",
+  "commit": "45fce9b",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 222,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 887,
-    "sourceLines": 222089,
+    "statement": "N3XRA is a connected technology platform comprising approximately 223,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 889,
+    "sourceLines": 222704,
     "products": 6,
     "pages": 128,
     "apiFunctions": 92,
-    "edgeFunctions": 27,
-    "databaseMigrations": 211
+    "edgeFunctions": 28,
+    "databaseMigrations": 212
   },
   "sourceBreakdown": {
     "css": {
       "files": 54,
-      "lines": 39887
+      "lines": 39896
     },
     "html": {
       "files": 128,
-      "lines": 31458
+      "lines": 31616
     },
     "js": {
       "files": 279,
-      "lines": 86129
+      "lines": 86184
     },
     "sql": {
-      "files": 340,
-      "lines": 42954
+      "files": 341,
+      "lines": 43152
     },
     "ts": {
-      "files": 85,
-      "lines": 21122
+      "files": 86,
+      "lines": 21317
     },
     "tsx": {
       "files": 1,
@@ -64,7 +64,7 @@
       "id": "contact-cards",
       "name": "N3XRA Contact Cards",
       "route": "/contact-card/",
-      "summary": "A public Contact Card introduction and customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests."
+      "summary": "A public Contact Card introduction with one-time Stripe checkout, customer branding upgrades, additional physical-card ordering, personal links, imagery, scanning, friendly public URLs, and account-connected editing."
     },
     {
       "id": "partners",
@@ -102,7 +102,7 @@
     {
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",
-      "summary": "Visitors can now learn about Contact Cards from a dedicated public N3XRA product page, then use the shared N3XRA account flow to continue. Customers can activate and immediately publish a digital business card, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card."
+      "summary": "Contact Cards now use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, branding removal is a one-time $9.99 upgrade, another card is $7.99, and a three-card pack is $19.99. Existing profiles are preserved, paid entitlements are enforced in Supabase, customers can buy upgrades inside the editor, and paid physical-card orders notify the Admin Inbox."
     },
     {
       "date": "2026-08-25",

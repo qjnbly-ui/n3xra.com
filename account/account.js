@@ -105,6 +105,7 @@ let websiteServiceRequest = null;
 let loanAccount = null;
 let communicationsEntitlement = null;
 let contactCardProfile = null;
+let contactCardEntitlement = null;
 let platformAdminAccess = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
@@ -659,13 +660,13 @@ async function loadInvestmentInterest() {
 
 async function loadContactCardProfile() {
   if (!currentSession?.user) return null;
-  const { data, error } = await supabase
-    .from("contact_card_profiles")
-    .select("slug,status")
-    .eq("owner_user_id", currentSession.user.id)
-    .maybeSingle();
-  if (error) throw error;
-  contactCardProfile = data || null;
+  const [profileResult, entitlementResult] = await Promise.all([
+    supabase.from("contact_card_profiles").select("slug,status").eq("owner_user_id", currentSession.user.id).maybeSingle(),
+    supabase.from("contact_card_entitlements").select("base_access").eq("owner_user_id", currentSession.user.id).maybeSingle(),
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  contactCardProfile = profileResult.data || null;
+  contactCardEntitlement = entitlementResult.data || null;
   return contactCardProfile;
 }
 
@@ -790,12 +791,12 @@ async function renderDashboard(message = "") {
     show(loanTrackerAppCard, false);
   }
 
-  if (contactCardProfile && contactCardAppSummary && contactCardAppLink) {
+  if (contactCardProfile && contactCardEntitlement?.base_access && contactCardAppSummary && contactCardAppLink) {
     const cardState = contactCardProfile.status === "published" ? "Published" : formatAppStatus(contactCardProfile.status);
     contactCardAppSummary.textContent = `${cardState} at n3xra.com/card/${contactCardProfile.slug}.`;
     contactCardAppLink.textContent = "Manage Contact Card";
   } else if (contactCardAppSummary && contactCardAppLink) {
-    contactCardAppSummary.textContent = "Create a customizable contact page, choose your permanent address, and request a tap card.";
+    contactCardAppSummary.textContent = "$19.99 one time · includes your permanent link and first physical tap card.";
     contactCardAppLink.textContent = "Activate Contact Card";
   }
 
@@ -831,7 +832,7 @@ async function renderDashboard(message = "") {
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
-    [contactCardAppCard, Boolean(contactCardProfile)],
+    [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],
   ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
   placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner);
   const ownershipUpdateStatus = !interest

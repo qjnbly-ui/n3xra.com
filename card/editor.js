@@ -33,8 +33,12 @@ const scanReviewFields = document.querySelector("#card-scan-review-fields");
 const scanApplySelected = document.querySelector("#card-scan-apply-selected");
 const scanApplyAll = document.querySelector("#card-scan-apply-all");
 const requestState = document.querySelector("#card-request-state");
+const removeBrandingButton = document.querySelector("#card-remove-branding");
+const brandingHelp = document.querySelector("#card-branding-help");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card = null;
+let draftCard = null;
+let hasBrandingRemoval = false;
 let ownerUserId = "";
 let accessToken = "";
 let pendingScanDataUrl = "";
@@ -67,6 +71,24 @@ function setSaveStatus(message, tone = "") { if (saveStatus) {
     saveStatus.textContent = message;
     saveStatus.className = `card-auto-save-status${tone ? ` is-${tone}` : ""}`;
 } }
+async function startCheckout(product, button) {
+    if (!supabase)
+        throw new Error("Checkout is not available.");
+    if (button)
+        button.disabled = true;
+    try {
+        const { data, error } = await supabase.functions.invoke("contact-card-billing", { body: { product } });
+        if (error)
+            throw error;
+        if (!data?.url)
+            throw new Error(data?.error || "Checkout could not be opened.");
+        window.location.assign(String(data.url));
+    }
+    finally {
+        if (button)
+            button.disabled = false;
+    }
+}
 function markChanged() { if (!card)
     return; changesPending = true; changeVersion += 1; setSaveStatus("Unsaved changes"); window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 750); }
 function slugify(value) { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
@@ -285,8 +307,14 @@ function fillForm(row) {
             control.value = String(row[name] ?? "");
     }
     const branding = form.elements.namedItem("show_n3xra_branding");
-    if (branding)
+    if (branding) {
         branding.checked = row.show_n3xra_branding !== false;
+        branding.disabled = !hasBrandingRemoval;
+    }
+    if (removeBrandingButton)
+        removeBrandingButton.hidden = hasBrandingRemoval;
+    if (brandingHelp && !hasBrandingRemoval)
+        brandingHelp.textContent = "Included on your card. Remove it forever for a one-time $9.99 upgrade.";
     renderContacts("editor-email", row.additional_emails);
     renderContacts("editor-phone", row.additional_phones);
     setRequestState(row);
@@ -473,7 +501,7 @@ async function saveChanges() {
                 throw new Error("Choose an available card address.");
             const primaryEmail = normalizeEmail(String(values.get("email") || ""));
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: values.get("show_n3xra_branding") === "on", status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
             if (!payload.display_name)
                 throw new Error("Your card needs a display name.");
             if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
@@ -522,12 +550,37 @@ async function initialize() {
     }
     ownerUserId = String(session.user.id || "");
     accessToken = String(session.access_token || "");
-    const { data, error } = await supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle();
+    const [{ data, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle()]);
     if (error)
         throw error;
-    if (data) {
+    let entitlement = entitlementResult.data;
+    if (data && !entitlement?.base_access && new URLSearchParams(window.location.search).get("checkout") === "success") {
+        showStatus("Confirming your purchase…");
+        for (let attempt = 0; attempt < 8 && !entitlement?.base_access; attempt += 1) {
+            await new Promise((resolve) => window.setTimeout(resolve, 750));
+            const result = await supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle();
+            entitlement = result.data;
+        }
+    }
+    hasBrandingRemoval = Boolean(entitlement?.branding_removal);
+    if (data && entitlement?.base_access) {
         card = data;
         fillForm(card);
+        showStatus(new URLSearchParams(window.location.search).get("checkout") === "success" ? "Purchase complete. Your Contact Card is ready." : "");
+    }
+    else if (data) {
+        draftCard = data;
+        const names = ["display_name", "headline", "company_name", "email", "phone_e164", "website_url", "slug"];
+        for (const name of names) {
+            const control = activationControl(name);
+            if (control)
+                control.value = String(draftCard[name] || "");
+        }
+        renderContacts("activation-email", draftCard.additional_emails);
+        renderContacts("activation-phone", draftCard.additional_phones);
+        if (scanPanel)
+            scanPanel.hidden = false;
+        activation.hidden = false;
         showStatus("");
     }
     else {
@@ -570,23 +623,22 @@ activationForm?.addEventListener("submit", (event) => {
         try {
             const values = new FormData(activationForm);
             const slug = slugify(values.get("slug"));
-            if (!(await checkSlug(slug)))
+            if (!(await checkSlug(slug, String(draftCard?.slug || ""))))
                 throw new Error("Choose an available card address.");
             const displayName = String(values.get("display_name") || "").trim();
             if (!displayName)
                 throw new Error("Enter the name to show on the card.");
             const primaryEmail = normalizeEmail(String(values.get("email") || ""));
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("activation-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("activation-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "published", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
-            const { data, error } = await supabase.from("contact_card_profiles").insert(payload).select("*").single();
+            const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("activation-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("activation-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "draft", show_n3xra_branding: true, physical_card_status: "not_requested", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
+            const query = draftCard ? supabase.from("contact_card_profiles").update(payload).eq("id", draftCard.id) : supabase.from("contact_card_profiles").insert(payload);
+            const { data, error } = await query.select("*").single();
             if (error)
                 throw error;
-            card = data;
-            fillForm(card);
+            draftCard = data;
             if (activationStatus)
-                activationStatus.textContent = "";
-            showStatus("Your Contact Card is connected and live.");
-            window.scrollTo({ top: 0, behavior: "smooth" });
+                activationStatus.textContent = "Opening secure checkout…";
+            await startCheckout("base", button);
         }
         catch (error) {
             const message = error instanceof Error ? error.message : "The Contact Card could not be activated.";
@@ -600,6 +652,8 @@ activationForm?.addEventListener("submit", (event) => {
     })();
 });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
+removeBrandingButton?.addEventListener("click", () => { void startCheckout("branding_removal", removeBrandingButton).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); });
+document.querySelectorAll("[data-contact-card-product]").forEach((button) => button.addEventListener("click", () => { void startCheckout(button.dataset.contactCardProduct, button).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); }));
 document.querySelectorAll("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput; if (!file || !(type in MEDIA_CONFIG))
     return; void uploadMedia(type, file).catch((error) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
 document.querySelectorAll("[data-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.removeMedia; if (!(type in MEDIA_CONFIG))
