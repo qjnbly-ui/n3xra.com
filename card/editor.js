@@ -35,6 +35,7 @@ const scanApplyAll = document.querySelector("#card-scan-apply-all");
 const requestState = document.querySelector("#card-request-state");
 const removeBrandingButton = document.querySelector("#card-remove-branding");
 const brandingHelp = document.querySelector("#card-branding-help");
+const brandingToggle = form?.elements.namedItem("show_n3xra_branding");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card = null;
 let draftCard = null;
@@ -308,13 +309,13 @@ function fillForm(row) {
     }
     const branding = form.elements.namedItem("show_n3xra_branding");
     if (branding) {
-        branding.checked = row.show_n3xra_branding !== false;
-        branding.disabled = !hasBrandingRemoval;
+        branding.checked = hasBrandingRemoval ? row.show_n3xra_branding !== false : true;
+        branding.dataset.locked = String(!hasBrandingRemoval);
     }
     if (removeBrandingButton)
         removeBrandingButton.hidden = hasBrandingRemoval;
-    if (brandingHelp && !hasBrandingRemoval)
-        brandingHelp.textContent = "Included on your card. Remove it forever for a one-time $9.99 upgrade.";
+    if (brandingHelp)
+        brandingHelp.textContent = hasBrandingRemoval ? "This permanent upgrade is active. You can show or hide the N3XRA credit anytime." : "Turn this off to open the one-time $9.99 checkout. After payment, it stays unlocked permanently.";
     renderContacts("editor-email", row.additional_emails);
     renderContacts("editor-phone", row.additional_phones);
     setRequestState(row);
@@ -550,23 +551,33 @@ async function initialize() {
     }
     ownerUserId = String(session.user.id || "");
     accessToken = String(session.access_token || "");
-    const [{ data, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle()]);
+    const [{ data: initialData, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle()]);
     if (error)
         throw error;
+    let data = initialData;
     let entitlement = entitlementResult.data;
-    if (data && !entitlement?.base_access && new URLSearchParams(window.location.search).get("checkout") === "success") {
+    const checkoutParams = new URLSearchParams(window.location.search);
+    const checkoutSucceeded = checkoutParams.get("checkout") === "success";
+    const checkoutProduct = checkoutParams.get("product");
+    const purchaseConfirmed = () => checkoutProduct === "branding_removal" ? Boolean(entitlement?.branding_removal) : checkoutProduct === "base" ? Boolean(entitlement?.base_access) : true;
+    if (data && checkoutSucceeded && !purchaseConfirmed()) {
         showStatus("Confirming your purchase…");
-        for (let attempt = 0; attempt < 8 && !entitlement?.base_access; attempt += 1) {
+        for (let attempt = 0; attempt < 12 && !purchaseConfirmed(); attempt += 1) {
             await new Promise((resolve) => window.setTimeout(resolve, 750));
             const result = await supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle();
             entitlement = result.data;
+        }
+        if (purchaseConfirmed()) {
+            const refreshed = await supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle();
+            if (!refreshed.error)
+                data = refreshed.data;
         }
     }
     hasBrandingRemoval = Boolean(entitlement?.branding_removal);
     if (data && entitlement?.base_access) {
         card = data;
         fillForm(card);
-        showStatus(new URLSearchParams(window.location.search).get("checkout") === "success" ? "Purchase complete. Your Contact Card is ready." : "");
+        showStatus(checkoutSucceeded ? purchaseConfirmed() ? checkoutProduct === "branding_removal" ? "Branding removal is permanently unlocked." : "Purchase complete. Your Contact Card is ready." : "Payment received. The update is still processing; refresh in a moment." : "");
     }
     else if (data) {
         draftCard = data;
@@ -653,6 +664,8 @@ activationForm?.addEventListener("submit", (event) => {
 });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 removeBrandingButton?.addEventListener("click", () => { void startCheckout("branding_removal", removeBrandingButton).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); });
+brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || brandingToggle.checked)
+    return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; void startCheckout("branding_removal", removeBrandingButton).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); });
 document.querySelectorAll("[data-contact-card-product]").forEach((button) => button.addEventListener("click", () => { void startCheckout(button.dataset.contactCardProduct, button).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); }));
 document.querySelectorAll("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput; if (!file || !(type in MEDIA_CONFIG))
     return; void uploadMedia(type, file).catch((error) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));

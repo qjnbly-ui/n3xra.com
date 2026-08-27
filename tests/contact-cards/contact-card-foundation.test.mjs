@@ -152,7 +152,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=7/);
+  assert.match(activation, /\/card\/editor\.js\?v=8/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -205,6 +205,8 @@ test("Contact Card commerce uses one-time Stripe checkout and protected entitlem
   assert.match(billing, /STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL/);
   assert.match(webhook, /n3xra_contact_card/);
   assert.match(editor, /startCheckout\("branding_removal"/);
-  assert.match(landing, /Remove “Powered by N3XRA” forever/);
-  assert.match(landing, /Three additional cards/);
+  assert.match(editor, /checkoutProduct === "branding_removal"/);
+  assert.match(editor, /brandingToggle\.checked = true/);
+  assert.match(landing, /Permanent “Powered by N3XRA” removal/);
+  assert.match(landing, /3-card tap pack/);
 });

@@ -83,7 +83,7 @@ Deno.serve(async (request) => {
         line_items: [{ price, quantity: 1 }],
         allow_promotion_codes: true,
         client_reference_id: profile.id,
-        success_url: `${origin}/client-portal/contact-card/?checkout=success`,
+        success_url: `${origin}/client-portal/contact-card/?checkout=success&product=${product}`,
         cancel_url: `${origin}/client-portal/contact-card/?checkout=canceled`,
         ...(definition.quantity > 0 ? { shipping_address_collection: { allowed_countries: ["US", "CA"] } } : {}),
         metadata: {
