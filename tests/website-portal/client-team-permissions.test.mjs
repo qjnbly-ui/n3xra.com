@@ -17,6 +17,7 @@ test("the client portal provides one shared Organization Admin workspace", async
   assert.match(html, /Products &amp; workspaces/);
   assert.match(html, /id="organization-access-body"/);
   assert.match(html, /id="team-invite-form"/);
+  assert.match(html, /id="team-invite-product-access"/);
   assert.match(html, /Administrator/);
   assert.match(html, /Editor/);
   assert.match(html, /View only/);
@@ -24,6 +25,8 @@ test("the client portal provides one shared Organization Admin workspace", async
   assert.match(script, /client_portal_create_team_invite/);
   assert.match(script, /send-client-team-invite/);
   assert.match(script, /client_portal_update_team_member/);
+  assert.match(script, /client_portal_update_product_member_access/);
+  assert.match(script, /input_product_access/);
   assert.match(script, /client_portal_remove_team_member/);
   assert.match(script, /client_portal_organization_access_snapshot/);
   assert.match(script, /renderProductAccess/);
@@ -32,6 +35,29 @@ test("the client portal provides one shared Organization Admin workspace", async
   assert.match(shell, /data-client-organization-admin hidden/);
   assert.match(context, /client_portal_team_snapshot/);
   assert.match(context, /setOrganizationAdminAvailability/);
+});
+
+test("organization admins can assign independent product permissions", async () => {
+  const [migration, script, apps, records] = await Promise.all([
+    projectFile("supabase/migrations/20260827212747_organization_product_member_permissions.sql"),
+    projectFile("src/client-portal/team.ts"),
+    projectFile("src/client-portal/portal-apps.ts"),
+    projectFile("n3xra-records/dashboard.js"),
+  ]);
+
+  assert.match(migration, /create table public\.organization_product_member_access/);
+  assert.match(migration, /alter table public\.organization_product_member_access enable row level security/);
+  assert.match(migration, /organization_product_member_access_user_active_idx/);
+  assert.match(migration, /client_portal_update_product_member_access/);
+  assert.match(migration, /input_product_access jsonb default null/);
+  assert.match(migration, /jsonb_each_text\(invite_record\.product_access\)/);
+  assert.match(migration, /organization_product_role\(target_organization_id, 'records'\)/);
+  assert.match(migration, /revoke all on function public\.client_portal_update_product_member_access\(uuid, text, text\) from public, anon/);
+  assert.doesNotMatch(migration, /grant (select|all).*organization_product_member_access to anon/i);
+  assert.match(script, /data-invite-product-access/);
+  assert.match(script, /data-product-member/);
+  assert.match(apps, /organization_product_member_access/);
+  assert.match(records, /permittedRecordsOrganizationIds/);
 });
 
 test("the organization overview composes existing product permission systems without replacing them", async () => {

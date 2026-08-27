@@ -239,9 +239,11 @@ function setNewAccountFieldsVisible(visible) {
 
 async function getExistingRecordsMembership(userId) {
   const { data, error } = await supabase
-    .from("organization_memberships")
+    .from("organization_product_member_access")
     .select("organization_id")
+    .eq("product_key", "records")
     .eq("user_id", userId)
+    .eq("status", "active")
     .limit(1)
     .maybeSingle();
   if (error) throw error;

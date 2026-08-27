@@ -118,22 +118,32 @@ function renderShell(panel, pageKey) {
   `;
 }
 
-async function visiblePortalAppKeys(supabase, organizationId) {
+async function visiblePortalAppKeys(supabase, organizationId, userId) {
   if (!organizationId) return [];
-  const { data, error } = await supabase
-    .from("organization_product_entitlements")
-    .select("product:n3xra_product_catalog(product_key,status,client_portal_available,portal_path)")
-    .eq("organization_id", organizationId)
-    .eq("portal_enabled", true)
-    .in("status", ["trialing", "active", "past_due"]);
-  if (error) return [];
-  return (data || []).flatMap((row) => {
+  const [entitlementResult, memberAccessResult] = await Promise.all([
+    supabase
+      .from("organization_product_entitlements")
+      .select("product:n3xra_product_catalog(product_key,status,client_portal_available,portal_path)")
+      .eq("organization_id", organizationId)
+      .eq("portal_enabled", true)
+      .in("status", ["trialing", "active", "past_due"]),
+    supabase
+      .from("organization_product_member_access")
+      .select("product_key")
+      .eq("organization_id", organizationId)
+      .eq("user_id", userId)
+      .eq("status", "active"),
+  ]);
+  if (entitlementResult.error || memberAccessResult.error) return [];
+  const allowedProductKeys = new Set((memberAccessResult.data || []).map((row) => String(row.product_key || "")));
+  return (entitlementResult.data || []).flatMap((row) => {
     const products = Array.isArray(row.product) ? row.product : [row.product];
     return products.filter((product) => {
       const productKey = String(product?.product_key || "").toLowerCase();
       const portalPath = String(product?.portal_path || "").trim();
       return product?.status === "active"
         && product?.client_portal_available
+        && allowedProductKeys.has(productKey)
         && !HIDDEN_CUSTOMER_PRODUCT_KEYS.has(productKey)
         && /^\/(?!\/)[^\s]*$/.test(portalPath);
     }).map((product) => String(product.product_key || "").toLowerCase());
@@ -199,7 +209,7 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
   const selectedWebsite = websites.find((website) => website.id === selectedId);
   const [portalAppKeys, organizationAdminAvailable] = tenantResolution.mode === "tenant"
     ? await Promise.all([
-      visiblePortalAppKeys(supabase, selectedWebsite?.organization_id),
+      visiblePortalAppKeys(supabase, selectedWebsite?.organization_id, session.user.id),
       canManageOrganization(supabase, selectedWebsite?.organization_id),
     ])
     : [[], false];

@@ -21,6 +21,10 @@ interface EntitlementRow {
   product: ProductRow | ProductRow[] | null;
 }
 
+interface ProductMemberAccessRow {
+  product_key: string;
+}
+
 interface PortalApp {
   key: string;
   name: string;
@@ -203,8 +207,18 @@ async function loadPortalApps(): Promise<void> {
     .in("status", ["trialing", "active", "past_due"]);
   if (error) throw error;
 
+  const { data: memberAccess, error: memberAccessError } = await supabase
+    .from("organization_product_member_access")
+    .select("product_key")
+    .eq("organization_id", organizationId)
+    .eq("user_id", session.user.id)
+    .eq("status", "active");
+  if (memberAccessError) throw memberAccessError;
+  const allowedProductKeys = new Set(((memberAccess || []) as ProductMemberAccessRow[]).map((access) => access.product_key));
+
   for (const entitlement of (data || []) as EntitlementRow[]) {
     const product = productFrom(entitlement);
+    if (!allowedProductKeys.has(String(product?.product_key || ""))) continue;
     if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase())) continue;
     const path = safePortalPath(product?.portal_path || "");
     if (!product || !path || product.status !== "active" || !product.client_portal_available) continue;

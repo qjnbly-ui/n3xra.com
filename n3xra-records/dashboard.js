@@ -2812,7 +2812,7 @@ function sortMemberships(items) {
 
 async function bootstrapAccess() {
   const supportOrgId = getSupportOrganizationId();
-  const [{ data: profileData, error: profileError }, { data: membershipData, error: membershipError }, { data: entitlementData, error: entitlementError }] = await Promise.all([
+  const [{ data: profileData, error: profileError }, { data: membershipData, error: membershipError }, { data: entitlementData, error: entitlementError }, { data: productAccessData, error: productAccessError }] = await Promise.all([
     supabase.from("profiles").select("id, email, full_name").eq("id", currentSession.user.id).maybeSingle(),
     supabase
       .from("organization_memberships")
@@ -2858,11 +2858,18 @@ async function bootstrapAccess() {
       .from("organization_product_entitlements")
       .select("organization_id,status,portal_enabled")
       .eq("product_key", "records"),
+    supabase
+      .from("organization_product_member_access")
+      .select("organization_id,role,status")
+      .eq("product_key", "records")
+      .eq("user_id", currentSession.user.id)
+      .eq("status", "active"),
   ]);
 
   if (profileError) throw profileError;
   if (membershipError) throw membershipError;
   if (entitlementError) throw entitlementError;
+  if (productAccessError) throw productAccessError;
 
   if (!profileData) {
     currentProfile = {
@@ -2876,8 +2883,24 @@ async function bootstrapAccess() {
   const activeRecordsOrganizationIds = new Set((entitlementData || [])
     .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
     .map((entitlement) => String(entitlement.organization_id)));
+  const permittedRecordsOrganizationIds = new Set((productAccessData || [])
+    .map((access) => String(access.organization_id)));
+  const recordsRoleByOrganizationId = new Map((productAccessData || [])
+    .map((access) => [String(access.organization_id), String(access.role || "viewer")]));
   memberships = dedupeMembershipsByOrganization(buildMembershipMap(membershipData || []))
-    .filter((membership) => activeRecordsOrganizationIds.has(String(membership.organization_id || membership.organization?.id || "")));
+    .filter((membership) => {
+      const membershipOrganizationId = String(membership.organization_id || membership.organization?.id || "");
+      return activeRecordsOrganizationIds.has(membershipOrganizationId)
+        && permittedRecordsOrganizationIds.has(membershipOrganizationId);
+    })
+    .map((membership) => {
+      const membershipOrganizationId = String(membership.organization_id || membership.organization?.id || "");
+      return {
+        ...membership,
+        organization_role: membership.role,
+        role: recordsRoleByOrganizationId.get(membershipOrganizationId) || "viewer",
+      };
+    });
 
   if (supportOrgId && isPlatformAdminEmail(currentSession.user.email)) {
     const { data: supportOrg, error: supportError } = await supabase

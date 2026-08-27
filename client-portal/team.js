@@ -6,6 +6,7 @@ const message = document.querySelector("#team-message");
 const memberList = document.querySelector("#team-member-list");
 const inviteList = document.querySelector("#team-invite-list");
 const inviteForm = document.querySelector("#team-invite-form");
+const inviteProductAccess = document.querySelector("#team-invite-product-access");
 const supabase = createBrowserSupabase();
 let organizationId = "";
 let snapshot = null;
@@ -15,6 +16,12 @@ const roleLabel = (role) => role === "account_admin" ? "Administrator" : role ==
 const statusLabel = (value) => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const initials = (name, email) => (name || email).split(/[\s@]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "?";
 const formatDate = (value) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
+const accessOptions = (selectedRole = "") => [
+    ["", "No access"],
+    ["viewer", "View only"],
+    ["editor", "Editor"],
+    ["account_admin", "Administrator"],
+].map(([value, label]) => `<option value="${value}"${value === selectedRole ? " selected" : ""}>${label}</option>`).join("");
 function showMessage(copy = "", error = false) {
     if (!message)
         return;
@@ -82,12 +89,23 @@ function renderProductAccess() {
     head.innerHTML = `<tr><th>Person</th><th>Organization role</th>${accessSnapshot.products.map((product) => `<th>${escapeHtml(product.name)}<br><small>${escapeHtml(product.workspace_name)}</small></th>`).join("")}</tr>`;
     body.innerHTML = snapshot.members.map((member) => {
         const access = accessSnapshot?.member_access[member.user_id] || {};
+        const protectedMember = member.is_owner || member.user_id === snapshot?.current_user_id;
         const productCells = accessSnapshot?.products.map((product) => {
             const role = access[product.access_key];
-            return `<td><span class="client-access-state${role ? "" : " is-none"}">${escapeHtml(role ? roleLabel(role) : "No access")}</span></td>`;
+            if (!snapshot?.can_manage || protectedMember) {
+                return `<td><span class="client-access-state${role ? "" : " is-none"}">${escapeHtml(role ? roleLabel(role) : "No access")}</span></td>`;
+            }
+            return `<td><select class="client-product-access-select" aria-label="${escapeHtml(product.name)} access for ${escapeHtml(member.full_name || member.email)}" data-product-member="${escapeHtml(member.id)}" data-product-access-key="${escapeHtml(product.access_key)}">${accessOptions(role || "")}</select></td>`;
         }).join("") || "";
         return `<tr><td>${escapeHtml(member.full_name || member.email)}</td><td>${escapeHtml(member.is_owner ? "Owner" : roleLabel(member.role))}</td>${productCells}</tr>`;
     }).join("");
+}
+function renderInviteProductAccess() {
+    if (!inviteProductAccess || !accessSnapshot)
+        return;
+    inviteProductAccess.innerHTML = accessSnapshot.products.length
+        ? accessSnapshot.products.map((product) => `<label class="client-team-product-option"><span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.workspace_name)}</small></span><select aria-label="${escapeHtml(product.name)} invitation access" data-invite-product-access="${escapeHtml(product.access_key)}">${accessOptions()}</select></label>`).join("")
+        : '<p class="client-team-empty">No connected products are available.</p>';
 }
 async function loadSnapshot() {
     [snapshot, accessSnapshot] = await Promise.all([
@@ -100,6 +118,7 @@ async function loadSnapshot() {
     renderMembers();
     renderInvites();
     renderProductAccess();
+    renderInviteProductAccess();
     const organizationName = document.querySelector("#client-organization-name");
     const organizationStatus = document.querySelector("#client-organization-status");
     const pickerLabel = document.querySelector("#client-organization-picker-label");
@@ -149,7 +168,10 @@ inviteForm?.addEventListener("submit", (event) => {
         }
         showMessage("Creating the secure invitation…");
         try {
-            const invite = await rpc("client_portal_create_team_invite", { input_organization_id: organizationId, input_recipient_email: String(values.get("email") || ""), input_recipient_name: String(values.get("name") || ""), input_role: String(values.get("role") || "viewer") });
+            const productAccess = Object.fromEntries([...inviteForm.querySelectorAll("[data-invite-product-access]")]
+                .filter((select) => Boolean(select.value))
+                .map((select) => [String(select.dataset.inviteProductAccess || ""), select.value]));
+            const invite = await rpc("client_portal_create_team_invite", { input_organization_id: organizationId, input_recipient_email: String(values.get("email") || ""), input_recipient_name: String(values.get("name") || ""), input_role: String(values.get("role") || "viewer"), input_product_access: productAccess });
             await sendInviteEmail(invite);
             inviteForm.reset();
             await loadSnapshot();
@@ -167,6 +189,27 @@ inviteForm?.addEventListener("submit", (event) => {
     })();
 });
 team?.addEventListener("change", (event) => {
+    const productSelect = event.target.closest("[data-product-member]");
+    if (productSelect) {
+        void (async () => {
+            productSelect.disabled = true;
+            showMessage("Updating product access…");
+            try {
+                await rpc("client_portal_update_product_member_access", {
+                    input_membership_id: productSelect.dataset.productMember,
+                    input_access_key: productSelect.dataset.productAccessKey,
+                    input_role: productSelect.value || null,
+                });
+                await loadSnapshot();
+                showMessage("Product access updated.");
+            }
+            catch (error) {
+                showMessage(error instanceof Error ? error.message : "Product access could not be updated.", true);
+                await loadSnapshot();
+            }
+        })();
+        return;
+    }
     const select = event.target.closest("[data-member-role]");
     if (!select)
         return;

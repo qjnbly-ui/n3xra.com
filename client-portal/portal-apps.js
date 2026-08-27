@@ -169,8 +169,19 @@ async function loadPortalApps() {
         .in("status", ["trialing", "active", "past_due"]);
     if (error)
         throw error;
+    const { data: memberAccess, error: memberAccessError } = await supabase
+        .from("organization_product_member_access")
+        .select("product_key")
+        .eq("organization_id", organizationId)
+        .eq("user_id", session.user.id)
+        .eq("status", "active");
+    if (memberAccessError)
+        throw memberAccessError;
+    const allowedProductKeys = new Set((memberAccess || []).map((access) => access.product_key));
     for (const entitlement of (data || [])) {
         const product = productFrom(entitlement);
+        if (!allowedProductKeys.has(String(product?.product_key || "")))
+            continue;
         if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase()))
             continue;
         const path = safePortalPath(product?.portal_path || "");
