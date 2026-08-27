@@ -111,6 +111,9 @@ test("public Contact Card product page uses the shared N3XRA account flow", asyn
   assert.match(landingPage, /IntersectionObserver/);
   assert.match(landingPage, /prefers-reduced-motion/);
   assert.match(landingPage, /Scan what you have/);
+  assert.match(landingPage, /<a class="home-brand" href="\/" aria-label="N3XRA home">/);
+  assert.match(landingPage, /href="\/invest\/">Invest/);
+  assert.doesNotMatch(landingPage, /\.footer-grid \{ grid-template-columns: 1fr; \}/);
   assert.doesNotMatch(landingPage, /See how it works/);
   assert.doesNotMatch(landingPage, /data-demo-tab/);
   assert.doesNotMatch(landingPage, /feature-number/);
