@@ -123,13 +123,14 @@
     }
     .eyebrow {
       margin: 0;
-      color: var(--page-cyan);
+      color: #0b667a;
       font-size: .72rem;
       font-weight: 800;
       letter-spacing: .19em;
       text-transform: uppercase;
     }
-    .hero-copy { flex: 1 1 54%; display: flex; flex-direction: column; gap: 1.3rem; align-items: flex-start; }
+    .hero .eyebrow, .details .eyebrow { color: #8be6f7; }
+    .hero-copy { flex: 1 1 54%; display: flex; flex-direction: column; gap: 1.3rem; align-items: center; text-align: center; }
     h1, h2, h3 { font-family: var(--page-display); letter-spacing: -.045em; }
     h1 {
       max-width: 750px;
@@ -271,7 +272,7 @@
       filter: blur(28px);
       transform: translateX(-50%);
     }
-    .statement-flow { position: relative; display: flex; flex-direction: column; }
+    .statement-flow { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
     .statement-line {
       margin: 0;
       color: #0b2730;
@@ -281,20 +282,20 @@
       letter-spacing: -.065em;
       line-height: .96;
     }
-    .statement-line:nth-child(even) { align-self: flex-end; color: #17637a; text-align: right; }
+    .statement-line:nth-child(even) { color: #17637a; }
     .statement-line em { color: #0d8fb4; font-style: normal; }
 
     .section { padding: clamp(4.5rem, 8vw, 7.5rem) 0; }
-    .section-heading { max-width: 760px; display: grid; gap: .85rem; margin-bottom: 2.4rem; }
+    .section-heading { max-width: 760px; display: grid; justify-items: center; gap: .85rem; margin: 0 auto 2.4rem; text-align: center; }
     .section-heading h2, .cta-copy h2 { margin: 0; font-size: clamp(2.2rem, 4.8vw, 4.5rem); line-height: .98; text-wrap: balance; }
     .section-heading > p:last-child, .cta-copy > p { margin: 0; color: var(--page-muted); }
 
     .journey-list { border-top: 1px solid var(--page-line); }
-    .journey-item { position: relative; display: flex; gap: clamp(1rem, 4vw, 4rem); align-items: baseline; padding: 2rem 0; border-bottom: 1px solid var(--page-line); }
+    .journey-item { position: relative; display: grid; justify-items: center; gap: .35rem; padding: 2rem 0; border-bottom: 1px solid var(--page-line); text-align: center; }
     .journey-item::after { position: absolute; right: 0; bottom: -1px; left: 0; height: 2px; content: ""; background: #19acd2; transform: scaleX(0); transform-origin: left; transition: transform 800ms cubic-bezier(.2,.75,.2,1) 260ms; }
     .journey-item.is-visible::after { transform: scaleX(1); }
-    .journey-item h3 { flex: 0 0 min(32%, 290px); margin: 0; font-size: 1.3rem; }
-    .journey-item p { max-width: 660px; margin: 0; color: #4e5f70; font-size: .92rem; }
+    .journey-item h3 { margin: 0; font-size: 1.3rem; }
+    .journey-item p { max-width: 520px; margin: 0; color: #415365; font-size: .9rem; }
 
     .details { color: #fff; background: #07101a; }
     .details .section-heading > p:last-child { color: rgba(241,247,251,.8); }
@@ -305,11 +306,10 @@
     .detail-item p { margin: 0; color: rgba(241,247,251,.76); font-size: .82rem; }
 
     .cta { background: #eaf6f7; }
-    .cta-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: center; padding: clamp(1.7rem, 5vw, 3.5rem); border: 1px solid rgba(18,58,51,.14); border-radius: 24px; background: #fff; box-shadow: 0 25px 70px rgba(7,16,26,.08); }
-    .cta-copy { max-width: 720px; display: grid; gap: .8rem; }
+    .cta-panel { display: grid; justify-items: center; gap: 1.5rem; padding: clamp(2.4rem, 7vw, 5rem); border: 1px solid rgba(18,58,51,.14); border-radius: 24px; background: #fff; box-shadow: 0 25px 70px rgba(7,16,26,.08); text-align: center; }
+    .cta-copy { max-width: 720px; display: grid; justify-items: center; gap: .8rem; }
     .cta .button { color: #fff; background: var(--page-green); }
     .cta .button:hover, .cta .button:focus-visible { background: #0a211d; }
-    .account-note { margin: .65rem 0 0; color: var(--page-muted); font-size: .78rem; }
 
     .reveal-ready [data-reveal] {
       opacity: 0;
@@ -346,7 +346,6 @@
       .hero-copy { align-items: center; }
       .hero-actions { justify-content: center; }
       .card-stage { width: min(430px, 100%); min-width: 0; flex-basis: auto; }
-      .statement-line:nth-child(even) { align-self: auto; text-align: left; }
       .cta-panel { grid-template-columns: 1fr; }
       .footer-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; padding-bottom: 1.5rem; }
       .home-footer { padding: 3rem 0 1.25rem; }
@@ -366,8 +365,6 @@
       .demo-card { width: min(350px, 96%); border-radius: 20px; }
       .demo-card-hero { min-height: 360px; padding-inline: 1.1rem; }
       .demo-card-name { font-size: 2.35rem; }
-      .journey-item { flex-direction: column; gap: .45rem; }
-      .journey-item h3 { flex-basis: auto; }
       .home-brand img { width: 31px; height: 31px; }
       .home-brand { gap: .55rem; font-size: .88rem; letter-spacing: .18em; }
     }
@@ -420,10 +417,7 @@
         <div class="hero-copy">
           <p class="eyebrow" data-reveal>N3XRA Contact Card</p>
           <h1 id="contact-card-title" data-reveal style="--reveal-delay: 90ms">One link for every introduction.</h1>
-          <p class="hero-lede" data-reveal style="--reveal-delay: 180ms">Give people a simple place to save your contact information, learn who you are, and reach everything you want to share.</p>
-          <div class="hero-actions" data-reveal style="--reveal-delay: 270ms">
-            <a class="button" href="/account/?signup=signup">Create your N3XRA account</a>
-          </div>
+          <p class="hero-lede" data-reveal style="--reveal-delay: 180ms">Share who you are and how to reach you—from one link.</p>
         </div>
 
         <div class="card-stage" data-reveal="right" data-card-stage aria-label="Example N3XRA Contact Card" style="--reveal-delay: 180ms">
@@ -475,14 +469,13 @@
     <section class="section" id="how-it-works" aria-labelledby="how-title">
       <div class="page-shell">
         <header class="section-heading" data-reveal>
-          <p class="eyebrow">Simple from the start</p>
-          <h2 id="how-title">Create it once. Keep it current.</h2>
-          <p>Your Contact Card lives inside the same N3XRA account used for every other connected product.</p>
+          <p class="eyebrow">Simple by design</p>
+          <h2 id="how-title">Scan. Personalize. Share.</h2>
         </header>
         <div class="journey-list">
-          <article class="journey-item" data-reveal="left"><h3>Create your account</h3><p>Use the main N3XRA signup once. Your dashboard becomes the home for your Contact Card and any other N3XRA products you add later.</p></article>
-          <article class="journey-item" data-reveal="right"><h3>Add your information</h3><p>Scan a business card or enter your details yourself. Add a profile photo, company logo, contact methods, and links.</p></article>
-          <article class="journey-item" data-reveal="left"><h3>Choose and share your link</h3><p>Claim an available address such as <strong>n3xra.com/card/your-name</strong>, publish it, and share it anywhere.</p></article>
+          <article class="journey-item" data-reveal="left"><h3>Scan your card</h3><p>Bring in the details you already use.</p></article>
+          <article class="journey-item" data-reveal="right"><h3>Make it yours</h3><p>Add your identity, contact methods, and links.</p></article>
+          <article class="journey-item" data-reveal="left"><h3>Share one address</h3><p>Your link stays the same when your details change.</p></article>
         </div>
       </div>
     </section>
@@ -490,17 +483,16 @@
     <section class="section details" aria-labelledby="details-title">
       <div class="page-shell">
         <header class="section-heading" data-reveal>
-          <p class="eyebrow">Made to stay current</p>
-          <h2 id="details-title">More useful than a card that never changes.</h2>
-          <p>Update your information from your N3XRA dashboard without replacing the link you have already shared.</p>
+          <p class="eyebrow">What’s included</p>
+          <h2 id="details-title">Everything your card needs.</h2>
         </header>
         <div class="detail-list">
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Photos and company identity</h3><p>Use a profile photo, company logo, and optional background.</p></div></article>
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Multiple contact methods</h3><p>Share primary and additional phone numbers or email addresses.</p></div></article>
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Links that fit your work</h3><p>Add social profiles, booking pages, portfolios, websites, and custom destinations.</p></div></article>
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Your preferred presentation</h3><p>Choose an accent color, reorder sections, and decide whether the N3XRA credit appears.</p></div></article>
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Business card scanning</h3><p>Review each recognized detail before it replaces anything already on your card.</p></div></article>
-          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Optional physical card</h3><p>Request a physical card that points people to the digital profile you keep current.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Photos and identity</h3><p>Profile photo, logo, and background.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Multiple contacts</h3><p>Extra phone numbers and email addresses.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Useful links</h3><p>Social, booking, portfolio, and custom links.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Your presentation</h3><p>Accent color, section order, and optional N3XRA credit.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Card scanning</h3><p>Choose exactly which details to use.</p></div></article>
+          <article class="detail-item" data-reveal><span class="detail-check">✓</span><div><h3>Physical card</h3><p>Request one linked to your live profile.</p></div></article>
         </div>
       </div>
     </section>
@@ -508,12 +500,11 @@
     <section class="section cta" aria-labelledby="cta-title">
       <div class="page-shell cta-panel" data-reveal>
         <div class="cta-copy">
-          <p class="eyebrow">Start your introduction</p>
-          <h2 id="cta-title">Your permanent link starts with one N3XRA account.</h2>
-          <p>Create your account, open your dashboard, and activate Contact Card when you are ready.</p>
-          <p class="account-note">Already have an N3XRA account? Use the same button to sign in and continue from your dashboard.</p>
+          <p class="eyebrow">N3XRA Contact Card</p>
+          <h2 id="cta-title">Ready to share one link?</h2>
+          <p>Create your account and claim your address.</p>
         </div>
-        <div class="cta-actions"><a class="button" href="/account/?signup=signup">Get started</a></div>
+        <div class="cta-actions"><a class="button" href="/account/?signup=signup">Create your account</a></div>
       </div>
     </section>
   </main>
