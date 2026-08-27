@@ -27,7 +27,7 @@ a { color: inherit; }
 .contact-card-background, .contact-card-hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
 .contact-card-background { object-fit: cover; }
 .contact-card-hero-shade { background: linear-gradient(180deg, rgba(8,22,18,.68), rgba(8,22,18,.94)); }
-.contact-card-company-logo { position: absolute; z-index: 2; top: 22px; right: 22px; width: 54px; height: 54px; padding: 7px; object-fit: contain; border: 1px solid rgba(255,255,255,.24); border-radius: 15px; background: rgba(255,255,255,.9); box-shadow: 0 10px 30px rgba(0,0,0,.18); }
+.contact-card-company-logo { position: absolute; z-index: 2; top: 22px; right: 22px; display:block; width: 54px; height: 54px; padding: 0; object-fit: cover; border: 1px solid rgba(255,255,255,.24); border-radius: 15px; background: rgba(255,255,255,.9); box-shadow: 0 10px 30px rgba(0,0,0,.18); }
 .contact-card-avatar { position: relative; display: grid; width: 94px; height: 94px; margin: 0 auto 25px; place-items: center; border: 1px solid rgba(255,255,255,.5); border-radius: 32px; color: #fff; background: color-mix(in srgb, var(--card-accent) 74%, #fff 8%); box-shadow: 0 16px 45px rgba(0,0,0,.28); font-family: Manrope, sans-serif; font-size: 1.7rem; font-weight: 800; letter-spacing: -.06em; }
 .contact-card-avatar img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: inherit; }
 .contact-card-avatar span { position: relative; }
@@ -124,10 +124,9 @@ a { color: inherit; }
 .card-editor-media-control p { margin: 4px 0 0; color: var(--card-muted); font-size: .72rem; line-height: 1.45; }
 .card-editor-media-preview { display: grid; width: 92px; height: 92px; place-items: center; overflow: hidden; border: 1px dashed #b9c4bf; border-radius: 18px; color: #71807a; background: #fff; font-size: .67rem; font-weight: 800; }
 .card-editor-media-preview.is-profile { border-radius: 30px; }
-.card-editor-media-preview.is-logo { padding: 10px; }
+.card-editor-media-preview.is-logo { padding: 0; }
 .card-editor-media-preview.is-background { border-radius: 12px; }
-.card-editor-media-preview img { width: 100%; height: 100%; object-fit: cover; }
-.card-editor-media-preview.is-logo img { object-fit: contain; }
+.card-editor-media-preview img { display:block; width: 100%; height: 100%; object-fit: cover; }
 .card-editor-media-actions { display: flex; gap: 9px; flex-wrap: wrap; margin-top: 10px; }
 .card-editor-media-actions label, .card-editor-media-actions button { padding: 6px 0; border: 0; color: #397363; background: transparent; cursor: pointer; font-size: .7rem; font-weight: 800; }
 .card-editor-media-actions button { color: #9a3940; }

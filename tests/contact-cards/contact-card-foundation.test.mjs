@@ -68,7 +68,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
   assert.match(admin, /\/card\/admin\.js\?v=7/);
-  assert.match(admin, /\/card\/card\.css\?v=7/);
+  assert.match(admin, /\/card\/card\.css\?v=8/);
   assert.match(admin, /\/account\/admin\/product-shell\.js\?v=19/);
   assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
@@ -90,6 +90,9 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(productShell, /querySelectorAll\("\.site-footer, \.home-footer"\)/);
   assert.doesNotMatch(productShell, /querySelectorAll\("footer"\)/);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
+  assert.match(sharedStyles, /\.contact-card-company-logo \{[^}]*object-fit: cover/s);
+  assert.match(sharedStyles, /\.card-editor-media-preview img \{[^}]*object-fit: cover/s);
+  assert.doesNotMatch(sharedStyles, /\.card-editor-media-preview\.is-logo img \{[^}]*object-fit: contain/s);
 });
 
 test("physical card requests create an important Admin Inbox notification", async () => {
@@ -149,4 +152,10 @@ test("customers can keep editing while N3XRA fulfills a physical card", async ()
   assert.match(migration, /old\.physical_card_status in \('processing', 'shipped', 'delivered'\)/);
   assert.match(migration, /Only N3XRA can update card fulfillment status/);
   assert.match(migration, /if new\.physical_card_status is distinct from old\.physical_card_status then[\s\S]*if new\.physical_card_status not in \('not_requested', 'requested'\) then/);
+});
+
+test("platform administrators can update a contact card owner", async () => {
+  const migration = await read("supabase/migrations/20260827034648_grant_contact_card_admin_owner_updates.sql");
+  assert.match(migration, /grant update \(owner_user_id\)/i);
+  assert.match(migration, /contact_card_profiles to authenticated/i);
 });
