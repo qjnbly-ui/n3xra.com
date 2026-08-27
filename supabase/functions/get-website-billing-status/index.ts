@@ -14,11 +14,16 @@ async function addLivePaymentMethods(rows: Array<Record<string, any>>) {
     if (!subscriptionId) return row;
     try {
       const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["default_payment_method"] });
-      const method = typeof subscription.default_payment_method === "object"
-        && subscription.default_payment_method
-        && !("deleted" in subscription.default_payment_method)
-        ? subscription.default_payment_method
+      const defaultMethod = subscription.default_payment_method;
+      let method = typeof defaultMethod === "object"
+        && defaultMethod
+        && !("deleted" in defaultMethod)
+        ? defaultMethod
         : null;
+      if (!method && typeof defaultMethod === "string") {
+        const retrievedMethod = await stripe.paymentMethods.retrieve(defaultMethod);
+        method = "deleted" in retrievedMethod ? null : retrievedMethod;
+      }
       if (!method?.card) return row;
       return {
         ...row,

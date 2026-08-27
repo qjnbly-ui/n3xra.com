@@ -25,6 +25,7 @@ test("website billing prefers the payment method assigned to the live Stripe sub
   ]);
 
   assert.match(statusFunction, /expand: \["default_payment_method"\]/);
+  assert.match(statusFunction, /stripe\.paymentMethods\.retrieve\(defaultMethod\)/);
   assert.match(statusFunction, /subscription_payment_method_last4/);
   assert.match(statusFunction, /Unable to refresh a website subscription payment method/);
   assert.match(billing, /subscription\?\.subscription_payment_method_last4/);
