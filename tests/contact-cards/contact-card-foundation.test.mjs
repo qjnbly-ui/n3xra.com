@@ -96,8 +96,9 @@ test("friendly card URLs and separate customer and admin entry points are connec
 });
 
 test("public Contact Card product page uses the shared N3XRA account flow", async () => {
-  const [landingPage, homepage, sitemap] = await Promise.all([
+  const [landingPage, publicCardPage, homepage, sitemap] = await Promise.all([
     read("contact-card/index.html"),
+    read("card/index.html"),
     read("index.html"),
     read("sitemap.xml"),
   ]);
@@ -120,6 +121,7 @@ test("public Contact Card product page uses the shared N3XRA account flow", asyn
   assert.doesNotMatch(landingPage, /data-demo-tab/);
   assert.doesNotMatch(landingPage, /feature-number/);
   assert.doesNotMatch(landingPage, /id="signup-form"/);
+  assert.match(publicCardPage, /href="\/contact-card\/" aria-label="Learn about N3XRA Contact Card"/);
   assert.match(homepage, /href="\/contact-card\/"/);
   assert.match(sitemap, /https:\/\/n3xra\.com\/contact-card\//);
 });
