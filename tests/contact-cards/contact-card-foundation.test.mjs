@@ -118,7 +118,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=5/);
+  assert.match(activation, /\/card\/editor\.js\?v=6/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -126,6 +126,8 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(editor, /additional_emails/);
   assert.match(editor, /form\?\.addEventListener\("input", markChanged\)/);
   assert.match(editor, /All changes saved/);
+  assert.match(editor, /Retrying automatically/);
+  assert.match(editor, /window\.setTimeout\(\(\) => void saveChanges\(\), 4000\)/);
   assert.doesNotMatch(activation, />Save changes</);
 });
 

@@ -232,7 +232,11 @@ async function saveChanges(): Promise<void> {
       const { data, error } = await supabase.from("contact_card_profiles").update(payload).eq("id", card!.id).select("*").single(); if (error) throw error; card = data as CardRow;
       if (version === changeVersion) { changesPending = false; setSaveStatus(requestChecked && currentRequestState === "not_requested" ? "Saved · physical card requested" : "All changes saved"); } else { setSaveStatus("Saving latest changes…", "saving"); }
       const url = `${window.location.origin}/card/${card.slug}`; if (publicLink) publicLink.href = url; if (publicAddress) publicAddress.textContent = url; setRequestState(card);
-    } catch (error) { setSaveStatus(error instanceof Error ? error.message : "Changes could not be saved.", "error"); }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String((error as { message?: unknown } | null)?.message || "Changes could not be saved.");
+      setSaveStatus(`${message} Retrying automatically…`, "error");
+      window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 4000);
+    }
   })();
   try { await savePromise; } finally { savePromise = null; if (changesPending && version !== changeVersion) saveTimer = window.setTimeout(() => void saveChanges(), 250); }
 }

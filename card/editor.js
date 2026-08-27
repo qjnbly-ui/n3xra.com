@@ -497,7 +497,10 @@ async function saveChanges() {
             setRequestState(card);
         }
         catch (error) {
-            setSaveStatus(error instanceof Error ? error.message : "Changes could not be saved.", "error");
+            const message = error instanceof Error ? error.message : String(error?.message || "Changes could not be saved.");
+            setSaveStatus(`${message} Retrying automatically…`, "error");
+            window.clearTimeout(saveTimer);
+            saveTimer = window.setTimeout(() => void saveChanges(), 4000);
         }
     })();
     try {
