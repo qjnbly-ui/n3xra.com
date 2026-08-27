@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-26T13:11:19.082Z",
-  "updatedAt": "2026-08-26T05:49:07-07:00",
-  "commit": "acf8c34",
+  "generatedAt": "2026-08-27T04:13:35.127Z",
+  "updatedAt": "2026-08-26T21:13:05-07:00",
+  "commit": "c10fd78",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 218,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 863,
-    "sourceLines": 218035,
+    "statement": "N3XRA is a connected technology platform comprising approximately 222,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 887,
+    "sourceLines": 222089,
     "products": 6,
-    "pages": 125,
+    "pages": 128,
     "apiFunctions": 92,
-    "edgeFunctions": 26,
-    "databaseMigrations": 204
+    "edgeFunctions": 27,
+    "databaseMigrations": 211
   },
   "sourceBreakdown": {
     "css": {
-      "files": 52,
-      "lines": 39728
+      "files": 54,
+      "lines": 39887
     },
     "html": {
-      "files": 125,
-      "lines": 30810
+      "files": 128,
+      "lines": 31458
     },
     "js": {
-      "files": 276,
-      "lines": 84967
+      "files": 279,
+      "lines": 86129
     },
     "sql": {
-      "files": 333,
-      "lines": 42460
+      "files": 340,
+      "lines": 42954
     },
     "ts": {
-      "files": 76,
-      "lines": 19531
+      "files": 85,
+      "lines": 21122
     },
     "tsx": {
       "files": 1,
@@ -63,8 +63,8 @@
     {
       "id": "contact-cards",
       "name": "N3XRA Contact Cards",
-      "route": "/client-portal/contact-card/",
-      "summary": "Customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests."
+      "route": "/contact-card/",
+      "summary": "A public Contact Card introduction and customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests."
     },
     {
       "id": "partners",
@@ -102,7 +102,7 @@
     {
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",
-      "summary": "Customers can activate and immediately publish a digital business card from their N3XRA account, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests now create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card."
+      "summary": "Visitors can now learn about Contact Cards from a dedicated public N3XRA product page, then use the shared N3XRA account flow to continue. Customers can activate and immediately publish a digital business card, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card."
     },
     {
       "date": "2026-08-25",
