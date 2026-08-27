@@ -67,6 +67,9 @@ const openMusicButton = document.getElementById("open-music-button");
 const openViralsButton = document.getElementById("open-virals-button");
 const recordsAppCard = document.getElementById("records-app-card");
 const websitePortalCard = document.getElementById("website-portal-card");
+const organizationAdminCard = document.getElementById("organization-admin-card");
+const organizationAdminSummary = document.getElementById("organization-admin-summary");
+const organizationAdminLink = document.getElementById("organization-admin-link");
 const musicAppCard = document.getElementById("music-app-card");
 const viralsAppCard = document.getElementById("virals-app-card");
 const partnerPortalCard = document.getElementById("partner-portal-card");
@@ -104,6 +107,7 @@ let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
 let communicationsEntitlement = null;
+let organizationAdminAccess = null;
 let contactCardProfile = null;
 let contactCardEntitlement = null;
 let platformAdminAccess = null;
@@ -508,6 +512,36 @@ async function loadMemberships() {
     .filter((membership) => activeRecordsOrganizationIds.has(String(membership.organization?.id || "")));
 }
 
+async function loadOrganizationAdminAccess() {
+  const [membershipResult, ownedResult, websiteResult] = await Promise.all([
+    supabase
+      .from("organization_memberships")
+      .select("organization_id,role,organization:organizations(id,name)")
+      .eq("user_id", currentSession.user.id)
+      .eq("role", "account_admin"),
+    supabase
+      .from("organizations")
+      .select("id,name")
+      .eq("owner_user_id", currentSession.user.id),
+    supabase
+      .from("client_websites")
+      .select("organization_id")
+      .not("organization_id", "is", null),
+  ]);
+  if (membershipResult.error || ownedResult.error || websiteResult.error) {
+    throw membershipResult.error || ownedResult.error || websiteResult.error;
+  }
+  const websiteOrganizationIds = new Set((websiteResult.data || []).map((website) => String(website.organization_id || "")));
+  const managedOrganizations = [
+    ...(ownedResult.data || []),
+    ...(membershipResult.data || []).flatMap((membership) => {
+      const organization = Array.isArray(membership.organization) ? membership.organization : [membership.organization];
+      return organization.filter(Boolean);
+    }),
+  ];
+  organizationAdminAccess = managedOrganizations.find((organization) => websiteOrganizationIds.has(String(organization?.id || ""))) || null;
+}
+
 async function loadMusicProfile() {
   const { data, error } = await supabase
     .from("music_profiles")
@@ -745,6 +779,7 @@ async function renderDashboard(message = "") {
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
     loadCommunicationsEntitlement(),
+    loadOrganizationAdminAccess(),
     loadContactCardProfile(),
   ]);
   const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
@@ -782,6 +817,13 @@ async function renderDashboard(message = "") {
     communicationsProductLink.textContent = hasCommunicationsAccess
       ? "Open Communications"
       : "Activate Communications";
+  }
+
+
+  const hasOrganizationAdminAccess = Boolean(organizationAdminAccess?.id);
+  if (organizationAdminSummary && organizationAdminLink && hasOrganizationAdminAccess) {
+    organizationAdminSummary.textContent = `Manage people and permissions for ${organizationAdminAccess.name || "your organization"}.`;
+    organizationAdminLink.href = `/client-portal/team/?organization=${encodeURIComponent(organizationAdminAccess.id)}`;
   }
 
   if (loanAccount && loanTrackerSummary) {
@@ -832,6 +874,7 @@ async function renderDashboard(message = "") {
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
+    [organizationAdminCard, hasOrganizationAdminAccess],
     [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],
   ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
   placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner);

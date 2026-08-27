@@ -103,6 +103,25 @@
   transform: skew(-28deg);
 }
 
+.portal-app-icon.is-organization-admin::before {
+  left: 12px;
+  top: 11px;
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--portal-deep);
+  border-radius: 50%;
+}
+
+.portal-app-icon.is-organization-admin::after {
+  left: 19px;
+  top: 18px;
+  width: 10px;
+  height: 7px;
+  border: 2px solid var(--portal-deep);
+  border-top: 0;
+  box-shadow: 0 8px 0 -2px color-mix(in srgb, var(--portal-accent) 72%, #fff);
+}
+
 .portal-app-copy {
   display: flex;
   min-width: 0;

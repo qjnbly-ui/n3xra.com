@@ -4,7 +4,7 @@ import test from "node:test";
 
 const projectFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
-test("the client portal provides one shared Team & Permissions workspace", async () => {
+test("the client portal provides one shared Organization Admin workspace", async () => {
   const [html, script, shell, context] = await Promise.all([
     projectFile("client-portal/team/index.html"),
     projectFile("client-portal/team.js"),
@@ -12,7 +12,8 @@ test("the client portal provides one shared Team & Permissions workspace", async
     projectFile("client-portal/client-workspace-context.js"),
   ]);
 
-  assert.match(html, /Team &amp; Permissions/);
+  assert.match(html, /Organization Admin/);
+  assert.match(html, /People &amp; Permissions/);
   assert.match(html, /id="team-invite-form"/);
   assert.match(html, /Administrator/);
   assert.match(html, /Editor/);
@@ -22,8 +23,26 @@ test("the client portal provides one shared Team & Permissions workspace", async
   assert.match(script, /send-client-team-invite/);
   assert.match(script, /client_portal_update_team_member/);
   assert.match(script, /client_portal_remove_team_member/);
-  assert.match(shell, /label: "Team & Permissions"/);
-  assert.match(context, /label: "Team & Permissions"/);
+  assert.match(shell, /label: "Organization Admin"/);
+  assert.match(context, /label: "Organization Admin"/);
+  assert.match(shell, /data-client-organization-admin hidden/);
+  assert.match(context, /client_portal_team_snapshot/);
+  assert.match(context, /setOrganizationAdminAvailability/);
+});
+
+test("organization owners receive the same admin entry point in branded and master dashboards", async () => {
+  const [apps, accountPage, accountScript] = await Promise.all([
+    projectFile("src/client-portal/portal-apps.ts"),
+    projectFile("account/index.html"),
+    projectFile("account/account.js"),
+  ]);
+
+  assert.match(apps, /name: "Organization Admin"/);
+  assert.match(apps, /client_portal_team_snapshot/);
+  assert.match(apps, /data as \{ can_manage\?: boolean \}/);
+  assert.match(accountPage, /id="organization-admin-card"/);
+  assert.match(accountScript, /loadOrganizationAdminAccess/);
+  assert.match(accountScript, /organizationAdminLink\.href = `\/client-portal\/team\/\?organization=/);
 });
 
 test("N3XRA website administration uses the same client invitation workflow", async () => {

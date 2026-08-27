@@ -13,7 +13,7 @@ const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
 const APP_ROUTES = [
   ...(brandedPortal ? [{ keys: ["dashboard"], label: "Apps Dashboard", href: "/client-portal/", requiresAdditionalApps: true }] : []),
   ...(brandedPortal ? [{ keys: ["records"], label: "Records", href: "/n3xra-records/library", requiresRecordsApp: true }] : []),
-  { keys: ["team"], label: "Team & Permissions", href: "/client-portal/team/" },
+  { keys: ["team"], label: "Organization Admin", href: "/client-portal/team/", requiresOrganizationAdmin: true },
   ...(brandedPortal || String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
     ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
@@ -88,7 +88,7 @@ function updateWebsiteReturnLink(websiteUrl, websiteName = "your website") {
 }
 
 function routeMarkup(route, pageKey) {
-  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.requiresRecordsApp ? " data-client-records-app hidden" : ""}${route.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
+  const availability = `${route.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${route.requiresRecordsApp ? " data-client-records-app hidden" : ""}${route.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${route.requiresOrganizationAdmin ? " data-client-organization-admin hidden" : ""}${route.feature ? ` data-client-feature="${route.feature}" hidden` : ""}${route.projectProgress ? " data-client-project-progress" : ""}`;
   return `<a class="${route.keys.includes(pageKey) ? "is-current" : ""}" href="${route.href}"${availability}>${route.label}</a>`;
 }
 
@@ -159,6 +159,18 @@ function setCommunicationsAvailability(available) {
   });
 }
 
+function setOrganizationAdminAvailability(available) {
+  document.querySelectorAll("[data-client-organization-admin]").forEach((item) => {
+    item.hidden = !available;
+  });
+}
+
+async function canManageOrganization(supabase, organizationId) {
+  if (!organizationId) return false;
+  const { data, error } = await supabase.rpc("client_portal_team_snapshot", { input_organization_id: organizationId });
+  return !error && Boolean(data?.can_manage);
+}
+
 export async function initializeClientWorkspaceContext(panel, { pageKey = "overview" } = {}) {
   if (!panel || !hasConfig()) return;
   renderShell(panel, pageKey);
@@ -185,12 +197,16 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     ? explicitWebsiteId
     : organizationWebsite?.id || (websites.some((website) => website.id === context.websiteId) ? context.websiteId : websites[0]?.id || "");
   const selectedWebsite = websites.find((website) => website.id === selectedId);
-  const portalAppKeys = tenantResolution.mode === "tenant"
-    ? await visiblePortalAppKeys(supabase, selectedWebsite?.organization_id)
-    : [];
-  setAppsDashboardAvailability(portalAppKeys.length > 1);
+  const [portalAppKeys, organizationAdminAvailable] = tenantResolution.mode === "tenant"
+    ? await Promise.all([
+      visiblePortalAppKeys(supabase, selectedWebsite?.organization_id),
+      canManageOrganization(supabase, selectedWebsite?.organization_id),
+    ])
+    : [[], false];
+  setAppsDashboardAvailability(portalAppKeys.length > 1 || organizationAdminAvailable);
   setRecordsAvailability(portalAppKeys.includes("records"), selectedWebsite?.organization_id);
   setCommunicationsAvailability(portalAppKeys.includes("communications"));
+  setOrganizationAdminAvailability(organizationAdminAvailable);
 
   const picker = panel.querySelector("#client-organization-picker");
   const trigger = panel.querySelector("#client-organization-trigger");

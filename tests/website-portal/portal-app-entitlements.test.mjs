@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=8/);
+  assert.match(html, /portal-apps\.js\?v=9/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -48,14 +48,15 @@ test("unbranded portals skip the app dashboard unless multiple N3XRA apps are su
   assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
 });
 
-test("branded website portals prefer Website Management over a single Records subscription", async () => {
+test("branded portals open Website Management directly only when it is the sole available workspace", async () => {
   const apps = await projectFile("client-portal/portal-apps.js");
 
   assert.match(apps, /import \{ isBrandedPortalHostname, resolvePortalTenant \}/);
-  assert.match(apps, /if \(preferWebsite && website\) \{[\s\S]*openOnlyAvailableApp\(website\);[\s\S]*return;/);
+  assert.match(apps, /if \(preferWebsite && website && apps\.length === 1\) \{[\s\S]*openOnlyAvailableApp\(website\);[\s\S]*return;/);
+  assert.match(apps, /if \(preferWebsite && apps\.length > 1\) \{[\s\S]*renderApps\(apps\);[\s\S]*return;/);
   assert.match(apps, /routeOrRenderApps\(apps, \{ preferWebsite: isBrandedPortalHostname\(\) \}\)/);
   assert.ok(
-    apps.indexOf("if (preferWebsite && website)") < apps.indexOf("if (subscribedApps.length === 1 && onlySubscribedApp)"),
+    apps.indexOf("if (preferWebsite && website && apps.length === 1)") < apps.indexOf("if (subscribedApps.length === 1 && onlySubscribedApp)"),
     "the branded website preference must run before the single-subscription redirect",
   );
 });
@@ -178,7 +179,7 @@ test("Apps Dashboard navigation appears only when the tenant has multiple subscr
   assert.match(workspaceContext, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
   assert.match(workspaceContext, /!HIDDEN_CUSTOMER_PRODUCT_KEYS\.has\(productKey\)/);
   assert.match(workspaceContext, /portal_path/);
-  assert.match(workspaceContext, /setAppsDashboardAvailability\(portalAppKeys\.length > 1\)/);
+  assert.match(workspaceContext, /setAppsDashboardAvailability\(portalAppKeys\.length > 1 \|\| organizationAdminAvailable\)/);
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);
 });
 

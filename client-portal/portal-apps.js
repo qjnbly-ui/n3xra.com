@@ -56,8 +56,12 @@ function openOnlyAvailableApp(app) {
 }
 function routeOrRenderApps(apps, { preferWebsite = false } = {}) {
     const website = apps.find((app) => app.key === "website");
-    if (preferWebsite && website) {
+    if (preferWebsite && website && apps.length === 1) {
         openOnlyAvailableApp(website);
+        return;
+    }
+    if (preferWebsite && apps.length > 1) {
+        renderApps(apps);
         return;
     }
     const subscribedApps = apps.filter((app) => app.key !== "website");
@@ -98,6 +102,24 @@ function websiteApp(features = {}) {
         badge: "",
         sortOrder: 10,
     };
+}
+function organizationAdminApp(organizationId) {
+    return {
+        key: "organization_admin",
+        name: "Organization Admin",
+        description: "Invite team members, assign organization roles, and manage access.",
+        href: `/client-portal/team/?organization=${encodeURIComponent(organizationId)}`,
+        iconKey: "organization-admin",
+        badge: "Owner controls",
+        sortOrder: 90,
+        organizationId,
+    };
+}
+async function canManageOrganization(supabase, organizationId) {
+    const { data, error } = await supabase.rpc("client_portal_team_snapshot", { input_organization_id: organizationId });
+    if (error)
+        return false;
+    return Boolean(data?.can_manage);
 }
 async function loadPortalApps() {
     if (!appGrid || !hasConfig())
@@ -167,6 +189,9 @@ async function loadPortalApps() {
             sortOrder: Number(product.sort_order || 100),
             organizationId,
         });
+    }
+    if (await canManageOrganization(supabase, organizationId)) {
+        apps.push(organizationAdminApp(organizationId));
     }
     routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
 }

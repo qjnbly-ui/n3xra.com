@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Team &amp; Permissions | Management Portal</title>
+  <title>Organization Admin | Management Portal</title>
   <meta name="robots" content="noindex,nofollow">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -18,16 +18,16 @@
 <body class="portal-loading" data-disable-site-assistant>
   <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
   <main class="portal-shell">
-    <section class="portal-heading"><div><p class="portal-kicker">Organization workspace</p><h1>Team &amp; Permissions</h1><p>Manage who can use this client portal.</p></div></section>
+    <section class="portal-heading"><div><p class="portal-kicker">Owner controls</p><h1>Organization Admin</h1><p>Manage the people and organization roles used across this portal.</p></div></section>
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="Website client portal"></nav>
       <section class="portal-workspace">
-        <div class="portal-workspace-head"><div><p class="portal-kicker">Organization access</p><h2>Team &amp; Permissions</h2></div></div>
+        <div class="portal-workspace-head"><div><p class="portal-kicker">Organization access</p><h2>People &amp; Permissions</h2></div></div>
         <section class="client-team" id="client-team" aria-busy="true">
           <div class="client-team-message" id="team-message" role="status" aria-live="polite">Loading team access…</div>
 
           <section class="client-team-panel client-team-invite" id="team-invite-panel" hidden>
-            <div class="client-team-panel-head"><div><p class="portal-kicker">Add someone</p><h2>Invite a team member</h2><p>They will receive a secure email invitation that expires in seven days.</p></div></div>
+            <div class="client-team-panel-head"><div><p class="portal-kicker">Add someone</p><h2>Invite a team member</h2><p>They will receive a secure email invitation that expires in seven days. Product-specific access will build on this same organization membership.</p></div></div>
             <form id="team-invite-form" class="client-team-invite-form">
               <label><span>Name <small>optional</small></span><input name="name" autocomplete="name" placeholder="Full name"></label>
               <label><span>Email address</span><input name="email" type="email" autocomplete="email" required placeholder="name@example.com"></label>
@@ -51,8 +51,8 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening team access…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=25"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=26"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/client-portal/team.js?v=1"></script>
+  <script type="module" src="/client-portal/team.js?v=2"></script>
 </body>
 </html>

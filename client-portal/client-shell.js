@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=20";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=21";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=2";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -13,7 +13,7 @@ const appSections = [
   ...(brandedPortal
     ? [{ key: "records", label: "Records", href: "/n3xra-records/library", path: "/n3xra-records/library", requiresRecordsApp: true }]
     : []),
-  { key: "team", label: "Team & Permissions", href: "/client-portal/team/", path: "/client-portal/team/" },
+  { key: "team", label: "Organization Admin", href: "/client-portal/team/", path: "/client-portal/team/", requiresOrganizationAdmin: true },
   ...(brandedPortal || normalizePath(window.location.pathname) === "/client-portal/communications/"
     ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
@@ -38,7 +38,7 @@ const routeDetails = {
   "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/client-portal/analytics/": { key: "analytics", kicker: "Website performance", title: "Analytics", description: "A clear view of traffic, popular content, referrals, audience, and devices." },
-  "/client-portal/team/": { key: "team", kicker: "Organization workspace", title: "Team & Permissions", description: "Invite people, assign account access, and manage who can use this organization’s portal." },
+  "/client-portal/team/": { key: "team", kicker: "Owner controls", title: "Organization Admin", description: "Invite people, assign organization roles, and manage access from one shared control center." },
   "/client-portal/communications/": { key: "communications", kicker: "Business portal", title: "Communications", description: "Manage subscriber preferences, consent history, signup tools, and messaging readiness." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
@@ -74,13 +74,13 @@ function isCurrentSection(section) {
 
 function sectionMarkup(section, onPortalHome) {
   const current = isCurrentSection(section) ? " is-current" : "";
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresRecordsApp ? " data-client-records-app hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresRecordsApp ? " data-client-records-app hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.requiresOrganizationAdmin ? " data-client-organization-admin hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   if (onPortalHome && section.view) return `<button class="${current.trim()}" type="button" data-portal-view="${section.view}"${availability}>${section.label}</button>`;
   return `<a class="${current.trim()}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 
 function mobileSectionMarkup(section) {
-  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresRecordsApp ? " data-client-records-app hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
+  const availability = `${section.requiresAdditionalApps ? " data-client-app-dashboard hidden" : ""}${section.requiresRecordsApp ? " data-client-records-app hidden" : ""}${section.requiresCommunicationsApp ? " data-client-communications-app hidden" : ""}${section.requiresOrganizationAdmin ? " data-client-organization-admin hidden" : ""}${section.feature ? ` data-client-feature="${section.feature}" hidden` : ""}${section.key === "project" ? " data-client-project-progress" : ""}`;
   return `<a class="site-menu-link${isCurrentSection(section) ? " is-current" : ""}" href="${section.href}"${availability}>${section.label}</a>`;
 }
 

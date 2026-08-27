@@ -90,8 +90,11 @@ async function init() {
     if (error)
         throw error;
     const websites = scopeWebsitesToPortalTenant((data || []), tenant);
+    const requestedOrganizationId = new URLSearchParams(window.location.search).get("organization");
     const requestedWebsiteId = storedWebsiteId(session.user.id);
-    const website = websites.find((item) => item.id === requestedWebsiteId) || websites[0];
+    const website = websites.find((item) => item.organization_id === requestedOrganizationId)
+        || websites.find((item) => item.id === requestedWebsiteId)
+        || websites[0];
     organizationId = String(website?.organization_id || "");
     if (!organizationId)
         throw new Error("Team access has not been connected to this organization yet.");
