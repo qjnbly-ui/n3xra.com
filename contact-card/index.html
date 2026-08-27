@@ -87,20 +87,10 @@
         radial-gradient(500px 360px at 10% 20%, rgba(45,99,255,.2), transparent 65%),
         linear-gradient(140deg, #0a3657 0%, #0a2036 52%, #050a12 100%);
     }
-    .hero::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background-image: linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-      background-size: 48px 48px;
-      mask-image: linear-gradient(to bottom, #000, transparent 82%);
-      pointer-events: none;
-    }
     .hero-inner {
       position: relative;
       z-index: 1;
-      display: grid;
-      grid-template-columns: minmax(0, 1.05fr) minmax(340px, .95fr);
+      display: flex;
       gap: clamp(3rem, 7vw, 6.5rem);
       align-items: center;
       padding: 9.5rem 0 6rem;
@@ -113,7 +103,7 @@
       letter-spacing: .19em;
       text-transform: uppercase;
     }
-    .hero-copy { display: grid; gap: 1.3rem; align-content: center; }
+    .hero-copy { flex: 1 1 54%; display: flex; flex-direction: column; gap: 1.3rem; align-items: flex-start; }
     h1, h2, h3 { font-family: var(--page-display); letter-spacing: -.045em; }
     h1 {
       max-width: 750px;
@@ -126,7 +116,7 @@
     .hero-lede {
       max-width: 620px;
       margin: 0;
-      color: rgba(232,242,250,.72);
+      color: rgba(241,247,251,.86);
       font-size: clamp(1rem, 1.5vw, 1.2rem);
     }
     .hero-actions, .cta-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
@@ -146,88 +136,101 @@
       transition: transform 160ms ease, background 160ms ease, border-color 160ms ease;
     }
     .button:hover, .button:focus-visible { transform: translateY(-2px); background: #fff; }
-    .button.secondary { color: #fff; background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.22); }
-    .button.secondary:hover, .button.secondary:focus-visible { background: rgba(255,255,255,.14); }
-
-    .card-stage { position: relative; display: grid; place-items: center; min-height: 520px; }
-    .card-glow { position: absolute; width: 90%; aspect-ratio: 1; border-radius: 50%; background: rgba(35,199,244,.17); filter: blur(52px); }
-    .card-preview {
+    .card-stage { position: relative; flex: 0 1 430px; min-width: 340px; display: flex; justify-content: center; }
+    .card-glow { position: absolute; inset: 15% 3% 20%; border-radius: 42%; background: rgba(35,199,244,.2); filter: blur(52px); }
+    .demo-card {
       position: relative;
-      width: min(390px, 100%);
+      width: min(420px, 100%);
       overflow: hidden;
-      border: 1px solid rgba(255,255,255,.26);
-      border-radius: 30px;
-      color: #10201e;
-      background: #fff;
+      border: 1px solid rgba(255,255,255,.3);
+      border-radius: 24px;
+      color: #0b1f1a;
+      background: #fffefb;
       box-shadow: 0 44px 100px rgba(0,0,0,.4);
-      transform: rotate(2.5deg);
     }
-    .card-cover {
-      height: 154px;
+    .demo-card-hero {
+      position: relative;
+      min-height: 390px;
       display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      padding: 1.35rem;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 3.2rem 1.7rem 1.8rem;
       color: #fff;
-      background:
-        radial-gradient(circle at 75% 20%, rgba(168,239,255,.4), transparent 26%),
-        linear-gradient(135deg, #113f56, #082522 68%, #061412);
+      text-align: center;
+      background: #061914;
     }
-    .card-monogram { font-family: var(--page-display); font-size: 1.15rem; font-weight: 700; letter-spacing: .2em; }
-    .card-avatar {
-      width: 92px;
-      height: 92px;
-      display: grid;
+    .demo-card-logo {
+      position: absolute;
+      top: 1.15rem;
+      right: 1.15rem;
+      width: 48px;
+      height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid rgba(255,255,255,.34);
+      border-radius: 15px;
+      color: #071a15;
+      background: #fff;
+      font-size: .65rem;
+      font-weight: 900;
+      letter-spacing: -.03em;
+    }
+    .demo-card-avatar {
+      width: 94px;
+      height: 94px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       place-items: center;
-      margin-bottom: -55px;
-      border: 5px solid #fff;
-      border-radius: 28px;
+      border: 1px solid rgba(255,255,255,.7);
+      border-radius: 30px;
       color: #fff;
-      background: linear-gradient(145deg, #32c9ed, #1f5ec4);
+      background: #2169b7;
       font-family: var(--page-display);
-      font-size: 1.65rem;
+      font-size: 1.7rem;
       font-weight: 700;
-      box-shadow: 0 12px 28px rgba(4,16,24,.2);
     }
-    .card-content { display: grid; gap: 1.2rem; padding: 4.5rem 1.4rem 1.2rem; }
-    .card-person h2 { margin: 0; font-size: 2rem; line-height: 1; }
-    .card-person p { margin: .35rem 0 0; color: #63716f; font-size: .88rem; }
-    .card-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: .55rem; }
-    .card-action { min-height: 58px; display: grid; place-items: center; gap: .1rem; padding: .45rem; border-radius: 14px; color: #16342e; background: #edf7f4; font-size: .68rem; font-weight: 800; }
-    .card-action b { font-family: var(--page-display); font-size: 1.05rem; }
-    .card-link { display: flex; justify-content: space-between; align-items: center; padding: .85rem 0; border-top: 1px solid #e4e9e8; color: #52625f; font-size: .8rem; font-weight: 700; }
-    .card-link strong { color: #132723; }
-    .card-powered { padding: 1rem; text-align: center; color: #74817f; border-top: 1px solid #e4e9e8; font-size: .67rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+    .demo-card-company { margin: 1.35rem 0 .5rem; color: #d4dedb; font-size: .7rem; font-weight: 800; letter-spacing: .2em; text-transform: uppercase; }
+    .demo-card-name { margin: 0; color: #fff; font-size: clamp(2.35rem, 4vw, 3.2rem); line-height: .96; }
+    .demo-card-role { margin: .85rem 0 0; color: #dce4e1; font-size: .95rem; }
+    .demo-card-location { margin: .25rem 0 0; color: #aebdb8; font-size: .75rem; }
+    .demo-card-actions { width: 100%; display: flex; gap: .65rem; margin-top: 1.65rem; }
+    .demo-card-action { min-height: 52px; flex: 1; display: flex; align-items: center; justify-content: center; border: 1px solid rgba(255,255,255,.3); border-radius: 14px; color: #fff; background: rgba(255,255,255,.08); font-size: .8rem; font-weight: 800; }
+    .demo-card-action.is-primary { color: #fff; border-color: #2169b7; background: #2169b7; }
+    .demo-card-body { padding: 1.6rem 1.45rem .4rem; background: #fffefb; }
+    .demo-section + .demo-section { margin-top: 1.5rem; }
+    .demo-section-head { display: flex; align-items: center; justify-content: space-between; padding-bottom: .75rem; border-bottom: 1px solid #dce2df; }
+    .demo-section-label { margin: 0; color: #145fa9; font-size: .66rem; font-weight: 900; letter-spacing: .17em; text-transform: uppercase; }
+    .demo-section-head span { color: #71807b; font-size: .68rem; }
+    .demo-about { margin: .8rem 0 0; color: #42534e; font-size: .8rem; line-height: 1.65; }
+    .demo-contact-row { min-height: 69px; display: flex; align-items: center; gap: .75rem; border-bottom: 1px solid #dce2df; }
+    .demo-contact-icon { width: 40px; height: 40px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 13px; color: #145fa9; background: #e5f0fb; font-size: .66rem; font-weight: 900; }
+    .demo-contact-copy { min-width: 0; flex: 1; display: flex; flex-direction: column; text-align: left; }
+    .demo-contact-copy strong { font-size: .82rem; }
+    .demo-contact-copy small { overflow: hidden; color: #53645f; font-size: .69rem; text-overflow: ellipsis; white-space: nowrap; }
+    .demo-contact-arrow { color: #77847f; }
+    .demo-card-powered { padding: 1.45rem 1rem 1.3rem; color: #5f6f69; background: #fffefb; text-align: center; font-size: .67rem; }
+    .demo-card-powered strong { margin-left: .3rem; color: #0b1f1a; }
 
     .section { padding: clamp(4.5rem, 8vw, 7.5rem) 0; }
     .section-heading { max-width: 760px; display: grid; gap: .85rem; margin-bottom: 2.4rem; }
     .section-heading h2, .cta-copy h2 { margin: 0; font-size: clamp(2.2rem, 4.8vw, 4.5rem); line-height: .98; text-wrap: balance; }
     .section-heading > p:last-child, .cta-copy > p { margin: 0; color: var(--page-muted); }
 
-    .feature-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .85rem; }
-    .feature {
-      min-height: 250px;
-      display: grid;
-      align-content: space-between;
-      gap: 2rem;
-      padding: clamp(1.25rem, 3vw, 2rem);
-      border: 1px solid var(--page-line);
-      border-radius: 18px;
-      background: #fff;
-      box-shadow: 0 20px 52px rgba(7,16,26,.06);
-    }
-    .feature-number { color: #1886a3; font-family: var(--page-display); font-size: .78rem; font-weight: 700; letter-spacing: .14em; }
-    .feature h3 { margin: 0 0 .45rem; font-size: 1.35rem; }
-    .feature p { margin: 0; color: var(--page-muted); font-size: .88rem; }
+    .journey-list { border-top: 1px solid var(--page-line); }
+    .journey-item { display: flex; gap: clamp(1rem, 4vw, 4rem); align-items: baseline; padding: 1.6rem 0; border-bottom: 1px solid var(--page-line); }
+    .journey-item h3 { flex: 0 0 min(32%, 290px); margin: 0; font-size: 1.3rem; }
+    .journey-item p { max-width: 660px; margin: 0; color: #4e5f70; font-size: .92rem; }
 
     .details { color: #fff; background: #07101a; }
-    .details .section-heading > p:last-child { color: rgba(232,242,250,.62); }
-    .detail-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid rgba(255,255,255,.13); }
-    .detail-item { display: grid; grid-template-columns: auto 1fr; gap: 1rem; padding: 1.4rem 1rem; border-bottom: 1px solid rgba(255,255,255,.13); }
-    .detail-item:nth-child(odd) { border-right: 1px solid rgba(255,255,255,.13); }
-    .detail-check { width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; color: #07101a; background: var(--page-cyan); font-weight: 900; }
+    .details .section-heading > p:last-child { color: rgba(241,247,251,.8); }
+    .detail-list { border-top: 1px solid rgba(255,255,255,.18); }
+    .detail-item { display: flex; gap: 1rem; align-items: flex-start; padding: 1.4rem 0; border-bottom: 1px solid rgba(255,255,255,.18); }
+    .detail-check { color: var(--page-cyan); font-weight: 900; }
     .detail-item h3 { margin: .12rem 0 .3rem; font-size: 1rem; letter-spacing: -.02em; }
-    .detail-item p { margin: 0; color: rgba(232,242,250,.58); font-size: .82rem; }
+    .detail-item p { margin: 0; color: rgba(241,247,251,.76); font-size: .82rem; }
 
     .cta { background: #eaf6f7; }
     .cta-panel { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2rem; align-items: center; padding: clamp(1.7rem, 5vw, 3.5rem); border: 1px solid rgba(18,58,51,.14); border-radius: 24px; background: #fff; box-shadow: 0 25px 70px rgba(7,16,26,.08); }
@@ -251,12 +254,10 @@
     @media (max-width: 860px) {
       .desktop-nav { display: none; }
       .hero { min-height: auto; }
-      .hero-inner { grid-template-columns: 1fr; padding-top: 8.5rem; text-align: center; }
-      .hero-copy { justify-items: center; }
+      .hero-inner { flex-direction: column; padding-top: 8.5rem; text-align: center; }
+      .hero-copy { align-items: center; }
       .hero-actions { justify-content: center; }
-      .card-stage { min-height: 480px; }
-      .feature-grid { grid-template-columns: 1fr; }
-      .feature { min-height: 210px; }
+      .card-stage { width: min(430px, 100%); min-width: 0; flex-basis: auto; }
       .cta-panel { grid-template-columns: 1fr; }
     }
     @media (max-width: 620px) {
@@ -265,13 +266,11 @@
       .hero-inner { gap: 2.4rem; padding-bottom: 4rem; }
       .hero-actions { width: 100%; }
       .hero-actions .button { width: 100%; }
-      .card-stage { min-height: 430px; }
-      .card-preview { width: min(330px, 92%); border-radius: 24px; transform: none; }
-      .card-cover { height: 130px; }
-      .card-avatar { width: 80px; height: 80px; margin-bottom: -49px; border-radius: 23px; }
-      .card-content { padding-top: 4rem; }
-      .detail-list { grid-template-columns: 1fr; }
-      .detail-item:nth-child(odd) { border-right: 0; }
+      .demo-card { width: min(350px, 96%); border-radius: 20px; }
+      .demo-card-hero { min-height: 360px; padding-inline: 1.1rem; }
+      .demo-card-name { font-size: 2.35rem; }
+      .journey-item { flex-direction: column; gap: .45rem; }
+      .journey-item h3 { flex-basis: auto; }
       .footer-grid { grid-template-columns: 1fr; }
       .footer-brand { grid-column: auto; }
       .footer-bottom { flex-direction: column; align-items: center; text-align: center; }
@@ -318,33 +317,41 @@
           <p class="hero-lede">Give people a simple place to save your contact information, learn who you are, and reach everything you want to share.</p>
           <div class="hero-actions">
             <a class="button" href="/account/?signup=signup">Create your N3XRA account</a>
-            <a class="button secondary" href="#how-it-works">See how it works</a>
           </div>
         </div>
 
         <div class="card-stage" aria-label="Example N3XRA Contact Card">
           <div class="card-glow" aria-hidden="true"></div>
-          <article class="card-preview">
-            <div class="card-cover">
-              <span class="card-monogram">NORTHSTAR</span>
-              <div class="card-avatar" aria-hidden="true">AM</div>
-            </div>
-            <div class="card-content">
-              <div class="card-person">
-                <h2>Alex Morgan</h2>
-                <p>Creative Director · Northstar Studio</p>
-              </div>
-              <div class="card-actions" aria-hidden="true">
-                <span class="card-action"><b>＋</b>Save</span>
-                <span class="card-action"><b>✉</b>Email</span>
-                <span class="card-action"><b>↗</b>Share</span>
-              </div>
-              <div>
-                <div class="card-link"><strong>Website</strong><span>northstar.studio ↗</span></div>
-                <div class="card-link"><strong>Book a meeting</strong><span>Open ↗</span></div>
+          <article class="demo-card">
+            <div class="demo-card-hero">
+              <div class="demo-card-logo" aria-hidden="true">NS</div>
+              <div class="demo-card-avatar" aria-hidden="true">AM</div>
+              <p class="demo-card-company">Northstar Studio</p>
+              <h2 class="demo-card-name">Alex Morgan</h2>
+              <p class="demo-card-role">Creative Director</p>
+              <p class="demo-card-location">Portland, Oregon</p>
+              <div class="demo-card-actions" aria-hidden="true">
+                <span class="demo-card-action">Call</span>
+                <span class="demo-card-action is-primary">Save contact</span>
               </div>
             </div>
-            <div class="card-powered">Powered by N3XRA</div>
+            <div class="demo-card-body">
+              <section class="demo-section">
+                <div class="demo-section-head"><p class="demo-section-label">About</p></div>
+                <p class="demo-about">Alex helps growing organizations turn clear ideas into memorable brands and useful digital experiences.</p>
+              </section>
+              <section class="demo-section">
+                <div class="demo-section-head"><p class="demo-section-label">Contact</p><span>Tap to open</span></div>
+                <div class="demo-contact-row"><span class="demo-contact-icon">EM</span><span class="demo-contact-copy"><strong>Email</strong><small>alex@northstar.studio</small></span><span class="demo-contact-arrow">›</span></div>
+                <div class="demo-contact-row"><span class="demo-contact-icon">PH</span><span class="demo-contact-copy"><strong>Phone</strong><small>(503) 555-0148</small></span><span class="demo-contact-arrow">›</span></div>
+                <div class="demo-contact-row"><span class="demo-contact-icon">WE</span><span class="demo-contact-copy"><strong>Website</strong><small>northstar.studio</small></span><span class="demo-contact-arrow">›</span></div>
+              </section>
+              <section class="demo-section">
+                <div class="demo-section-head"><p class="demo-section-label">Links</p><span>Explore</span></div>
+                <div class="demo-contact-row"><span class="demo-contact-icon">BK</span><span class="demo-contact-copy"><strong>Book a meeting</strong><small>Choose a time</small></span><span class="demo-contact-arrow">›</span></div>
+              </section>
+            </div>
+            <div class="demo-card-powered">Powered by <strong>N3XRA</strong></div>
           </article>
         </div>
       </div>
@@ -354,13 +361,13 @@
       <div class="page-shell">
         <header class="section-heading">
           <p class="eyebrow">Simple from the start</p>
-          <h2 id="how-title">Live in three straightforward steps.</h2>
+          <h2 id="how-title">Create it once. Keep it current.</h2>
           <p>Your Contact Card lives inside the same N3XRA account used for every other connected product.</p>
         </header>
-        <div class="feature-grid">
-          <article class="feature"><span class="feature-number">01</span><div><h3>Create your account</h3><p>Use the main N3XRA signup once. Your dashboard becomes the home for your Contact Card and any other N3XRA products you add later.</p></div></article>
-          <article class="feature"><span class="feature-number">02</span><div><h3>Add your information</h3><p>Scan a business card or enter your details yourself. Add a profile photo, company logo, contact methods, and links.</p></div></article>
-          <article class="feature"><span class="feature-number">03</span><div><h3>Choose and share your link</h3><p>Claim an available address such as <strong>n3xra.com/card/your-name</strong>, publish it, and share it anywhere.</p></div></article>
+        <div class="journey-list">
+          <article class="journey-item"><h3>Create your account</h3><p>Use the main N3XRA signup once. Your dashboard becomes the home for your Contact Card and any other N3XRA products you add later.</p></article>
+          <article class="journey-item"><h3>Add your information</h3><p>Scan a business card or enter your details yourself. Add a profile photo, company logo, contact methods, and links.</p></article>
+          <article class="journey-item"><h3>Choose and share your link</h3><p>Claim an available address such as <strong>n3xra.com/card/your-name</strong>, publish it, and share it anywhere.</p></article>
         </div>
       </div>
     </section>
