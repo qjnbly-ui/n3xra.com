@@ -18,6 +18,7 @@ test("Project Pulse publishes every current product as a live destination", asyn
   assert.equal(new Set(manifest.products.map(({ route }) => route)).size, manifest.products.length);
   assert.match(page, /id="pulse-products"/);
   assert.match(client, /renderProducts\(manifest\.products\)/);
+  assert.match(client, /isDateOnly \? \{ timeZone: "UTC" \}/);
 
   await Promise.all(manifest.products.map(({ route }) => (
     access(new URL(`${route.replace(/^\//, "")}index.html`, repositoryUrl))

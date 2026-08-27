@@ -18,9 +18,15 @@ const escapeHtml = (value) => String(value ?? "")
   .replaceAll("'", "&#39;");
 
 function formatDate(value) {
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(value || ""));
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "Update date unavailable";
-  return `Updated ${date.toLocaleDateString(undefined, { month: "long", day: "numeric", year: "numeric" })}`;
+  return `Updated ${date.toLocaleDateString(undefined, {
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    ...(isDateOnly ? { timeZone: "UTC" } : {}),
+  })}`;
 }
 
 function renderStats(summary) {
