@@ -42,13 +42,14 @@ test("private card media is only served for published profiles", async () => {
 });
 
 test("friendly card URLs and separate customer and admin entry points are connected", async () => {
-  const [vercel, account, activation, admin, adminLogic, adminStyles, prospects] = await Promise.all([
+  const [vercel, account, activation, admin, adminLogic, adminStyles, sharedStyles, prospects] = await Promise.all([
     read("vercel.json"),
     read("account/index.html"),
     read("client-portal/contact-card/index.html"),
     read("n3xra-admin/contact-cards/index.html"),
     read("src/contact-cards/admin.ts"),
     read("n3xra-admin/contact-cards/contact-cards-admin.css"),
+    read("card/card.css"),
     read("account/admin/prospects/index.html"),
   ]);
   assert.match(vercel, /"source": "\/card\/:slug"[\s\S]*"destination": "\/card\?slug=:slug"/);
@@ -66,6 +67,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
   assert.match(admin, /\/card\/admin\.js\?v=7/);
+  assert.match(admin, /\/card\/card\.css\?v=7/);
   assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
   assert.match(admin, /data-admin-media-input="profile"/);
@@ -81,6 +83,8 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(adminLogic, /new URLSearchParams\(window\.location\.search\)\.get\("card"\)/);
   assert.match(adminStyles, /\.contact-card-modal \{ position:fixed/);
   assert.match(adminStyles, /@media\(max-width:800px\).*\.contact-card-modal\{align-items:end/s);
+  assert.match(sharedStyles, /grid-template-rows: auto minmax\(0,1fr\) auto/);
+  assert.match(sharedStyles, /\.card-scan-review-fields \{[^}]*min-height: 0;[^}]*overflow: auto/s);
   assert.doesNotMatch(prospects, /prospect-card-owner/);
 });
 
