@@ -9,8 +9,10 @@ const inviteForm = document.querySelector("#team-invite-form");
 const supabase = createBrowserSupabase();
 let organizationId = "";
 let snapshot = null;
+let accessSnapshot = null;
 const escapeHtml = (value) => String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const roleLabel = (role) => role === "account_admin" ? "Administrator" : role === "editor" ? "Editor" : "View only";
+const statusLabel = (value) => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const initials = (name, email) => (name || email).split(/[\s@]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "?";
 const formatDate = (value) => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
 function showMessage(copy = "", error = false) {
@@ -68,13 +70,45 @@ function renderInvites() {
     const pending = snapshot.invites.filter((invite) => !invite.is_disabled && !invite.revoked_at && invite.redeemed_uses < invite.max_uses && new Date(invite.expires_at).getTime() > Date.now());
     inviteList.innerHTML = pending.length ? pending.map((invite) => `<article class="client-team-row"><div class="client-team-person"><span class="client-team-avatar" aria-hidden="true">${escapeHtml(initials(invite.recipient_name || "", invite.recipient_email))}</span><div class="client-team-person-copy"><strong>${escapeHtml(invite.recipient_name || invite.recipient_email)}</strong><span>${escapeHtml(invite.recipient_email)}</span></div></div><div class="client-team-access"><strong>${escapeHtml(roleLabel(invite.role))}</strong><span class="client-team-meta">Expires ${escapeHtml(formatDate(invite.expires_at))}</span></div><div class="client-team-actions"><button class="client-team-action" type="button" data-resend-invite="${escapeHtml(invite.id)}">Resend</button><button class="client-team-action is-danger" type="button" data-revoke-invite="${escapeHtml(invite.id)}">Cancel</button></div></article>`).join("") : '<p class="client-team-empty">There are no pending invitations.</p>';
 }
+function renderProductAccess() {
+    if (!snapshot || !accessSnapshot)
+        return;
+    const grid = document.querySelector("#organization-product-grid");
+    const head = document.querySelector("#organization-access-head");
+    const body = document.querySelector("#organization-access-body");
+    if (!grid || !head || !body)
+        return;
+    grid.innerHTML = accessSnapshot.products.map((product) => `<a class="client-product-card" href="${escapeHtml(product.manage_path)}"><span>${escapeHtml(statusLabel(product.status))}</span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.workspace_name)}</small></a>`).join("") || '<p class="client-team-empty">No products or website workspaces are connected yet.</p>';
+    head.innerHTML = `<tr><th>Person</th><th>Organization role</th>${accessSnapshot.products.map((product) => `<th>${escapeHtml(product.name)}<br><small>${escapeHtml(product.workspace_name)}</small></th>`).join("")}</tr>`;
+    body.innerHTML = snapshot.members.map((member) => {
+        const access = accessSnapshot?.member_access[member.user_id] || {};
+        const productCells = accessSnapshot?.products.map((product) => {
+            const role = access[product.access_key];
+            return `<td><span class="client-access-state${role ? "" : " is-none"}">${escapeHtml(role ? roleLabel(role) : "No access")}</span></td>`;
+        }).join("") || "";
+        return `<tr><td>${escapeHtml(member.full_name || member.email)}</td><td>${escapeHtml(member.is_owner ? "Owner" : roleLabel(member.role))}</td>${productCells}</tr>`;
+    }).join("");
+}
 async function loadSnapshot() {
-    snapshot = await rpc("client_portal_team_snapshot", { input_organization_id: organizationId });
+    [snapshot, accessSnapshot] = await Promise.all([
+        rpc("client_portal_team_snapshot", { input_organization_id: organizationId }),
+        rpc("client_portal_organization_access_snapshot", { input_organization_id: organizationId }),
+    ]);
     const invitePanel = document.querySelector("#team-invite-panel");
     if (invitePanel)
         invitePanel.hidden = !snapshot.can_manage;
     renderMembers();
     renderInvites();
+    renderProductAccess();
+    const organizationName = document.querySelector("#client-organization-name");
+    const organizationStatus = document.querySelector("#client-organization-status");
+    const pickerLabel = document.querySelector("#client-organization-picker-label");
+    if (organizationName)
+        organizationName.textContent = snapshot.organization.name;
+    if (organizationStatus)
+        organizationStatus.textContent = "Organization";
+    if (pickerLabel)
+        pickerLabel.textContent = "Linked website";
     showMessage();
 }
 async function init() {

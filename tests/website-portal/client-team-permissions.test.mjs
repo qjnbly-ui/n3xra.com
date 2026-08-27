@@ -14,6 +14,8 @@ test("the client portal provides one shared Organization Admin workspace", async
 
   assert.match(html, /Organization Admin/);
   assert.match(html, /People &amp; Permissions/);
+  assert.match(html, /Products &amp; workspaces/);
+  assert.match(html, /id="organization-access-body"/);
   assert.match(html, /id="team-invite-form"/);
   assert.match(html, /Administrator/);
   assert.match(html, /Editor/);
@@ -23,11 +25,22 @@ test("the client portal provides one shared Organization Admin workspace", async
   assert.match(script, /send-client-team-invite/);
   assert.match(script, /client_portal_update_team_member/);
   assert.match(script, /client_portal_remove_team_member/);
+  assert.match(script, /client_portal_organization_access_snapshot/);
+  assert.match(script, /renderProductAccess/);
   assert.match(shell, /label: "Organization Admin"/);
   assert.match(context, /label: "Organization Admin"/);
   assert.match(shell, /data-client-organization-admin hidden/);
   assert.match(context, /client_portal_team_snapshot/);
   assert.match(context, /setOrganizationAdminAvailability/);
+});
+
+test("the organization overview composes existing product permission systems without replacing them", async () => {
+  const migration = await projectFile("supabase/migrations/20260827152715_organization_admin_product_overview.sql");
+  assert.match(migration, /organization_product_entitlements/);
+  assert.match(migration, /website_members/);
+  assert.match(migration, /public\.can_view_organization\(input_organization_id\)/);
+  assert.match(migration, /revoke all on function public\.client_portal_organization_access_snapshot\(uuid\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.client_portal_organization_access_snapshot\(uuid\) to authenticated/);
 });
 
 test("organization owners receive the same admin entry point in branded and master dashboards", async () => {

@@ -3,8 +3,10 @@ import { portalLoginUrl, resolvePortalTenant, scopeWebsitesToPortalTenant } from
 
 interface Website { id: string; name: string; organization_id: string | null }
 interface Member { id: string; user_id: string; role: string; full_name: string; email: string; is_owner: boolean; created_at: string }
+interface ProductAccess { access_key: string; product_key: string; name: string; status: string; workspace_name: string; manage_path: string }
 interface Invite { id: string; code: string; recipient_email: string; recipient_name: string | null; role: string; created_at: string; expires_at: string; last_sent_at: string | null; revoked_at: string | null; is_disabled: boolean; redeemed_uses: number; max_uses: number }
 interface TeamSnapshot { organization: { id: string; name: string; owner_user_id: string }; can_manage: boolean; current_user_id: string; members: Member[]; invites: Invite[] }
+interface AccessSnapshot { organization: { id: string; name: string }; products: ProductAccess[]; member_access: Record<string, Record<string, string>> }
 
 const screen = document.querySelector<HTMLElement>("#portal-status");
 const team = document.querySelector<HTMLElement>("#client-team");
@@ -15,9 +17,11 @@ const inviteForm = document.querySelector<HTMLFormElement>("#team-invite-form");
 const supabase = createBrowserSupabase();
 let organizationId = "";
 let snapshot: TeamSnapshot | null = null;
+let accessSnapshot: AccessSnapshot | null = null;
 
 const escapeHtml = (value: unknown): string => String(value || "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 const roleLabel = (role: string): string => role === "account_admin" ? "Administrator" : role === "editor" ? "Editor" : "View only";
+const statusLabel = (value: string): string => String(value || "active").replaceAll("_", " ").replace(/\b\w/g, (character) => character.toUpperCase());
 const initials = (name: string, email: string): string => (name || email).split(/[\s@]+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "?";
 const formatDate = (value: string): string => new Intl.DateTimeFormat(undefined, { dateStyle: "medium" }).format(new Date(value));
 
@@ -68,12 +72,40 @@ function renderInvites(): void {
   inviteList.innerHTML = pending.length ? pending.map((invite) => `<article class="client-team-row"><div class="client-team-person"><span class="client-team-avatar" aria-hidden="true">${escapeHtml(initials(invite.recipient_name || "", invite.recipient_email))}</span><div class="client-team-person-copy"><strong>${escapeHtml(invite.recipient_name || invite.recipient_email)}</strong><span>${escapeHtml(invite.recipient_email)}</span></div></div><div class="client-team-access"><strong>${escapeHtml(roleLabel(invite.role))}</strong><span class="client-team-meta">Expires ${escapeHtml(formatDate(invite.expires_at))}</span></div><div class="client-team-actions"><button class="client-team-action" type="button" data-resend-invite="${escapeHtml(invite.id)}">Resend</button><button class="client-team-action is-danger" type="button" data-revoke-invite="${escapeHtml(invite.id)}">Cancel</button></div></article>`).join("") : '<p class="client-team-empty">There are no pending invitations.</p>';
 }
 
+function renderProductAccess(): void {
+  if (!snapshot || !accessSnapshot) return;
+  const grid = document.querySelector<HTMLElement>("#organization-product-grid");
+  const head = document.querySelector<HTMLElement>("#organization-access-head");
+  const body = document.querySelector<HTMLElement>("#organization-access-body");
+  if (!grid || !head || !body) return;
+  grid.innerHTML = accessSnapshot.products.map((product) => `<a class="client-product-card" href="${escapeHtml(product.manage_path)}"><span>${escapeHtml(statusLabel(product.status))}</span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.workspace_name)}</small></a>`).join("") || '<p class="client-team-empty">No products or website workspaces are connected yet.</p>';
+  head.innerHTML = `<tr><th>Person</th><th>Organization role</th>${accessSnapshot.products.map((product) => `<th>${escapeHtml(product.name)}<br><small>${escapeHtml(product.workspace_name)}</small></th>`).join("")}</tr>`;
+  body.innerHTML = snapshot.members.map((member) => {
+    const access = accessSnapshot?.member_access[member.user_id] || {};
+    const productCells = accessSnapshot?.products.map((product) => {
+      const role = access[product.access_key];
+      return `<td><span class="client-access-state${role ? "" : " is-none"}">${escapeHtml(role ? roleLabel(role) : "No access")}</span></td>`;
+    }).join("") || "";
+    return `<tr><td>${escapeHtml(member.full_name || member.email)}</td><td>${escapeHtml(member.is_owner ? "Owner" : roleLabel(member.role))}</td>${productCells}</tr>`;
+  }).join("");
+}
+
 async function loadSnapshot(): Promise<void> {
-  snapshot = await rpc<TeamSnapshot>("client_portal_team_snapshot", { input_organization_id: organizationId });
+  [snapshot, accessSnapshot] = await Promise.all([
+    rpc<TeamSnapshot>("client_portal_team_snapshot", { input_organization_id: organizationId }),
+    rpc<AccessSnapshot>("client_portal_organization_access_snapshot", { input_organization_id: organizationId }),
+  ]);
   const invitePanel = document.querySelector<HTMLElement>("#team-invite-panel");
   if (invitePanel) invitePanel.hidden = !snapshot.can_manage;
   renderMembers();
   renderInvites();
+  renderProductAccess();
+  const organizationName = document.querySelector<HTMLElement>("#client-organization-name");
+  const organizationStatus = document.querySelector<HTMLElement>("#client-organization-status");
+  const pickerLabel = document.querySelector<HTMLElement>("#client-organization-picker-label");
+  if (organizationName) organizationName.textContent = snapshot.organization.name;
+  if (organizationStatus) organizationStatus.textContent = "Organization";
+  if (pickerLabel) pickerLabel.textContent = "Linked website";
   showMessage();
 }
 

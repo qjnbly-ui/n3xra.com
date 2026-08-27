@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
-  <link rel="stylesheet" href="/client-portal/team/team.css?v=1">
+  <link rel="stylesheet" href="/client-portal/team/team.css?v=2">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
 </head>
@@ -26,8 +26,15 @@
         <section class="client-team" id="client-team" aria-busy="true">
           <div class="client-team-message" id="team-message" role="status" aria-live="polite">Loading team access…</div>
 
+          <section class="client-team-panel client-product-overview">
+            <div class="client-team-panel-head"><div><p class="portal-kicker">Products &amp; workspaces</p><h2>Organization access overview</h2><p>See connected products and the access recorded inside each product.</p></div></div>
+            <div class="client-product-grid" id="organization-product-grid"></div>
+            <div class="client-access-matrix-wrap"><table class="client-access-matrix"><thead id="organization-access-head"></thead><tbody id="organization-access-body"></tbody></table></div>
+            <p class="client-team-meta">Detailed permissions remain available inside each product. This page summarizes those same records.</p>
+          </section>
+
           <section class="client-team-panel client-team-invite" id="team-invite-panel" hidden>
-            <div class="client-team-panel-head"><div><p class="portal-kicker">Add someone</p><h2>Invite a team member</h2><p>They will receive a secure email invitation that expires in seven days. Product-specific access will build on this same organization membership.</p></div></div>
+            <div class="client-team-panel-head"><div><p class="portal-kicker">Master invitation</p><h2>Invite a team member</h2><p>Create their organization membership here, then manage detailed access inside each connected product.</p></div></div>
             <form id="team-invite-form" class="client-team-invite-form">
               <label><span>Name <small>optional</small></span><input name="name" autocomplete="name" placeholder="Full name"></label>
               <label><span>Email address</span><input name="email" type="email" autocomplete="email" required placeholder="name@example.com"></label>
@@ -53,6 +60,6 @@
   <div class="portal-status" id="portal-status" role="status">Opening team access…</div>
   <script type="module" src="/client-portal/client-shell.js?v=26"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/client-portal/team.js?v=2"></script>
+  <script type="module" src="/client-portal/team.js?v=3"></script>
 </body>
 </html>
