@@ -37,6 +37,17 @@ function renderStats(summary) {
     .join("");
 }
 
+function renderProducts(products) {
+  document.getElementById("pulse-products").innerHTML = (products || []).map((product) => `
+    <a class="pulse-product-card" href="${escapeHtml(product.route)}">
+      <span class="pulse-product-status"><i></i> Live</span>
+      <h3>${escapeHtml(product.name)}</h3>
+      <p>${escapeHtml(product.summary)}</p>
+      <span class="pulse-product-link">View product <b aria-hidden="true">↗</b></span>
+    </a>
+  `).join("");
+}
+
 function renderSystemMap(systemMap) {
   document.getElementById("pulse-system-map").innerHTML = (systemMap.layers || []).map((layer) => `
     <li><h3>${escapeHtml(layer.name)}</h3><p>${escapeHtml(layer.description)}</p></li>
@@ -76,6 +87,7 @@ async function initPulse() {
     document.getElementById("pulse-updated").textContent = `${formatDate(manifest.updatedAt)} · ${manifest.commit}`;
     document.getElementById("pulse-disclosure").textContent = manifest.disclosure;
     renderStats(manifest.summary);
+    renderProducts(manifest.products);
     renderSystemMap(manifest.systemMap || {});
     renderRecent(manifest.recentCapabilities || []);
   } catch (error) {

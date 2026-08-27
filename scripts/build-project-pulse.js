@@ -21,7 +21,7 @@ const PRODUCTS = [
     id: "websites",
     name: "Websites & Client Services",
     route: "/services/",
-    summary: "Custom websites, project intake, AI-assisted proposals, onboarding, branded client portals, asset delivery, billing, and ongoing client service.",
+    summary: "Custom websites, project intake, AI-assisted proposals, isolated staging previews, Build Studio, branded client portals, asset delivery, billing, and ongoing client service.",
   },
   {
     id: "records",
@@ -33,7 +33,7 @@ const PRODUCTS = [
     id: "communications",
     name: "Nexra Communications",
     route: "/nexra-communications/",
-    summary: "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces.",
+    summary: "Dedicated business numbers, carrier onboarding, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, connected billing, usage reporting, and client workspaces.",
   },
   {
     id: "contact-cards",
@@ -51,7 +51,7 @@ const PRODUCTS = [
     id: "company",
     name: "N3XRA Company Platform",
     route: "/account/",
-    summary: "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration.",
+    summary: "Shared identity, organization-aware customer dashboards, unified billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration.",
   },
 ];
 
@@ -60,11 +60,13 @@ const MAJOR_MODULES = [
   "Customer and organization dashboards",
   "Administrative workspaces",
   "Website project lifecycle",
+  "Persistent AI-assisted Build Studio",
   "Website portals and asset delivery",
   "Records and document systems",
   "Phone-connected meeting workflows",
   "Speaker-aware meeting transcription",
   "Permission-based subscriber communications",
+  "Communications provisioning and carrier onboarding",
   "Digital contact cards and profile publishing",
   "Financial operations and reporting",
   "Subscriptions and billing",
@@ -77,10 +79,28 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
-    introducedBy: "fc4bd61",
+    introducedBy: "59dbf69",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",
     summary: "Contact Cards now use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, branding removal is a one-time $9.99 upgrade, another card is $7.99, and a three-card pack is $19.99. Existing profiles are preserved, paid entitlements are enforced in Supabase, customers can buy upgrades inside the editor, and paid physical-card orders notify the Admin Inbox.",
+  },
+  {
+    introducedBy: "6c6c2a5",
+    date: "2026-08-26",
+    title: "Persistent N3XRA Build Studio",
+    summary: "Administrators can open protected, project-scoped build sessions with controlled GitHub access, durable workspaces, dependency and preview readiness, private review links, and clean isolation for each new session.",
+  },
+  {
+    introducedBy: "e3feb06",
+    date: "2026-08-26",
+    title: "Connected Communications provisioning and billing",
+    summary: "Communications customers now move through organization-scoped carrier onboarding and a unified billing experience, while administrators retain separate service visibility and controlled activation tools.",
+  },
+  {
+    introducedBy: "287d058",
+    date: "2026-08-26",
+    title: "Isolated website staging previews",
+    summary: "New website projects can receive personalized, repository-backed staging deployments so each customer can review an isolated preview before an administrator approves production publishing.",
   },
   {
     introducedBy: "d95f6f4",
@@ -606,7 +626,7 @@ const SYSTEM_MAP = {
     {
       id: "products",
       name: "Products & workflows",
-      description: "Records, Communications, Contact Cards, websites, branded client portals, partners, and company operations.",
+      description: "Records, Communications, Contact Cards, websites, Build Studio, branded client portals, partners, and company operations.",
     },
     {
       id: "operations",

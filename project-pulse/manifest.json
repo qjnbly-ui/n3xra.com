@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-27T05:29:00.256Z",
-  "updatedAt": "2026-08-26T22:04:04-07:00",
-  "commit": "45fce9b",
+  "generatedAt": "2026-08-27T12:13:09.421Z",
+  "updatedAt": "2026-08-26T22:46:50-07:00",
+  "commit": "59dbf69",
   "summary": {
     "statement": "N3XRA is a connected technology platform comprising approximately 223,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 889,
-    "sourceLines": 222704,
+    "sourceFiles": 890,
+    "sourceLines": 222826,
     "products": 6,
     "pages": 128,
     "apiFunctions": 92,
     "edgeFunctions": 28,
-    "databaseMigrations": 212
+    "databaseMigrations": 213
   },
   "sourceBreakdown": {
     "css": {
       "files": 54,
-      "lines": 39896
+      "lines": 39911
     },
     "html": {
       "files": 128,
-      "lines": 31616
+      "lines": 31672
     },
     "js": {
       "files": 279,
-      "lines": 86184
+      "lines": 86229
     },
     "sql": {
-      "files": 341,
-      "lines": 43152
+      "files": 342,
+      "lines": 43154
     },
     "ts": {
       "files": 86,
-      "lines": 21317
+      "lines": 21321
     },
     "tsx": {
       "files": 1,
@@ -46,7 +46,7 @@
       "id": "websites",
       "name": "Websites & Client Services",
       "route": "/services/",
-      "summary": "Custom websites, project intake, AI-assisted proposals, onboarding, branded client portals, asset delivery, billing, and ongoing client service."
+      "summary": "Custom websites, project intake, AI-assisted proposals, isolated staging previews, Build Studio, branded client portals, asset delivery, billing, and ongoing client service."
     },
     {
       "id": "records",
@@ -58,7 +58,7 @@
       "id": "communications",
       "name": "Nexra Communications",
       "route": "/nexra-communications/",
-      "summary": "Dedicated business numbers, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, usage reporting, and client workspaces."
+      "summary": "Dedicated business numbers, carrier onboarding, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, connected billing, usage reporting, and client workspaces."
     },
     {
       "id": "contact-cards",
@@ -76,7 +76,7 @@
       "id": "company",
       "name": "N3XRA Company Platform",
       "route": "/account/",
-      "summary": "Shared identity, customer dashboards, billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration."
+      "summary": "Shared identity, organization-aware customer dashboards, unified billing, support, AI receptionist, transactional messaging, careers, governance planning, and web and mobile administration."
     }
   ],
   "majorModules": [
@@ -84,11 +84,13 @@
     "Customer and organization dashboards",
     "Administrative workspaces",
     "Website project lifecycle",
+    "Persistent AI-assisted Build Studio",
     "Website portals and asset delivery",
     "Records and document systems",
     "Phone-connected meeting workflows",
     "Speaker-aware meeting transcription",
     "Permission-based subscriber communications",
+    "Communications provisioning and carrier onboarding",
     "Digital contact cards and profile publishing",
     "Financial operations and reporting",
     "Subscriptions and billing",
@@ -103,6 +105,21 @@
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",
       "summary": "Contact Cards now use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, branding removal is a one-time $9.99 upgrade, another card is $7.99, and a three-card pack is $19.99. Existing profiles are preserved, paid entitlements are enforced in Supabase, customers can buy upgrades inside the editor, and paid physical-card orders notify the Admin Inbox."
+    },
+    {
+      "date": "2026-08-26",
+      "title": "Persistent N3XRA Build Studio",
+      "summary": "Administrators can open protected, project-scoped build sessions with controlled GitHub access, durable workspaces, dependency and preview readiness, private review links, and clean isolation for each new session."
+    },
+    {
+      "date": "2026-08-26",
+      "title": "Connected Communications provisioning and billing",
+      "summary": "Communications customers now move through organization-scoped carrier onboarding and a unified billing experience, while administrators retain separate service visibility and controlled activation tools."
+    },
+    {
+      "date": "2026-08-26",
+      "title": "Isolated website staging previews",
+      "summary": "New website projects can receive personalized, repository-backed staging deployments so each customer can review an isolated preview before an administrator approves production publishing."
     },
     {
       "date": "2026-08-25",
@@ -545,7 +562,7 @@
       {
         "id": "products",
         "name": "Products & workflows",
-        "description": "Records, Communications, Contact Cards, websites, branded client portals, partners, and company operations."
+        "description": "Records, Communications, Contact Cards, websites, Build Studio, branded client portals, partners, and company operations."
       },
       {
         "id": "operations",
