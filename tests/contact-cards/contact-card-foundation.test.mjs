@@ -95,6 +95,20 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.doesNotMatch(sharedStyles, /\.card-editor-media-preview\.is-logo img \{[^}]*object-fit: contain/s);
 });
 
+test("public Contact Card product page uses the shared N3XRA account flow", async () => {
+  const [landingPage, homepage, sitemap] = await Promise.all([
+    read("contact-card/index.html"),
+    read("index.html"),
+    read("sitemap.xml"),
+  ]);
+  assert.match(landingPage, /N3XRA Contact Card/);
+  assert.match(landingPage, /\/account\/\?signup=signup/);
+  assert.match(landingPage, /same N3XRA account/);
+  assert.doesNotMatch(landingPage, /id="signup-form"/);
+  assert.match(homepage, /href="\/contact-card\/"/);
+  assert.match(sitemap, /https:\/\/n3xra\.com\/contact-card\//);
+});
+
 test("physical card requests create an important Admin Inbox notification", async () => {
   const migration = await read("supabase/migrations/20260826130412_notify_admin_on_contact_card_request.sql");
   assert.match(migration, /new\.physical_card_status = 'requested'/);

@@ -38,8 +38,8 @@ const PRODUCTS = [
   {
     id: "contact-cards",
     name: "N3XRA Contact Cards",
-    route: "/client-portal/contact-card/",
-    summary: "Customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests.",
+    route: "/contact-card/",
+    summary: "A public Contact Card introduction and customizable digital business cards with personal links, profile and company imagery, business-card scanning, friendly public URLs, account-connected editing, and physical tap-card requests.",
   },
   {
     id: "partners",
@@ -80,7 +80,7 @@ const RECENT_CAPABILITIES = [
     introducedBy: "fc4bd61",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",
-    summary: "Customers can activate and immediately publish a digital business card from their N3XRA account, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests now create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card.",
+    summary: "Visitors can now learn about Contact Cards from a dedicated public N3XRA product page, then use the shared N3XRA account flow to continue. Customers can activate and immediately publish a digital business card, choose a friendly public link, scan an existing card to begin setup, add profile and company imagery, reorder sections, control N3XRA branding, and request a physical tap card. Physical-card requests create a direct Admin Inbox alert, and administrators have the full customer editing controls for every assigned card.",
   },
   {
     introducedBy: "d95f6f4",
