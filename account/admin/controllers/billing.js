@@ -55,6 +55,10 @@ function billingProductLink(item) {
     params.set("project", item.id || "");
     return { href: `/n3xra-admin/billing/?${params.toString()}`, label: "Open website billing" };
   }
+  if (item.product === "communications") {
+    params.set("organization", item.id || "");
+    return { href: `/n3xra-admin/communications/?${params.toString()}`, label: "Open Communications admin" };
+  }
   if (item.product === "ai_music") return { href: `/ai-music-generator/app/?${params.toString()}`, label: "Open AI Music" };
   if (item.product === "virals") return { href: `/virals/?${params.toString()}`, label: "Open Virals" };
   return null;
@@ -124,11 +128,13 @@ function renderBilling() {
   }).join("") : '<p class="billing-empty-list">No billing accounts match these filters.</p>';
   const count = document.getElementById("billing-count");
   if (count) count.textContent = `${rows.length} of ${billing.length}`;
-  const connected = billing.filter((item) => item.customerId && item.subscriptionId).length;
+  const connected = billing.filter((item) => billingHealth(item).key === "connected").length;
   const attention = billing.filter((item) => billingHealth(item).key === "attention").length;
   const internal = billing.filter((item) => billingHealth(item).key === "internal").length;
+  const disconnected = billing.filter((item) => billingHealth(item).key === "disconnected").length;
+  const canceled = billing.filter((item) => billingHealth(item).key === "canceled").length;
   const summary = document.getElementById("billing-summary");
-  if (summary) summary.innerHTML = `<span><strong>${connected}</strong> connected</span><span><strong>${internal}</strong> internal</span><span class="${attention ? "has-attention" : ""}"><strong>${attention}</strong> attention</span>`;
+  if (summary) summary.innerHTML = `<span><strong>${connected}</strong> connected</span><span><strong>${internal}</strong> internal</span><span><strong>${disconnected}</strong> not connected</span>${canceled ? `<span><strong>${canceled}</strong> canceled</span>` : ""}<span class="${attention ? "has-attention" : ""}"><strong>${attention}</strong> attention</span>`;
   renderBillingDetail(rows.find((item) => billingKey(item) === selectedBillingKey));
 }
 

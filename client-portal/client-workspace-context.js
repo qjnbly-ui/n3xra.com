@@ -273,12 +273,15 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     const changed = websiteId !== selectedId;
     showOrganization(websiteId);
     closePicker();
-    if (changed && String(window.location.pathname).replace(/\/+$/, "").startsWith("/client-portal/communications")) {
+    if (changed) {
       const website = websites.find((item) => item.id === websiteId);
       const url = new URL(window.location.href);
-      url.searchParams.set("organization", website.organization_id);
+      url.searchParams.set("website", website.id);
+      if (String(window.location.pathname).replace(/\/+$/, "").startsWith("/client-portal/communications")) {
+        url.searchParams.set("organization", website.organization_id);
+      }
       window.location.assign(`${url.pathname}${url.search}${url.hash}`);
-    } else if (changed) window.location.reload();
+    }
   }
 
   renderOptions();

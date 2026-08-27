@@ -229,7 +229,7 @@ async function loadAdminView(adminContext) {
     const businessInformation = await import("/account/admin/business-info/business-info.js?v=1");
     await businessInformation.startBusinessInformation({ invoke });
   } else if (view === "billing") {
-    const billingController = await import("/account/admin/controllers/billing.js?v=2");
+    const billingController = await import("/account/admin/controllers/billing.js?v=3");
     await billingController.startBilling({ invoke, escapeHtml, formatDate, deriveStripeState, setStatus });
   } else if (view === "operations") {
     const operations = await import("/account/admin/operations/operations.js?v=18");

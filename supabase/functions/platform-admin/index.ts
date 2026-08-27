@@ -223,6 +223,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     recordsEntitlementsResult,
     communicationsEntitlementsResult,
     communicationsWorkspacesResult,
+    communicationsSubscriptionsResult,
     websiteProjectsResult,
     websiteSubscriptionsResult,
     websiteBillingCustomersResult,
@@ -243,6 +244,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled,source,starts_at,ends_at").eq("product_key", "communications"),
     adminClient.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,status,created_at,updated_at"),
+    adminClient.from("organization_product_subscriptions").select("id,organization_id,product_key,stripe_customer_id,stripe_subscription_id,status,currency,setup_fee_cents,monthly_price_cents,setup_fee_paid,current_period_end,cancel_at_period_end").eq("product_key", "communications"),
     adminClient.from("website_projects").select("id,name,client_user_id,status,current_stage,updated_at"),
     adminClient.from("website_subscriptions").select("id,project_id,client_user_id,stripe_subscription_id,subscription_type,service_plan,billing_interval,amount_cents,status,current_period_end,updated_at"),
     adminClient.from("website_billing_customers").select("id,user_id,stripe_customer_id,payment_method_status"),
@@ -265,6 +267,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     recordsEntitlementsResult,
     communicationsEntitlementsResult,
     communicationsWorkspacesResult,
+    communicationsSubscriptionsResult,
     websiteProjectsResult,
     websiteSubscriptionsResult,
     websiteBillingCustomersResult,
@@ -294,6 +297,10 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
   const activeCommunicationsEntitlements = new Map((communicationsEntitlementsResult.data || [])
     .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
     .map((entitlement) => [String(entitlement.organization_id), entitlement]));
+  const communicationsSubscriptionMap = new Map((communicationsSubscriptionsResult.data || [])
+    .map((subscription) => [String(subscription.organization_id), subscription]));
+  const communicationsWorkspaceMap = new Map((communicationsWorkspacesResult.data || [])
+    .map((workspace) => [String(workspace.organization_id), workspace]));
   const accessMap = new Map<string, Array<Record<string, unknown>>>();
 
   const addAccess = (userId: unknown, access: Record<string, unknown>) => {
@@ -431,6 +438,30 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
       customerId: organization.stripe_customer_id, subscriptionId: organization.stripe_subscription_id,
       periodEnd: organization.subscription_current_period_end,
       usage: `${organization.document_limit || 0} documents · ${organization.user_limit || 0} seats · ${organization.storage_limit_mb || 0} MB`,
+    });
+  });
+  activeCommunicationsEntitlements.forEach((entitlement, organizationId) => {
+    const organization = recordsOrgMap.get(organizationId);
+    if (!organization) return;
+    const owner = profileMap.get(String(organization.owner_user_id)) || authMap.get(String(organization.owner_user_id));
+    const subscription = communicationsSubscriptionMap.get(organizationId);
+    const workspace = communicationsWorkspaceMap.get(organizationId);
+    const monthlyPriceCents = Number(subscription?.monthly_price_cents || 0);
+    billing.push({
+      id: organizationId,
+      product: "communications",
+      productLabel: PRODUCT_LABELS.communications,
+      account: organization.name,
+      email: normalizeEmail(owner?.email),
+      plan: monthlyPriceCents ? `$${(monthlyPriceCents / 100).toFixed(2)} monthly` : "Access only",
+      status: subscription?.status || entitlement.status,
+      cycle: "monthly",
+      customerId: subscription?.stripe_customer_id || organization.stripe_customer_id || null,
+      subscriptionId: subscription?.stripe_subscription_id || null,
+      periodEnd: subscription?.current_period_end || entitlement.ends_at || null,
+      usage: workspace?.program_name ? `${workspace.program_name} · 500 included SMS segments` : "500 included SMS segments",
+      setupFeePaid: Boolean(subscription?.setup_fee_paid),
+      cancelAtPeriodEnd: Boolean(subscription?.cancel_at_period_end),
     });
   });
   (musicProfilesResult.data || []).forEach((profile) => {

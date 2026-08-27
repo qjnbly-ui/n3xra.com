@@ -248,7 +248,16 @@ function card(project) {
   const schedule = records.schedules.find((item) => item.project_id === project.id);
   const charges = records.charges.filter((item) => item.project_id === project.id);
   const communications = records.communications.filter((item) => item.project_id === project.id);
-  const cardInfo = subscription?.website_billing_customers || domainSubscription?.website_billing_customers || records.customers.find((item) => item.user_id === project.client_user_id);
+  const customerCardInfo = subscription?.website_billing_customers || domainSubscription?.website_billing_customers || records.customers.find((item) => item.user_id === project.client_user_id);
+  const cardInfo = subscription?.subscription_payment_method_last4
+    ? {
+      payment_method_brand: subscription.subscription_payment_method_brand,
+      payment_method_last4: subscription.subscription_payment_method_last4,
+      payment_method_exp_month: subscription.subscription_payment_method_exp_month,
+      payment_method_exp_year: subscription.subscription_payment_method_exp_year,
+      stripe_customer_id: customerCardInfo?.stripe_customer_id,
+    }
+    : customerCardInfo;
   const committed = charges.filter((item) => ["proposal_balance", "milestone"].includes(item.source) && !["void", "canceled"].includes(item.status)).reduce((sum, item) => sum + Number(item.amount_cents || 0), 0);
   const remaining = Math.max(0, Number(snapshot?.remaining_build_balance_cents || 0) - committed);
   const state = subscription?.status || snapshot?.status || "not_prepared";
@@ -291,17 +300,23 @@ function openReview(title, body, confirmLabel, action) {
 }
 
 async function load() {
-  const projectId = new URLSearchParams(location.search).get("project");
+  const params = new URLSearchParams(location.search);
+  const projectId = params.get("project");
+  const explicitWebsiteId = params.get("website");
   const tenantResolution = adminMode ? null : await resolvePortalTenant(supabase);
-  records = await invoke("get-website-billing-status", adminMode || tenantResolution?.mode !== "unbound"
+  const clientContext = adminMode ? null : readWorkspaceContext("client", currentUser.id);
+  const requestedWebsiteId = tenantResolution?.mode === "tenant"
+    ? tenantResolution.website_id
+    : explicitWebsiteId || clientContext?.websiteId || "";
+  records = await invoke("get-website-billing-status", adminMode
     ? {}
-    : (projectId ? { project_id: projectId } : {}));
+    : (projectId ? { project_id: projectId } : requestedWebsiteId ? { website_id: requestedWebsiteId } : {}));
 
   if (!adminMode) {
     let organizationId = "";
     const managedWebsiteId = tenantResolution?.mode === "tenant"
       ? tenantResolution.website_id
-      : records.projects.find((project) => project.id === projectId)?.managed_website_id || records.projects[0]?.managed_website_id;
+      : records.projects.find((project) => project.id === projectId)?.managed_website_id || requestedWebsiteId || records.projects[0]?.managed_website_id;
     if (managedWebsiteId) {
       const { data: website, error } = await supabase.from("client_websites").select("organization_id").eq("id", managedWebsiteId).maybeSingle();
       if (error) throw error;
@@ -345,7 +360,7 @@ async function load() {
     records[key] = (records[key] || []).filter((item) => tenantProjectIds.has(item.project_id));
   }
 
-  const context = readWorkspaceContext("client", currentUser.id);
+  const context = clientContext || readWorkspaceContext("client", currentUser.id);
   const linkedProject = records.projects.find((project) => project.id === projectId);
   const selectedWebsiteId = tenantResolution.mode === "tenant"
     ? tenantResolution.website_id

@@ -1,4 +1,38 @@
-import { originFor, requireUser, response } from "../_shared/website-billing.ts";
+import { originFor, requireUser, response, stripeClient } from "../_shared/website-billing.ts";
+
+async function addLivePaymentMethods(rows: Array<Record<string, any>>) {
+  if (!rows.length) return rows;
+  let stripe: ReturnType<typeof stripeClient>;
+  try {
+    stripe = stripeClient();
+  } catch (error) {
+    console.warn("Unable to initialize Stripe while refreshing payment methods:", error instanceof Error ? error.message : error);
+    return rows;
+  }
+  return Promise.all(rows.map(async (row) => {
+    const subscriptionId = String(row.stripe_subscription_id || "").trim();
+    if (!subscriptionId) return row;
+    try {
+      const subscription = await stripe.subscriptions.retrieve(subscriptionId, { expand: ["default_payment_method"] });
+      const method = typeof subscription.default_payment_method === "object"
+        && subscription.default_payment_method
+        && !("deleted" in subscription.default_payment_method)
+        ? subscription.default_payment_method
+        : null;
+      if (!method?.card) return row;
+      return {
+        ...row,
+        subscription_payment_method_brand: method.card.brand || null,
+        subscription_payment_method_last4: method.card.last4 || null,
+        subscription_payment_method_exp_month: method.card.exp_month || null,
+        subscription_payment_method_exp_year: method.card.exp_year || null,
+      };
+    } catch (error) {
+      console.warn("Unable to refresh a website subscription payment method:", error instanceof Error ? error.message : error);
+      return row;
+    }
+  }));
+}
 
 Deno.serve(async (request) => {
   const origin = originFor(request);
@@ -7,9 +41,11 @@ Deno.serve(async (request) => {
     const { admin, user, authUser } = await requireUser(request);
     const input = await request.json().catch(() => ({}));
     const projectId = String(input.project_id || "").trim();
+    const websiteId = String(input.website_id || "").trim();
     const { data: isAdmin } = await user.rpc("is_platform_admin");
     let projectQuery = admin.from("website_projects").select("id,client_user_id,managed_website_id,name,status,current_stage").order("created_at", { ascending: false });
     if (projectId) projectQuery = projectQuery.eq("id", projectId);
+    else if (websiteId) projectQuery = projectQuery.eq("managed_website_id", websiteId);
     if (isAdmin !== true) projectQuery = projectQuery.eq("client_user_id", authUser.id);
     const { data: projects, error } = await projectQuery;
     if (error) throw new Error(error.message);
@@ -30,10 +66,11 @@ Deno.serve(async (request) => {
     ]);
     const queryError = snapshots.error || subscriptions.error || invoices.error || customers.error || schedules.error || charges.error || communications.error;
     if (queryError) throw new Error(queryError.message);
+    const liveSubscriptions = await addLivePaymentMethods(subscriptions.data || []);
     return response({
       projects,
       snapshots: snapshots.data,
-      subscriptions: subscriptions.data,
+      subscriptions: liveSubscriptions,
       invoices: invoices.data,
       customers: customers.data,
       schedules: schedules.data,
