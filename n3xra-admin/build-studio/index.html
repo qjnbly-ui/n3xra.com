@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=20">
-  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=1">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=2">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -72,6 +72,7 @@
                   <button type="button" data-preview-width="768px" aria-label="Tablet preview">Tablet</button>
                   <button type="button" data-preview-width="390px" aria-label="Mobile preview">Mobile</button>
                 </div>
+                <a class="build-preview-link" id="build-open-preview" href="#" target="_blank" rel="noopener" hidden>Open in new tab</a>
                 <button class="build-icon-button" id="build-refresh-preview" type="button" aria-label="Restart preview">↻</button>
               </div>
               <div class="build-preview-stage"><iframe id="build-preview-frame" title="Live website preview"></iframe></div>
@@ -84,6 +85,6 @@
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=1"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=2"></script>
 </body>
 </html>

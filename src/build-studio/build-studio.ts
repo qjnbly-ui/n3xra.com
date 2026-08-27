@@ -5,6 +5,7 @@ type Website = { id: string; name: string; organization_id?: string | null };
 type Repository = { website_id: string; full_name: string; default_branch: string; html_url?: string | null };
 type BuildSession = {
   id: string;
+  state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   workingBranch: string;
   previewUrl?: string;
   previewState: "offline" | "starting" | "ready" | "failed";
@@ -28,6 +29,7 @@ const notice = byId<HTMLElement>("build-notice");
 const previewFrame = byId<HTMLIFrameElement>("build-preview-frame");
 const checkpointButton = byId<HTMLButtonElement>("build-checkpoint");
 const pushButton = byId<HTMLButtonElement>("build-push");
+const openPreviewLink = byId<HTMLAnchorElement>("build-open-preview");
 
 let accessToken = "";
 let currentWebsite: Website | null = null;
@@ -84,6 +86,8 @@ function renderSession(session: BuildSession) {
   byId("build-change-count").textContent = session.changedFileCount ? `${session.changedFileCount} changed file${session.changedFileCount === 1 ? "" : "s"}` : "No changes";
   checkpointButton.disabled = session.changedFileCount === 0;
   pushButton.disabled = session.changedFileCount === 0;
+  prompt.disabled = session.state === "preparing" || session.state === "failed";
+  composer.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled = prompt.disabled;
   renderPreview(session);
 }
 
@@ -95,6 +99,8 @@ function renderPreview(session: BuildSession) {
   label.textContent = session.previewState === "ready" ? "Live preview" : session.previewState === "failed" ? "Preview needs attention" : "Preview starting";
   const previousState = previewFrame.dataset.previewState || "offline";
   const previousUrl = previewFrame.dataset.previewUrl || "";
+  openPreviewLink.hidden = session.previewState !== "ready" || !session.previewUrl;
+  if (session.previewUrl) openPreviewLink.href = session.previewUrl;
   if (session.previewState === "ready" && session.previewUrl && (previousState !== "ready" || previousUrl !== session.previewUrl)) {
     const previewUrl = new URL(session.previewUrl);
     previewUrl.searchParams.set("refresh", Date.now().toString());
@@ -110,6 +116,17 @@ function handleWorkerEvent(event: WorkerEvent) {
   if (["user_message", "agent_message"].includes(event.eventType) && event.message) addMessage(event.eventType === "user_message" ? "user" : "agent", event.message);
   if (["status", "error", "checkpoint", "push"].includes(event.eventType) && event.message) addMessage("status", event.message);
   const session = event.metadata?.session as BuildSession | undefined;
+  if (session?.state === "failed") {
+    activeSession = null;
+    eventAbort?.abort();
+    workspace.hidden = true;
+    setup.hidden = false;
+    openPreviewLink.hidden = true;
+    byId("build-branch").textContent = "No session";
+    setSetup("The workspace could not open", event.message || "The build worker reported an error. You can safely try again.");
+    showOnly("start");
+    return;
+  }
   if (session) renderSession(session);
 }
 
@@ -168,6 +185,15 @@ async function inspectWorker() {
       showOnly("connect");
       return;
     }
+    const active = await workerRequest<{ session: BuildSession | null; events?: WorkerEvent[] }>(`/v1/projects/${encodeURIComponent(currentWebsite.id)}/active`);
+    if (active.session) {
+      messages.replaceChildren();
+      (active.events || []).forEach(handleWorkerEvent);
+      renderSession(active.session);
+      connectEvents(active.session.id);
+      setNotice(active.session.state === "preparing" ? "Restored the workspace. Preparation is still running." : "Workspace restored.");
+      return;
+    }
     setSetup("Ready to build", "Open a secure branch and live preview for this website.");
     showOnly("start");
   } catch (error) {
@@ -189,6 +215,7 @@ async function startSession() {
     messages.replaceChildren();
     (result.events || []).forEach(handleWorkerEvent);
     renderSession(result.session);
+    addMessage("status", "Build Studio reserved the branch. Repository and preview preparation will continue here.");
     connectEvents(result.session.id);
   } catch (error) {
     setSetup("The workspace could not open", error instanceof Error ? error.message : "Try again in a moment.");
@@ -219,6 +246,11 @@ async function initialize() {
     if (currentWebsite) writeWorkspaceContext("admin", context.session!.user.id, { websiteId: currentWebsite.id, name: currentWebsite.name });
     activeSession = null;
     eventAbort?.abort();
+    messages.replaceChildren();
+    previewFrame.src = "about:blank";
+    previewFrame.dataset.previewState = "offline";
+    previewFrame.dataset.previewUrl = "";
+    openPreviewLink.hidden = true;
     setup.hidden = false;
     workspace.hidden = true;
     inspectWorker();
@@ -260,7 +292,13 @@ pushButton.addEventListener("click", async () => {
 });
 byId("build-refresh-preview").addEventListener("click", async () => {
   if (!activeSession) return;
-  await workerRequest(`/v1/sessions/${activeSession.id}/preview/restart`, { method: "POST", body: "{}" }).catch((error: Error) => setNotice(error.message, true));
+  try {
+    const result = await workerRequest<{ session: BuildSession }>(`/v1/sessions/${activeSession.id}/preview/restart`, { method: "POST", body: "{}" });
+    renderSession(result.session);
+    addMessage("status", "Restarting the live preview.");
+  } catch (error) {
+    setNotice(error instanceof Error ? error.message : "The preview could not restart.", true);
+  }
 });
 document.querySelectorAll<HTMLButtonElement>("[data-preview-width]").forEach((button) => button.addEventListener("click", () => {
   document.querySelectorAll("[data-preview-width]").forEach((item) => item.classList.remove("is-current"));

@@ -22,7 +22,12 @@ test("Build Studio UI keeps repository mutations behind explicit controls", asyn
   assert.match(source, /\/push/);
   assert.match(source, /session\.previewState === "ready"/);
   assert.match(source, /searchParams\.set\("refresh"/);
+  assert.match(source, /\/active/);
+  assert.match(source, /Workspace restored/);
+  assert.match(source, /renderSession\(result\.session\)/);
   assert.match(markup, /Changes stay on this branch/);
+  assert.match(markup, /Open in new tab/);
+  assert.match(markup, /target="_blank"/);
   assert.doesNotMatch(source, /OPENAI_API_KEY/);
 });
 
@@ -52,8 +57,13 @@ test("Build worker ships as a persistent Render service", async () => {
   assert.match(worker, /\["install", "--package-lock=false", "--no-audit", "--no-fund"\]/);
   assert.match(worker, /"x-frame-options"/);
   assert.match(worker, /"content-security-policy"/);
+  assert.match(worker, /Content-Security-Policy/);
+  assert.match(worker, /Cross-Origin-Resource-Policy/);
   assert.match(worker, /removeAllListeners\("exit"\)/);
   assert.match(worker, /session\.previewProcess !== previewProcess/);
+  assert.match(worker, /activeProject/);
+  assert.match(worker, /void prepareProject\(session\)/);
+  assert.match(worker, /Installing the website dependencies/);
   assert.match(dockerfile, /@openai\/codex@0\.143\.0/);
   assert.match(dockerfile, /N3XRA_BUILD_HOST=0\.0\.0\.0/);
 });
