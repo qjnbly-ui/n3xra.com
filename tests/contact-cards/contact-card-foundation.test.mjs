@@ -140,3 +140,11 @@ test("contact cards store additional public emails and phone numbers", async () 
   assert.match(publicCard, /card\.additional_emails/);
   assert.match(publicCard, /card\.additional_phones/);
 });
+
+test("customers can keep editing while N3XRA fulfills a physical card", async () => {
+  const migration = await read("supabase/migrations/20260827032319_allow_customer_profile_updates_during_fulfillment.sql");
+  assert.match(migration, /new\.physical_card_status is distinct from old\.physical_card_status/);
+  assert.match(migration, /old\.physical_card_status in \('processing', 'shipped', 'delivered'\)/);
+  assert.match(migration, /Only N3XRA can update card fulfillment status/);
+  assert.match(migration, /if new\.physical_card_status is distinct from old\.physical_card_status then[\s\S]*if new\.physical_card_status not in \('not_requested', 'requested'\) then/);
+});
