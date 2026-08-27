@@ -634,7 +634,7 @@ function websitePageController(page) {
 }
 
 async function startWebsiteWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=18");
+  const productShell = await import("/account/admin/product-shell.js?v=19");
   await productShell.startProductShell();
   const websiteWorkspace = await import("/n3xra-admin/website-admin-workspace.js?v=16");
   websiteWorkspace.startWebsiteAdminWorkspace();
@@ -647,7 +647,7 @@ async function startWebsiteWorkspace(page) {
 }
 
 async function startNativeProductWorkspace(page) {
-  const productShell = await import("/account/admin/product-shell.js?v=18");
+  const productShell = await import("/account/admin/product-shell.js?v=19");
   await productShell.startProductShell();
   const controllerUrl = websitePageController(page);
   if (!controllerUrl) throw new Error("This product workspace has no controller.");

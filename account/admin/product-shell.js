@@ -22,7 +22,7 @@ function prepareNativeProductShell() {
   main.classList.add("portal-shell", "account-admin-page", "product-native-page");
   document.body.classList.add("product-native-admin");
   document.querySelector(".site-topbar")?.classList.add("admin-topbar");
-  document.querySelectorAll("footer").forEach((footer) => { footer.hidden = true; });
+  document.querySelectorAll(".site-footer, .home-footer").forEach((footer) => { footer.hidden = true; });
 
   const layout = main.querySelector(":scope > .portal-layout");
   if (!layout) {
