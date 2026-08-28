@@ -44,6 +44,7 @@ interface PortalFeatureRow {
 const appGrid = document.querySelector<HTMLElement>("#portal-app-grid");
 const appStatus = document.querySelector<HTMLElement>("#portal-app-status");
 const HIDDEN_CUSTOMER_PRODUCT_KEYS = new Set(["ai_music", "music", "virals"]);
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function escapeHtml(value: string): string {
   return value
@@ -141,6 +142,14 @@ function websiteApp(features: Record<string, boolean> = {}): PortalApp {
   };
 }
 
+function requestedWebsiteHref(href: string): string {
+  const websiteId = new URLSearchParams(window.location.search).get("website") || "";
+  if (!UUID_PATTERN.test(websiteId)) return href;
+  const url = new URL(href, window.location.origin);
+  url.searchParams.set("website", websiteId);
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 function organizationAdminApp(organizationId: string): PortalApp {
   return {
     key: "organization_admin",
@@ -172,7 +181,7 @@ async function loadPortalApps(): Promise<void> {
 
   const tenant = await resolvePortalTenant(supabase);
   if (tenant.mode === "unbound") {
-    window.location.replace(websiteApp().href);
+    window.location.replace(requestedWebsiteHref(websiteApp().href));
     return;
   }
   if (tenant.mode !== "tenant") {
@@ -207,18 +216,22 @@ async function loadPortalApps(): Promise<void> {
     .in("status", ["trialing", "active", "past_due"]);
   if (error) throw error;
 
-  const { data: memberAccess, error: memberAccessError } = await supabase
-    .from("organization_product_member_access")
-    .select("product_key")
-    .eq("organization_id", organizationId)
-    .eq("user_id", session.user.id)
-    .eq("status", "active");
+  const [{ data: memberAccess, error: memberAccessError }, { data: platformAdmin, error: platformAdminError }] = await Promise.all([
+    supabase
+      .from("organization_product_member_access")
+      .select("product_key")
+      .eq("organization_id", organizationId)
+      .eq("user_id", session.user.id)
+      .eq("status", "active"),
+    supabase.rpc("is_platform_admin"),
+  ]);
   if (memberAccessError) throw memberAccessError;
+  if (platformAdminError) throw platformAdminError;
   const allowedProductKeys = new Set(((memberAccess || []) as ProductMemberAccessRow[]).map((access) => access.product_key));
 
   for (const entitlement of (data || []) as EntitlementRow[]) {
     const product = productFrom(entitlement);
-    if (!allowedProductKeys.has(String(product?.product_key || ""))) continue;
+    if (platformAdmin !== true && !allowedProductKeys.has(String(product?.product_key || ""))) continue;
     if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase())) continue;
     const path = safePortalPath(product?.portal_path || "");
     if (!product || !path || product.status !== "active" || !product.client_portal_available) continue;

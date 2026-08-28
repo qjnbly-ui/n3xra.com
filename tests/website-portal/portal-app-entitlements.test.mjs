@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=9/);
+  assert.match(html, /portal-apps\.js\?v=10/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -74,7 +74,7 @@ test("the website app lands on the first enabled section when Progress is off", 
   assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", tenant\.website_id\)/);
   assert.match(workspaceContext, /const currentFeature = PAGE_FEATURES\[pageKey\]/);
   assert.match(workspaceContext, /currentFeature && !featureEnabled\(currentFeature, selectedFeatures\)/);
-  assert.match(workspaceContext, /window\.location\.replace\(defaultWebsiteRoute\(selectedFeatures\)\)/);
+  assert.match(workspaceContext, /window\.location\.replace\(routeForWebsite\(defaultWebsiteRoute\(selectedFeatures\), website\.id/);
 });
 
 test("the app dashboard shows only additional subscriptions, not Website Management", async () => {
@@ -104,11 +104,41 @@ test("the N3XRA website portal opens Website Management without the branded app 
     projectFile("client-portal/brand-shell.js"),
   ]);
 
-  assert.match(apps, /tenant\.mode === "unbound"[\s\S]*window\.location\.replace\(websiteApp\(\)\.href\)/);
+  assert.match(apps, /tenant\.mode === "unbound"[\s\S]*window\.location\.replace\(requestedWebsiteHref\(websiteApp\(\)\.href\)\)/);
+  assert.match(apps, /function requestedWebsiteHref\(href\)[\s\S]*URLSearchParams\(window\.location\.search\)\.get\("website"\)[\s\S]*url\.searchParams\.set\("website", websiteId\)/);
   assert.match(shell, /isBrandedPortalHostname\(\)[\s\S]*Dashboard/);
   assert.match(workspaceContext, /isBrandedPortalHostname\(\)[\s\S]*Dashboard/);
   assert.match(brandShell, /showN3xraPortalIdentity/);
   assert.match(brandShell, /N3XRA \| Website Management/);
+});
+
+test("explicit website selection survives every unbranded workspace transition", async () => {
+  const [apps, workspaceContext, shell, html] = await Promise.all([
+    projectFile("client-portal/portal-apps.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/index.html"),
+  ]);
+
+  assert.match(apps, /UUID_PATTERN/);
+  assert.match(apps, /requestedWebsiteHref\(websiteApp\(\)\.href\)/);
+  assert.match(workspaceContext, /function routeForWebsite\(href, websiteId, organizationId = ""\)/);
+  assert.match(workspaceContext, /\.website-organization-navigation a/);
+  assert.match(workspaceContext, /routeForWebsite\(defaultWebsiteRoute\(selectedFeatures\), website\.id/);
+  assert.match(shell, /client-workspace-context\.js\?v=22/);
+  assert.match(html, /client-shell\.js\?v=27/);
+});
+
+test("platform administrators can open entitled customer apps without customer membership grants", async () => {
+  const [apps, workspaceContext] = await Promise.all([
+    projectFile("client-portal/portal-apps.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+  ]);
+
+  assert.match(apps, /supabase\.rpc\("is_platform_admin"\)/);
+  assert.match(apps, /platformAdmin !== true && !allowedProductKeys\.has/);
+  assert.match(workspaceContext, /supabase\.rpc\("is_platform_admin"\)/);
+  assert.match(workspaceContext, /platformAdmin \|\| allowedProductKeys\.has\(productKey\)/);
 });
 
 test("client navigation separates apps from the website workspace", async () => {

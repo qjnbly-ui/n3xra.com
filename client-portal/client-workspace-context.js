@@ -59,6 +59,16 @@ function defaultWebsiteRoute(features = {}) {
   return routes.find(([, , enabled]) => enabled)?.[1] || "/client-portal/#new-project";
 }
 
+function routeForWebsite(href, websiteId, organizationId = "") {
+  if (!websiteId) return href;
+  const url = new URL(href, window.location.origin);
+  url.searchParams.set("website", websiteId);
+  if (url.pathname.replace(/\/+$/, "").startsWith("/client-portal/communications") && organizationId) {
+    url.searchParams.set("organization", organizationId);
+  }
+  return `${url.pathname}${url.search}${url.hash}`;
+}
+
 function featureEnabled(featureKey, features = {}) {
   return featureKey === "analytics" ? features.analytics === true : features[featureKey] !== false;
 }
@@ -120,7 +130,7 @@ function renderShell(panel, pageKey) {
 
 async function visiblePortalAppKeys(supabase, organizationId, userId) {
   if (!organizationId) return [];
-  const [entitlementResult, memberAccessResult] = await Promise.all([
+  const [entitlementResult, memberAccessResult, platformAdminResult] = await Promise.all([
     supabase
       .from("organization_product_entitlements")
       .select("product:n3xra_product_catalog(product_key,status,client_portal_available,portal_path)")
@@ -133,8 +143,10 @@ async function visiblePortalAppKeys(supabase, organizationId, userId) {
       .eq("organization_id", organizationId)
       .eq("user_id", userId)
       .eq("status", "active"),
+    supabase.rpc("is_platform_admin"),
   ]);
-  if (entitlementResult.error || memberAccessResult.error) return [];
+  if (entitlementResult.error || memberAccessResult.error || platformAdminResult.error) return [];
+  const platformAdmin = platformAdminResult.data === true;
   const allowedProductKeys = new Set((memberAccessResult.data || []).map((row) => String(row.product_key || "")));
   return (entitlementResult.data || []).flatMap((row) => {
     const products = Array.isArray(row.product) ? row.product : [row.product];
@@ -143,7 +155,7 @@ async function visiblePortalAppKeys(supabase, organizationId, userId) {
       const portalPath = String(product?.portal_path || "").trim();
       return product?.status === "active"
         && product?.client_portal_available
-        && allowedProductKeys.has(productKey)
+        && (platformAdmin || allowedProductKeys.has(productKey))
         && !HIDDEN_CUSTOMER_PRODUCT_KEYS.has(productKey)
         && /^\/(?!\/)[^\s]*$/.test(portalPath);
     }).map((product) => String(product.product_key || "").toLowerCase());
@@ -246,13 +258,18 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
     }
     selectedId = website.id;
     const selectedFeatures = featureMap(featureResult.data || [], website.id);
+    if (tenantResolution.mode === "unbound") {
+      panel.querySelectorAll(".website-organization-navigation a").forEach((link) => {
+        link.href = routeForWebsite(link.getAttribute("href") || "", website.id, website.organization_id || "");
+      });
+    }
     document.querySelectorAll("[data-client-feature]").forEach((item) => {
       const featureKey = item.dataset.clientFeature;
       item.hidden = featureKey === "analytics" ? selectedFeatures.analytics !== true : selectedFeatures[featureKey] === false;
     });
     const currentFeature = PAGE_FEATURES[pageKey];
     if (currentFeature && !featureEnabled(currentFeature, selectedFeatures)) {
-      window.location.replace(defaultWebsiteRoute(selectedFeatures));
+      window.location.replace(routeForWebsite(defaultWebsiteRoute(selectedFeatures), website.id, website.organization_id || ""));
       return;
     }
     selectedValue.textContent = website.name;
