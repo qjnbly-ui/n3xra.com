@@ -163,7 +163,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=13/);
+  assert.match(activation, /\/card\/editor\.js\?v=14/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -278,7 +278,7 @@ test("platform administrators can update a contact card owner", async () => {
   assert.match(migration, /contact_card_profiles to authenticated/i);
 });
 
-test("Contact Card commerce uses one-time Stripe checkout and protected entitlements", async () => {
+test("Contact Card commerce keeps one-time card checkout while reserving branding removal for Premium", async () => {
   const [migration, billing, webhook, editor, landing] = await Promise.all([
     read("supabase/migrations/20260827051948_contact_card_commerce.sql"),
     read("supabase/functions/contact-card-billing/index.ts"),
@@ -291,9 +291,11 @@ test("Contact Card commerce uses one-time Stripe checkout and protected entitlem
   assert.match(billing, /mode: "payment"/);
   assert.match(billing, /STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL/);
   assert.match(webhook, /n3xra_contact_card/);
-  assert.match(editor, /startCheckout\("branding_removal"/);
   assert.match(editor, /checkoutProduct === "branding_removal"/);
   assert.match(editor, /brandingToggle\.checked = true/);
-  assert.match(landing, /Permanent “Powered by N3XRA” removal/);
+  assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
+  assert.match(editor, /Branding removal is included with Premium/);
+  assert.doesNotMatch(landing, /Permanent “Powered by N3XRA” removal/);
+  assert.doesNotMatch(landing, /\$9\.99/);
   assert.match(landing, /3-card tap pack/);
 });

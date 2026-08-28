@@ -525,7 +525,7 @@ function fillForm(row) {
     if (removeBrandingButton)
         removeBrandingButton.hidden = hasBrandingRemoval;
     if (brandingHelp)
-        brandingHelp.textContent = hasBrandingRemoval ? "This permanent upgrade is active. You can show or hide the N3XRA credit anytime." : "Turn this off to open the one-time $9.99 checkout. After payment, it stays unlocked permanently.";
+        brandingHelp.textContent = hasBrandingRemoval ? "Your existing branding-removal access stays active. You can show or hide the N3XRA credit anytime." : "Branding removal will be included with N3XRA Contact Card Premium.";
     renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
     renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
     if (exchangeToggle)
@@ -1004,9 +1004,9 @@ activationForm?.addEventListener("submit", (event) => {
     })();
 });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
-removeBrandingButton?.addEventListener("click", () => { void startCheckout("branding_removal", removeBrandingButton).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); });
+removeBrandingButton?.addEventListener("click", () => { setSaveStatus("Branding removal is included with Premium. Subscription options are coming next."); });
 brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || brandingToggle.checked)
-    return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; void startCheckout("branding_removal", removeBrandingButton).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); });
+    return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; setSaveStatus("Branding removal is included with Premium. Subscription options are coming next."); });
 document.querySelectorAll("[data-contact-card-product]").forEach((button) => button.addEventListener("click", () => { void startCheckout(button.dataset.contactCardProduct, button).catch((error) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); }));
 document.querySelectorAll("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput; if (!file || !(type in MEDIA_CONFIG))
     return; void uploadMedia(type, file).catch((error) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));

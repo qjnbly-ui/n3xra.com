@@ -82,7 +82,7 @@ const RECENT_CAPABILITIES = [
     introducedBy: "59dbf69",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",
-    summary: "Contact Cards now use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, branding removal is a one-time $9.99 upgrade, another card is $7.99, and a three-card pack is $19.99. Existing profiles are preserved, paid entitlements are enforced in Supabase, customers can buy upgrades inside the editor, and paid physical-card orders notify the Admin Inbox.",
+    summary: "Contact Cards use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, another card is $7.99, and a three-card pack is $19.99. New one-time branding-removal sales are retired in favor of an upcoming Premium plan, while existing paid branding entitlements remain honored. The workspace also includes Connect Back contacts, business-card scanning, CSV export, individual vCard downloads, and physical-card fulfillment through the Admin Inbox.",
   },
   {
     introducedBy: "6c6c2a5",

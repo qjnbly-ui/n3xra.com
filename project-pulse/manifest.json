@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-27T12:17:39.828Z",
-  "updatedAt": "2026-08-27T05:13:34-07:00",
-  "commit": "b1484a7",
+  "generatedAt": "2026-08-28T15:46:08.004Z",
+  "updatedAt": "2026-08-28T08:38:41-07:00",
+  "commit": "3a27529",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 223,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 890,
-    "sourceLines": 222832,
+    "statement": "N3XRA is a connected technology platform comprising approximately 226,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 897,
+    "sourceLines": 225520,
     "products": 6,
     "pages": 128,
-    "apiFunctions": 92,
+    "apiFunctions": 93,
     "edgeFunctions": 28,
-    "databaseMigrations": 213
+    "databaseMigrations": 219
   },
   "sourceBreakdown": {
     "css": {
       "files": 54,
-      "lines": 39911
+      "lines": 40075
     },
     "html": {
       "files": 128,
-      "lines": 31672
+      "lines": 31748
     },
     "js": {
-      "files": 279,
-      "lines": 86235
+      "files": 280,
+      "lines": 87066
     },
     "sql": {
-      "files": 342,
-      "lines": 43154
+      "files": 348,
+      "lines": 44236
     },
     "ts": {
       "files": 86,
-      "lines": 21321
+      "lines": 21856
     },
     "tsx": {
       "files": 1,
@@ -104,7 +104,7 @@
     {
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",
-      "summary": "Contact Cards now use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, branding removal is a one-time $9.99 upgrade, another card is $7.99, and a three-card pack is $19.99. Existing profiles are preserved, paid entitlements are enforced in Supabase, customers can buy upgrades inside the editor, and paid physical-card orders notify the Admin Inbox."
+      "summary": "Contact Cards use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, another card is $7.99, and a three-card pack is $19.99. New one-time branding-removal sales are retired in favor of an upcoming Premium plan, while existing paid branding entitlements remain honored. The workspace also includes Connect Back contacts, business-card scanning, CSV export, individual vCard downloads, and physical-card fulfillment through the Admin Inbox."
     },
     {
       "date": "2026-08-26",
