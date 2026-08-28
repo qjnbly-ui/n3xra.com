@@ -10,9 +10,13 @@ interface ContactCard {
   company_name: string;
   bio: string;
   email: string | null;
+  email_label: string;
   additional_emails: string[];
+  additional_email_labels: string[];
   phone_e164: string | null;
+  phone_label: string;
   additional_phones: string[];
+  additional_phone_labels: string[];
   website_url: string | null;
   location_text: string;
   links: CardLink[];
@@ -66,9 +70,39 @@ function safeUrl(value: string): string {
   }
 }
 
-function linkIcon(label: string): string {
-  const words = label.split(/\s+/).filter(Boolean);
-  return words.length > 1 ? words.slice(0, 2).map((word) => word[0]?.toUpperCase() || "").join("") : label.slice(0, 2).toUpperCase();
+function serviceName(label: string, value: string): string {
+  const haystack = `${label} ${value}`.toLowerCase();
+  if (haystack.includes("instagram")) return "instagram";
+  if (haystack.includes("facebook") || haystack.includes("fb.com")) return "facebook";
+  if (haystack.includes("linkedin")) return "linkedin";
+  if (haystack.includes("twitter") || haystack.includes("x.com")) return "x";
+  if (haystack.includes("tiktok")) return "tiktok";
+  if (haystack.includes("youtube") || haystack.includes("youtu.be")) return "youtube";
+  if (haystack.includes("github")) return "github";
+  if (value.startsWith("mailto:")) return "email";
+  if (value.startsWith("tel:")) return "phone";
+  return "website";
+}
+
+function serviceIcon(label: string, value: string): HTMLElement {
+  const service = serviceName(label, value);
+  const icon = document.createElement("span");
+  icon.className = `contact-card-link-icon is-${service}`;
+  icon.setAttribute("aria-hidden", "true");
+  const paths: Record<string, string> = {
+    instagram: '<svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.6" cy="6.5" r="1" class="fill"/></svg>',
+    facebook: '<svg viewBox="0 0 24 24"><path class="fill" d="M13.8 21v-8h2.8l.4-3h-3.2V8.1c0-.9.3-1.6 1.7-1.6H17V3.8c-.3 0-1.2-.1-2.4-.1-2.4 0-4.1 1.5-4.1 4.2V10H8v3h2.5v8h3.3Z"/></svg>',
+    linkedin: '<svg viewBox="0 0 24 24"><rect class="fill" x="4" y="9" width="3.5" height="11"/><circle class="fill" cx="5.75" cy="5.75" r="2"/><path class="fill" d="M10 9h3.3v1.5h.1c.5-.9 1.6-1.9 3.4-1.9 3.6 0 4.2 2.3 4.2 5.4v6h-3.5v-5.3c0-1.3 0-2.9-1.8-2.9s-2.1 1.4-2.1 2.8V20H10V9Z"/></svg>',
+    x: '<svg viewBox="0 0 24 24"><path class="fill" d="M4 4h4.2l4.5 6.1L18 4h2l-6.4 7.5L20.6 21h-4.2l-4.9-6.6L5.9 21h-2l6.7-8L4 4Zm3.1 1.8 10.2 13.4h1.2L8.3 5.8H7.1Z"/></svg>',
+    tiktok: '<svg viewBox="0 0 24 24"><path class="fill" d="M15 3c.3 2.1 1.5 3.5 3.7 4v3.1a8.2 8.2 0 0 1-3.7-1v6.2a5.8 5.8 0 1 1-5-5.7v3.2a2.7 2.7 0 1 0 1.8 2.5V3H15Z"/></svg>',
+    youtube: '<svg viewBox="0 0 24 24"><rect class="fill" x="2.5" y="5.5" width="19" height="13" rx="4"/><path d="m10 9 5 3-5 3Z" class="cut"/></svg>',
+    github: '<svg viewBox="0 0 24 24"><path class="fill" d="M12 2.8a9.5 9.5 0 0 0-3 18.5c.5.1.7-.2.7-.5v-1.9c-2.8.6-3.4-1.2-3.4-1.2-.5-1.1-1.1-1.4-1.1-1.4-.9-.6.1-.6.1-.6 1 0 1.6 1.1 1.6 1.1.9 1.6 2.4 1.1 3 .9.1-.7.4-1.1.7-1.3-2.3-.3-4.7-1.1-4.7-5a3.9 3.9 0 0 1 1-2.7c-.1-.3-.5-1.3.1-2.7 0 0 .9-.3 2.8 1a9.8 9.8 0 0 1 5.1 0c2-1.3 2.8-1 2.8-1 .6 1.4.2 2.4.1 2.7a3.9 3.9 0 0 1 1 2.7c0 3.9-2.4 4.7-4.7 5 .4.3.7 1 .7 1.9v2.5c0 .3.2.6.7.5A9.5 9.5 0 0 0 12 2.8Z"/></svg>',
+    email: '<svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m4 7 8 6 8-6"/></svg>',
+    phone: '<svg viewBox="0 0 24 24"><path d="M7.2 3.8 10 8.6 7.8 11c1.1 2.3 2.9 4.1 5.2 5.2l2.4-2.2 4.8 2.8-.7 3c-.2.8-.9 1.3-1.7 1.3C9.6 20.8 3.2 14.4 3 6.2c0-.8.5-1.5 1.3-1.7l2.9-.7Z"/></svg>',
+    website: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.3 2.5 3.5 5.5 3.5 9S14.3 18.5 12 21c-2.3-2.5-3.5-5.5-3.5-9S9.7 5.5 12 3Z"/></svg>',
+  };
+  icon.innerHTML = paths[service] || paths.website || "";
+  return icon;
 }
 
 function addLink(container: HTMLElement, label: string, detail: string, url: string): void {
@@ -81,9 +115,7 @@ function addLink(container: HTMLElement, label: string, detail: string, url: str
     link.target = "_blank";
     link.rel = "noopener";
   }
-  const icon = document.createElement("span");
-  icon.className = "contact-card-link-icon";
-  icon.textContent = linkIcon(label);
+  const icon = serviceIcon(label, href);
   const copy = document.createElement("span");
   const strong = document.createElement("strong");
   strong.textContent = label;
@@ -180,10 +212,10 @@ function render(card: ContactCard): void {
   }
 
   const contactLinks = byId("card-contact-links");
-  if (card.email) addLink(contactLinks, "Email", card.email, `mailto:${card.email}`);
-  for (const email of card.additional_emails || []) addLink(contactLinks, "Email", email, `mailto:${email}`);
-  if (card.phone_e164) addLink(contactLinks, "Phone", formatPhone(card.phone_e164), `tel:${card.phone_e164}`);
-  for (const phone of card.additional_phones || []) addLink(contactLinks, "Phone", formatPhone(phone), `tel:${phone}`);
+  if (card.email) addLink(contactLinks, text(card.email_label) || "Email", card.email, `mailto:${card.email}`);
+  for (const [index, email] of (card.additional_emails || []).entries()) addLink(contactLinks, text(card.additional_email_labels?.[index]) || "Email", email, `mailto:${email}`);
+  if (card.phone_e164) addLink(contactLinks, text(card.phone_label) || "Phone", formatPhone(card.phone_e164), `tel:${card.phone_e164}`);
+  for (const [index, phone] of (card.additional_phones || []).entries()) addLink(contactLinks, text(card.additional_phone_labels?.[index]) || "Phone", formatPhone(phone), `tel:${phone}`);
   if (card.website_url) addLink(contactLinks, "Website", new URL(card.website_url).hostname.replace(/^www\./, ""), card.website_url);
   byId("card-contact-section").hidden = contactLinks.children.length === 0;
 

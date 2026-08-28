@@ -142,31 +142,40 @@ function collectLinks() {
         return []; if (!label || !rawUrl)
         throw new Error("Each link needs both a label and an address."); const url = normalizeUrl(rawUrl); return url ? [{ label, url }] : []; });
 }
-function addContactRow(type, value = "") {
+function addContactRow(type, value = "", contactLabel = "") {
     const container = type === "email" ? additionalEmailContainer : additionalPhoneContainer;
     if (!container || container.children.length >= 5)
         return;
     const row = document.createElement("div");
     row.className = "card-repeatable-row";
+    const label = document.createElement("input");
+    label.type = "text";
+    label.maxLength = 60;
+    label.placeholder = type === "email" ? "Work, personal…" : "Mobile, office…";
+    label.value = contactLabel || (type === "email" ? "Email" : "Phone");
+    label.dataset.contactLabel = type;
+    label.setAttribute("aria-label", `${type === "email" ? "Email" : "Phone"} description`);
     const input = document.createElement("input");
     input.type = type === "email" ? "email" : "tel";
     input.maxLength = type === "email" ? 320 : 40;
     input.placeholder = type === "email" ? "Additional email address" : "Additional phone number";
     input.value = value;
+    input.dataset.additionalContact = type;
     const remove = document.createElement("button");
     remove.type = "button";
     remove.textContent = "×";
     remove.setAttribute("aria-label", `Remove additional ${type}`);
     remove.addEventListener("click", () => { row.remove(); markChanged(); });
-    row.append(input, remove);
+    row.append(label, input, remove);
     container.append(row);
 }
-function renderContacts(type, values) { const container = type === "email" ? additionalEmailContainer : additionalPhoneContainer; container?.replaceChildren(); if (Array.isArray(values))
-    for (const value of values.slice(0, 5))
+function renderContacts(type, values, labels) { const container = type === "email" ? additionalEmailContainer : additionalPhoneContainer; container?.replaceChildren(); if (Array.isArray(values))
+    for (const [index, value] of values.slice(0, 5).entries())
         if (String(value || "").trim())
-            addContactRow(type, String(value)); }
+            addContactRow(type, String(value), Array.isArray(labels) ? String(labels[index] || "") : ""); }
 function collectContacts(type) { const container = type === "email" ? additionalEmailContainer : additionalPhoneContainer; if (!container)
-    return []; return Array.from(new Set(Array.from(container.querySelectorAll("input")).map((input) => type === "email" ? normalizeEmail(input.value) : normalizePhone(input.value)).filter((value) => Boolean(value)))); }
+    return []; const seen = new Set(); return Array.from(container.querySelectorAll(".card-repeatable-row")).flatMap((row) => { const input = row.querySelector("[data-additional-contact]"); const label = row.querySelector("[data-contact-label]")?.value.trim() || (type === "email" ? "Email" : "Phone"); const value = input ? (type === "email" ? normalizeEmail(input.value) : normalizePhone(input.value)) : null; if (!value || seen.has(value))
+    return []; seen.add(value); return [{ value, label }]; }); }
 function mediaPath(card, type) { return String(card[MEDIA_CONFIG[type].column] || ""); }
 function setMediaPreview(type, url = "") {
     const preview = document.querySelector(`#admin-card-media-${type}-preview`);
@@ -315,12 +324,12 @@ function showCard(card) {
     form.reset();
     field("id").value = selectedId;
     renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
-    for (const name of ["slug", "status", "physical_card_status", "display_name", "headline", "company_name", "bio", "email", "phone_e164", "website_url", "location_text", "accent_color", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"])
-        field(name).value = String(card?.[name] ?? (name === "shipping_country" ? "United States" : name === "status" ? "published" : name === "physical_card_status" ? "not_requested" : name === "accent_color" ? "#2f7d68" : ""));
+    for (const name of ["slug", "status", "physical_card_status", "display_name", "headline", "company_name", "bio", "email", "email_label", "phone_e164", "phone_label", "website_url", "location_text", "accent_color", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"])
+        field(name).value = String(card?.[name] ?? (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : name === "shipping_country" ? "United States" : name === "status" ? "published" : name === "physical_card_status" ? "not_requested" : name === "accent_color" ? "#2f7d68" : ""));
     const branding = field("show_n3xra_branding");
     branding.checked = card?.show_n3xra_branding !== false;
-    renderContacts("email", card?.additional_emails);
-    renderContacts("phone", card?.additional_phones);
+    renderContacts("email", card?.additional_emails, card?.additional_email_labels);
+    renderContacts("phone", card?.additional_phones, card?.additional_phone_labels);
     sectionOrder = validSectionOrder(card?.section_order);
     renderSectionOrder();
     linksContainer?.replaceChildren();
@@ -381,7 +390,9 @@ function payload() {
         throw new Error("Enter the name shown on the card.");
     const primaryEmail = normalizeEmail(field("email").value);
     const primaryPhone = normalizePhone(field("phone_e164").value);
-    return { owner_user_id: ownerUserId, slug, status: field("status").value, physical_card_status: field("physical_card_status").value, display_name: displayName, headline: field("headline").value.trim(), company_name: field("company_name").value.trim(), bio: field("bio").value.trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(field("website_url").value), location_text: field("location_text").value.trim(), links: collectLinks(), section_order: sectionOrder, accent_color: field("accent_color").value || "#2f7d68", show_n3xra_branding: field("show_n3xra_branding").checked, shipping_name: field("shipping_name").value.trim(), shipping_address_line_1: field("shipping_address_line_1").value.trim(), shipping_address_line_2: field("shipping_address_line_2").value.trim(), shipping_city: field("shipping_city").value.trim(), shipping_region: field("shipping_region").value.trim(), shipping_postal_code: field("shipping_postal_code").value.trim(), shipping_country: field("shipping_country").value.trim() || "United States" };
+    const emailContacts = collectContacts("email").filter((item) => item.value !== primaryEmail);
+    const phoneContacts = collectContacts("phone").filter((item) => item.value !== primaryPhone);
+    return { owner_user_id: ownerUserId, slug, status: field("status").value, physical_card_status: field("physical_card_status").value, display_name: displayName, headline: field("headline").value.trim(), company_name: field("company_name").value.trim(), bio: field("bio").value.trim(), email: primaryEmail, email_label: field("email_label").value.trim() || "Email", phone_e164: primaryPhone, phone_label: field("phone_label").value.trim() || "Phone", additional_emails: emailContacts.map((item) => item.value), additional_email_labels: emailContacts.map((item) => item.label), additional_phones: phoneContacts.map((item) => item.value), additional_phone_labels: phoneContacts.map((item) => item.label), website_url: normalizeUrl(field("website_url").value), location_text: field("location_text").value.trim(), links: collectLinks(), section_order: sectionOrder, accent_color: field("accent_color").value || "#2f7d68", show_n3xra_branding: field("show_n3xra_branding").checked, shipping_name: field("shipping_name").value.trim(), shipping_address_line_1: field("shipping_address_line_1").value.trim(), shipping_address_line_2: field("shipping_address_line_2").value.trim(), shipping_city: field("shipping_city").value.trim(), shipping_region: field("shipping_region").value.trim(), shipping_postal_code: field("shipping_postal_code").value.trim(), shipping_country: field("shipping_country").value.trim() || "United States" };
 }
 function imageElement(file) { return new Promise((resolve, reject) => { const image = new Image(); const url = URL.createObjectURL(file); image.onload = () => { URL.revokeObjectURL(url); resolve(image); }; image.onerror = () => { URL.revokeObjectURL(url); reject(new Error("The photo could not be opened.")); }; image.src = url; }); }
 function canvasBlob(canvas, quality) { return new Promise((resolve, reject) => canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error("The photo could not be prepared.")), "image/jpeg", quality)); }

@@ -67,8 +67,8 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=7/);
-  assert.match(admin, /\/card\/card\.css\?v=8/);
+  assert.match(admin, /\/card\/admin\.js\?v=8/);
+  assert.match(admin, /\/card\/card\.css\?v=10/);
   assert.match(admin, /\/account\/admin\/product-shell\.js\?v=19/);
   assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
@@ -152,7 +152,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=9/);
+  assert.match(activation, /\/card\/editor\.js\?v=10/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -190,7 +190,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=9/);
+  assert.match(editorPage, /\/card\/card\.css\?v=10/);
 });
 
 test("contact cards store additional public emails and phone numbers", async () => {
@@ -203,6 +203,29 @@ test("contact cards store additional public emails and phone numbers", async () 
   assert.match(migration, /cardinality\(additional_emails\) <= 5/);
   assert.match(publicCard, /card\.additional_emails/);
   assert.match(publicCard, /card\.additional_phones/);
+});
+
+test("contact methods retain descriptions and public links use service logos", async () => {
+  const [migration, endpoint, editor, admin, publicCard, editorPage] = await Promise.all([
+    read("supabase/migrations/20260828135838_add_contact_card_contact_labels.sql"),
+    read("api/contact-card.js"),
+    read("src/contact-cards/editor.ts"),
+    read("src/contact-cards/admin.ts"),
+    read("src/contact-cards/public-card.ts"),
+    read("client-portal/contact-card/index.html"),
+  ]);
+  assert.match(migration, /additional_email_labels text\[\]/);
+  assert.match(migration, /additional_phone_labels text\[\]/);
+  assert.match(migration, /grant update \([\s\S]*email_label[\s\S]*additional_phone_labels/i);
+  assert.match(endpoint, /additional_email_labels/);
+  assert.match(editorPage, /name="email_label"/);
+  assert.match(editorPage, /name="phone_label"/);
+  assert.match(editor, /dataset\.contactLabel/);
+  assert.match(admin, /additional_phone_labels/);
+  assert.match(publicCard, /function serviceIcon/);
+  assert.match(publicCard, /instagram:/);
+  assert.match(publicCard, /youtube:/);
+  assert.match(publicCard, /card\.additional_email_labels/);
 });
 
 test("customers can keep editing while N3XRA fulfills a physical card", async () => {

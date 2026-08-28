@@ -48,7 +48,15 @@ a { color: inherit; }
 .contact-card-section-head > span { color: #8a938f; font-size: .72rem; }
 .contact-card-link-list { display: grid; }
 .contact-card-link { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; gap: 13px; align-items: center; min-height: 76px; border-bottom: 1px solid var(--card-line); text-decoration: none; }
-.contact-card-link-icon { display: grid; width: 42px; height: 42px; place-items: center; border-radius: 13px; color: var(--card-accent); background: color-mix(in srgb, var(--card-accent) 10%, white); font-size: .72rem; font-weight: 800; text-transform: uppercase; }
+.contact-card-link-icon { display:grid; width:42px; height:42px; place-items:center; border-radius:13px; color:var(--card-accent); background:color-mix(in srgb,var(--card-accent) 10%,white); }
+.contact-card-link-icon svg { width:23px; height:23px; fill:none; stroke:currentColor; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+.contact-card-link-icon svg .fill { fill:currentColor; stroke:none; }
+.contact-card-link-icon svg .cut { fill:#fff; stroke:none; }
+.contact-card-link-icon.is-instagram { color:#fff; background:linear-gradient(135deg,#7c3aed,#db2777 52%,#f59e0b); }
+.contact-card-link-icon.is-facebook,.contact-card-link-icon.is-linkedin { color:#fff; background:#1877f2; }
+.contact-card-link-icon.is-linkedin { background:#0a66c2; }
+.contact-card-link-icon.is-x,.contact-card-link-icon.is-tiktok,.contact-card-link-icon.is-github { color:#fff; background:#111; }
+.contact-card-link-icon.is-youtube { color:#fff; background:#f00; }
 .contact-card-link strong, .contact-card-link small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .contact-card-link strong { font-size: .94rem; }
 .contact-card-link small { margin-top: 3px; color: var(--card-muted); font-size: .72rem; }
@@ -129,6 +137,7 @@ a { color: inherit; }
 .card-editor-panel-head h2 { margin: 0; font-family: Manrope, sans-serif; font-size: 1.12rem; letter-spacing: -.03em; }
 .card-editor-panel-head p { margin: 4px 0 0; color: var(--card-muted); font-size: .78rem; }
 .card-editor-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.card-contact-method { display:grid; grid-template-columns:minmax(0,1fr) 132px; gap:8px; min-width:0; }
 .card-editor-fields label, .card-editor-publish-controls label { display: grid; gap: 7px; color: #56615d; font-size: .72rem; font-weight: 700; }
 .card-editor-wide { grid-column: 1 / -1; }
 .card-editor-fields input, .card-editor-fields textarea, .card-editor-publish-controls select { width: 100%; min-height: 46px; padding: 11px 12px; border: 1px solid #d6dbd8; border-radius: 10px; color: var(--card-ink); background: #fbfcfa; outline: 0; }
@@ -143,7 +152,7 @@ a { color: inherit; }
 .card-repeatable-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #56615d; font-size: .72rem; font-weight: 700; }
 .card-repeatable-heading button { border: 0; color: #397363; background: transparent; cursor: pointer; font-size: .72rem; font-weight: 800; }
 .card-repeatable-list { display: grid; gap: 8px; }
-.card-repeatable-row { display: grid; grid-template-columns: minmax(0,1fr) 38px; gap: 8px; }
+.card-repeatable-row { display:grid; grid-template-columns:132px minmax(0,1fr) 38px; gap:8px; }
 .card-repeatable-row input { min-width: 0; }
 .card-repeatable-row button { border: 0; border-radius: 10px; color: #9a3940; background: #f8eeee; cursor: pointer; font-weight: 800; }
 .card-editor-media-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
@@ -217,7 +226,13 @@ a { color: inherit; }
 /* Contact Card workspace: intentionally phone-width on every screen. */
 .card-editor-page { padding-bottom:110px; }
 .card-editor-shell { width:min(560px,calc(100% - 28px)); padding:102px 0 46px; }
-.card-editor-toolbar { position:sticky; z-index:8; top:82px; min-height:54px; margin:0 0 14px; padding:7px 8px 7px 15px; border:1px solid var(--card-line); border-radius:16px; background:rgba(255,255,255,.92); box-shadow:0 10px 34px rgba(7,16,26,.08); backdrop-filter:blur(14px); }
+.card-editor-toolbar { position:sticky; z-index:8; top:82px; min-height:42px; margin:0 0 10px; padding:0 2px; border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; justify-content:space-between; }
+.card-auto-save-status { display:inline-flex; min-height:34px; align-items:center; gap:7px; padding:7px 11px; border-radius:999px; color:#2f6e5c; background:#e7f2ed; }
+.card-auto-save-status::before { content:"✓"; display:grid; width:17px; height:17px; place-items:center; border-radius:999px; color:#fff; background:#2f7d68; font-size:.62rem; }
+.card-auto-save-status.is-saving::before { content:""; border:2px solid rgba(138,90,10,.25); border-top-color:#8a5a0a; background:transparent; animation:card-save-spin .7s linear infinite; }
+.card-auto-save-status.is-error::before { content:"!"; background:#a33041; }
+@keyframes card-save-spin { to { transform:rotate(360deg); } }
+.card-editor-view { min-height:40px; padding:10px 15px; border:0; color:#fff; background:#123a33; box-shadow:0 6px 18px rgba(18,58,51,.18); }
 .card-editor-status { padding:12px 2px; }
 .card-workspace-view { animation:card-workspace-enter .22s ease both; }
 @keyframes card-workspace-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
@@ -280,6 +295,7 @@ a { color: inherit; }
   .card-editor-grid { grid-template-columns: 1fr; }
   .card-editor-wide-panel, .card-editor-publish-panel, .card-editor-actions { grid-column: auto; }
   .card-editor-fields, .card-editor-publish-controls { grid-template-columns: 1fr; }
+  .card-contact-method { grid-template-columns:minmax(0,1fr) 122px; }
   .card-editor-media-grid { grid-template-columns: 1fr; }
   .card-editor-wide { grid-column: auto; }
   .card-editor-link-row { grid-template-columns: 1fr 38px; }
@@ -313,6 +329,7 @@ a { color: inherit; }
   .card-scan-primary { grid-column: 1 / -1; grid-row: 1; }
   .card-editor-toolbar { gap:8px; }
   .card-auto-save-status { font-size:.68rem; }
+  .card-repeatable-row { grid-template-columns:108px minmax(0,1fr) 38px; }
   .card-editor-toolbar { top:76px; }
   .card-phone-preview { height:calc(100dvh - 174px); min-height:530px; border-radius:22px; }
   .card-workspace-nav { bottom:max(7px,env(safe-area-inset-bottom)); }

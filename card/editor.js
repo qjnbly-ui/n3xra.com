@@ -366,13 +366,20 @@ function normalizeUrl(value) { const raw = value.trim(); if (!raw)
 function normalizeEmail(value) { const email = value.trim().toLowerCase(); if (!email)
     return null; if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))
     throw new Error("Enter a valid email address."); return email; }
-function addContactRow(key, value = "") {
+function addContactRow(key, value = "", contactLabel = "") {
     const container = repeatableContainers[key];
     if (!container || container.children.length >= 5)
         return;
     const isEmail = key.endsWith("email");
     const row = document.createElement("div");
     row.className = "card-repeatable-row";
+    const label = document.createElement("input");
+    label.type = "text";
+    label.maxLength = 60;
+    label.placeholder = isEmail ? "Work, personal…" : "Mobile, office…";
+    label.value = contactLabel || (isEmail ? "Email" : "Phone");
+    label.dataset.contactLabel = isEmail ? "email" : "phone";
+    label.setAttribute("aria-label", `${isEmail ? "Email" : "Phone"} description`);
     const input = document.createElement("input");
     input.type = isEmail ? "email" : "tel";
     input.maxLength = isEmail ? 320 : 40;
@@ -384,20 +391,22 @@ function addContactRow(key, value = "") {
     remove.textContent = "×";
     remove.setAttribute("aria-label", `Remove additional ${isEmail ? "email" : "phone number"}`);
     remove.addEventListener("click", () => { row.remove(); markChanged(); });
-    row.append(input, remove);
+    row.append(label, input, remove);
     container.append(row);
 }
-function renderContacts(key, values) { const container = repeatableContainers[key]; if (!container)
+function renderContacts(key, values, labels) { const container = repeatableContainers[key]; if (!container)
     return; container.replaceChildren(); if (Array.isArray(values))
-    for (const value of values.slice(0, 5))
+    for (const [index, value] of values.slice(0, 5).entries())
         if (String(value || "").trim())
-            addContactRow(key, String(value)); }
+            addContactRow(key, String(value), Array.isArray(labels) ? String(labels[index] || "") : ""); }
 function collectContacts(key) {
     const container = repeatableContainers[key];
     if (!container)
         return [];
     const isEmail = key.endsWith("email");
-    return Array.from(new Set(Array.from(container.querySelectorAll("[data-additional-contact]")).map((input) => isEmail ? normalizeEmail(input.value) : normalizePhone(input.value)).filter((value) => Boolean(value))));
+    const seen = new Set();
+    return Array.from(container.querySelectorAll(".card-repeatable-row")).flatMap((row) => { const input = row.querySelector("[data-additional-contact]"); const label = row.querySelector("[data-contact-label]")?.value.trim() || (isEmail ? "Email" : "Phone"); const value = input ? (isEmail ? normalizeEmail(input.value) : normalizePhone(input.value)) : null; if (!value || seen.has(value))
+        return []; seen.add(value); return [{ value, label }]; });
 }
 function addLinkRow(link = { label: "", url: "" }) {
     if (!linksContainer || linksContainer.children.length >= 12)
@@ -445,11 +454,17 @@ function setRequestState(row) {
 function fillForm(row) {
     if (!form)
         return;
-    for (const name of ["display_name", "headline", "company_name", "bio", "email", "phone_e164", "website_url", "location_text", "accent_color", "status", "slug", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) {
+    for (const name of ["display_name", "headline", "company_name", "bio", "email", "email_label", "phone_e164", "phone_label", "website_url", "location_text", "accent_color", "status", "slug", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) {
         const control = form.elements.namedItem(name);
         if (control)
             control.value = String(row[name] ?? "");
     }
+    const emailLabel = form.elements.namedItem("email_label");
+    if (emailLabel && !emailLabel.value)
+        emailLabel.value = "Email";
+    const phoneLabel = form.elements.namedItem("phone_label");
+    if (phoneLabel && !phoneLabel.value)
+        phoneLabel.value = "Phone";
     const branding = form.elements.namedItem("show_n3xra_branding");
     if (branding) {
         branding.checked = hasBrandingRemoval ? row.show_n3xra_branding !== false : true;
@@ -459,8 +474,8 @@ function fillForm(row) {
         removeBrandingButton.hidden = hasBrandingRemoval;
     if (brandingHelp)
         brandingHelp.textContent = hasBrandingRemoval ? "This permanent upgrade is active. You can show or hide the N3XRA credit anytime." : "Turn this off to open the one-time $9.99 checkout. After payment, it stays unlocked permanently.";
-    renderContacts("editor-email", row.additional_emails);
-    renderContacts("editor-phone", row.additional_phones);
+    renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
+    renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
     if (exchangeToggle)
         exchangeToggle.checked = row.exchange_enabled !== false;
     setRequestState(row);
@@ -651,7 +666,9 @@ async function saveChanges() {
                 throw new Error("Choose an available card address.");
             const primaryEmail = normalizeEmail(String(values.get("email") || ""));
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), exchange_enabled: values.get("exchange_enabled") === "on", show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+            const emailContacts = collectContacts("editor-email").filter((item) => item.value !== primaryEmail);
+            const phoneContacts = collectContacts("editor-phone").filter((item) => item.value !== primaryPhone);
+            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, email_label: String(values.get("email_label") || "Email").trim() || "Email", phone_e164: primaryPhone, phone_label: String(values.get("phone_label") || "Phone").trim() || "Phone", additional_emails: emailContacts.map((item) => item.value), additional_email_labels: emailContacts.map((item) => item.label), additional_phones: phoneContacts.map((item) => item.value), additional_phone_labels: phoneContacts.map((item) => item.label), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), exchange_enabled: values.get("exchange_enabled") === "on", show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
             if (!payload.display_name)
                 throw new Error("Your card needs a display name.");
             if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
@@ -731,14 +748,14 @@ async function initialize() {
     }
     else if (data) {
         draftCard = data;
-        const names = ["display_name", "headline", "company_name", "email", "phone_e164", "website_url", "slug"];
+        const names = ["display_name", "headline", "company_name", "email", "email_label", "phone_e164", "phone_label", "website_url", "slug"];
         for (const name of names) {
             const control = activationControl(name);
             if (control)
-                control.value = String(draftCard[name] || "");
+                control.value = String(draftCard[name] || (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : ""));
         }
-        renderContacts("activation-email", draftCard.additional_emails);
-        renderContacts("activation-phone", draftCard.additional_phones);
+        renderContacts("activation-email", draftCard.additional_emails, draftCard.additional_email_labels);
+        renderContacts("activation-phone", draftCard.additional_phones, draftCard.additional_phone_labels);
         if (scanPanel)
             scanPanel.hidden = false;
         activation.hidden = false;
@@ -792,7 +809,9 @@ activationForm?.addEventListener("submit", (event) => {
                 throw new Error("Enter the name to show on the card.");
             const primaryEmail = normalizeEmail(String(values.get("email") || ""));
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("activation-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("activation-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "draft", show_n3xra_branding: true, physical_card_status: "not_requested", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
+            const emailContacts = collectContacts("activation-email").filter((item) => item.value !== primaryEmail);
+            const phoneContacts = collectContacts("activation-phone").filter((item) => item.value !== primaryPhone);
+            const payload = { owner_user_id: ownerUserId, slug, display_name: displayName, headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), email: primaryEmail, email_label: String(values.get("email_label") || "Email").trim() || "Email", phone_e164: primaryPhone, phone_label: String(values.get("phone_label") || "Phone").trim() || "Phone", additional_emails: emailContacts.map((item) => item.value), additional_email_labels: emailContacts.map((item) => item.label), additional_phones: phoneContacts.map((item) => item.value), additional_phone_labels: phoneContacts.map((item) => item.label), website_url: normalizeUrl(String(values.get("website_url") || "")), status: "draft", show_n3xra_branding: true, physical_card_status: "not_requested", created_by_user_id: ownerUserId, updated_by_user_id: ownerUserId };
             const query = draftCard ? supabase.from("contact_card_profiles").update(payload).eq("id", draftCard.id) : supabase.from("contact_card_profiles").insert(payload);
             const { data, error } = await query.select("*").single();
             if (error)
