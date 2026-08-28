@@ -1,4 +1,5 @@
 "use strict";
+let activeCard = null;
 const byId = (id) => {
     const value = document.getElementById(id);
     if (!value)
@@ -91,6 +92,7 @@ function downloadContact(card) {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 function render(card) {
+    activeCard = card;
     document.documentElement.style.setProperty("--card-accent", card.accent_color || "#2f7d68");
     document.title = `${card.display_name} | Digital contact card`;
     byId("card-initials").textContent = initials(card.display_name);
@@ -132,6 +134,8 @@ function render(card) {
     actions.append(save);
     if (!card.phone_e164)
         actions.style.gridTemplateColumns = "1fr";
+    const connectButton = byId("card-connect-button");
+    connectButton.hidden = card.exchange_enabled === false;
     if (card.bio) {
         byId("card-bio").textContent = card.bio;
         byId("card-about-section").hidden = false;
@@ -162,6 +166,76 @@ function render(card) {
     byId("card-loading").hidden = true;
     byId("contact-card").hidden = false;
 }
+function openConnectDialog() {
+    if (!activeCard)
+        return;
+    const dialog = byId("card-connect-dialog");
+    byId("card-connect-intro").textContent = `Share your contact information with ${activeCard.display_name}.`;
+    byId("card-connect-disclosure").textContent = `Your details will be shared with ${activeCard.display_name} and stored in their private N3XRA Contacts.`;
+    byId("card-connect-fields").hidden = false;
+    byId("card-connect-success").hidden = true;
+    byId("card-connect-status").textContent = "";
+    const footer = dialog.querySelector("footer");
+    if (footer)
+        footer.hidden = false;
+    dialog.showModal();
+    window.setTimeout(() => dialog.querySelector('input[name="name"]')?.focus(), 50);
+}
+function closeConnectDialog() {
+    byId("card-connect-dialog").close();
+}
+async function submitConnection(event) {
+    event.preventDefault();
+    if (!activeCard)
+        return;
+    const form = event.currentTarget;
+    const submit = byId("card-connect-submit");
+    const status = byId("card-connect-status");
+    const values = new FormData(form);
+    submit.disabled = true;
+    status.textContent = "Sharing…";
+    status.className = "contact-card-connect-status";
+    try {
+        const response = await fetch("/api/contact-card-connect", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                slug: activeCard.slug,
+                name: values.get("name"),
+                email: values.get("email"),
+                phone: values.get("phone"),
+                company: values.get("company"),
+                message: values.get("message"),
+                website: values.get("website"),
+            }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok)
+            throw new Error(payload.error || "Your information could not be shared.");
+        form.reset();
+        byId("card-connect-fields").hidden = true;
+        byId("card-connect-success").hidden = false;
+        const footer = byId("card-connect-dialog").querySelector("footer");
+        if (footer)
+            footer.hidden = true;
+        window.setTimeout(closeConnectDialog, 2200);
+    }
+    catch (error) {
+        status.textContent = error instanceof Error ? error.message : "Your information could not be shared.";
+        status.className = "contact-card-connect-status is-error";
+    }
+    finally {
+        submit.disabled = false;
+    }
+}
+byId("card-connect-button").addEventListener("click", openConnectDialog);
+byId("card-connect-close").addEventListener("click", closeConnectDialog);
+byId("card-connect-cancel").addEventListener("click", closeConnectDialog);
+byId("card-connect-form").addEventListener("submit", (event) => void submitConnection(event));
+byId("card-connect-dialog").addEventListener("click", (event) => {
+    if (event.target === event.currentTarget)
+        closeConnectDialog();
+});
 async function initialize() {
     const slug = slugFromLocation();
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))

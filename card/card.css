@@ -38,6 +38,7 @@ a { color: inherit; }
 .contact-card-primary-actions { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 28px; }
 .contact-card-primary-actions a, .contact-card-primary-actions button { display: flex; min-height: 50px; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,.2); border-radius: 14px; color: #fff; background: rgba(255,255,255,.08); text-decoration: none; cursor: pointer; font-weight: 700; }
 .contact-card-primary-actions .is-primary { border-color: var(--card-accent); background: var(--card-accent); }
+.contact-card-connect-button { position:relative; width:100%; min-height:48px; margin-top:10px; border:1px solid rgba(255,255,255,.32); border-radius:14px; color:#fff; background:transparent; cursor:pointer; font-weight:700; }
 
 .contact-card-body { display: flex; flex-direction: column; }
 .contact-card-about, .contact-card-links { padding: 28px 28px 0; }
@@ -55,6 +56,33 @@ a { color: inherit; }
 .contact-card-footer { display: flex; justify-content: center; padding: 38px 28px 30px; text-align: center; }
 .contact-card-footer a { display: inline-flex; align-items: baseline; gap: 6px; color: #79827e; text-decoration: none; font-size: .7rem; }
 .contact-card-footer strong { color: var(--card-ink); font-family: Manrope, sans-serif; letter-spacing: -.03em; }
+
+.contact-card-connect-dialog { width:min(500px,calc(100% - 22px)); max-height:calc(100dvh - 22px); padding:0; overflow:hidden; border:0; border-radius:24px; color:var(--card-ink); background:var(--card-paper); box-shadow:0 30px 100px rgba(5,18,14,.34); }
+.contact-card-connect-dialog::backdrop { background:rgba(5,18,14,.62); backdrop-filter:blur(7px); }
+.contact-card-connect-form { display:grid; grid-template-rows:auto minmax(0,1fr) auto; max-height:inherit; }
+.contact-card-connect-form header { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; padding:24px 24px 18px; border-bottom:1px solid var(--card-line); }
+.contact-card-connect-form header h2 { margin:5px 0 0; font:800 1.55rem Manrope,sans-serif; letter-spacing:-.045em; }
+.contact-card-connect-form header p:last-child { margin:7px 0 0; color:var(--card-muted); font-size:.83rem; line-height:1.5; }
+.contact-card-connect-form header button { width:40px; height:40px; flex:none; border:0; border-radius:999px; color:var(--card-ink); background:#edf1ee; cursor:pointer; font-size:1.35rem; }
+.contact-card-connect-fields { display:grid; min-height:0; gap:14px; padding:20px 24px; overflow:auto; }
+.contact-card-connect-fields label { display:grid; gap:7px; color:#4f5c57; font-size:.75rem; font-weight:700; }
+.contact-card-connect-fields label span { display:flex; justify-content:space-between; }
+.contact-card-connect-fields label small { color:#8a938f; font-weight:500; }
+.contact-card-connect-fields input,.contact-card-connect-fields textarea { width:100%; min-height:48px; padding:12px 13px; border:1px solid #d6ddd9; border-radius:12px; color:var(--card-ink); background:#fff; outline:0; }
+.contact-card-connect-fields textarea { resize:vertical; }
+.contact-card-connect-fields input:focus,.contact-card-connect-fields textarea:focus { border-color:var(--card-accent); box-shadow:0 0 0 3px color-mix(in srgb,var(--card-accent) 14%,transparent); }
+.contact-card-honeypot { position:absolute !important; left:-10000px; width:1px; height:1px; overflow:hidden; }
+.contact-card-connect-disclosure { margin:0; color:#717b76; font-size:.7rem; line-height:1.55; }
+.contact-card-connect-status { min-height:18px; margin:0; color:var(--card-muted); font-size:.75rem; font-weight:700; }
+.contact-card-connect-status.is-error { color:#a33041; }
+.contact-card-connect-form footer { display:flex; justify-content:flex-end; gap:9px; padding:16px 24px max(16px,env(safe-area-inset-bottom)); border-top:1px solid var(--card-line); background:var(--card-paper); }
+.contact-card-connect-form footer button { min-height:46px; padding:0 17px; border:1px solid var(--card-accent); border-radius:12px; color:#fff; background:var(--card-accent); cursor:pointer; font-weight:800; }
+.contact-card-connect-form footer .is-secondary { border-color:var(--card-line); color:var(--card-ink); background:#fff; }
+.contact-card-connect-form footer button:disabled { opacity:.55; cursor:wait; }
+.contact-card-connect-success { padding:52px 28px; text-align:center; }
+.contact-card-connect-success > span { display:grid; width:58px; height:58px; margin:0 auto 16px; place-items:center; border-radius:999px; color:#fff; background:var(--card-accent); font-size:1.5rem; }
+.contact-card-connect-success h3 { margin:0; font:800 1.4rem Manrope,sans-serif; }
+.contact-card-connect-success p { margin:8px auto 0; color:var(--card-muted); font-size:.86rem; line-height:1.5; }
 
 .card-editor-page { min-height: 100vh; color: #0f1620; background: radial-gradient(720px 360px at 8% 4%, rgba(35,199,244,.08), transparent 62%), linear-gradient(180deg, #f8fafc, #edf2f7); font-family: Manrope, Arial, sans-serif; }
 .card-editor-topbar { display: flex; min-height: 68px; align-items: center; justify-content: space-between; padding: 0 clamp(20px, 5vw, 68px); border-bottom: 1px solid var(--card-line); background: rgba(255,255,255,.88); backdrop-filter: blur(16px); }
@@ -186,10 +214,68 @@ a { color: inherit; }
 .card-scan-primary { border: 1px solid #123a33; color: #fff; background: #123a33; }
 .card-scan-secondary { border: 1px solid var(--card-line); color: var(--card-ink); background: #fff; }
 
+/* Contact Card workspace: intentionally phone-width on every screen. */
+.card-editor-page { padding-bottom:110px; }
+.card-editor-shell { width:min(560px,calc(100% - 28px)); padding:102px 0 46px; }
+.card-editor-toolbar { position:sticky; z-index:8; top:82px; min-height:54px; margin:0 0 14px; padding:7px 8px 7px 15px; border:1px solid var(--card-line); border-radius:16px; background:rgba(255,255,255,.92); box-shadow:0 10px 34px rgba(7,16,26,.08); backdrop-filter:blur(14px); }
+.card-editor-status { padding:12px 2px; }
+.card-workspace-view { animation:card-workspace-enter .22s ease both; }
+@keyframes card-workspace-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+.card-editor-grid { grid-template-columns:1fr; gap:12px; margin-top:12px; }
+.card-editor-wide-panel,.card-editor-publish-panel,.card-editor-actions { grid-column:auto; }
+.card-editor-panel { padding:20px; border-radius:20px; box-shadow:0 10px 32px rgba(7,16,26,.045); }
+.card-editor-panel-head > span { display:none; }
+.card-editor-panel-head { margin-bottom:18px; }
+.card-editor-panel-head h2 { font-size:1.05rem; }
+.card-editor-fields,.card-editor-publish-controls { grid-template-columns:1fr; }
+.card-editor-wide { grid-column:auto; }
+.card-editor-media-grid { grid-template-columns:1fr; }
+.card-scan-panel { grid-template-columns:150px minmax(0,1fr); margin:0 0 12px; border-radius:20px; }
+.card-editor-publish-controls .card-editor-branding-toggle { grid-column:auto; }
+.card-preview-view { min-height:720px; }
+.card-phone-preview { position:relative; width:100%; height:min(760px,calc(100dvh - 190px)); min-height:590px; overflow:hidden; border:1px solid rgba(19,35,31,.13); border-radius:30px; background:#fff; box-shadow:0 26px 70px rgba(7,16,26,.16); }
+.card-phone-preview::before { position:absolute; z-index:2; top:8px; left:50%; width:72px; height:17px; border-radius:999px; background:#08120f; content:""; transform:translateX(-50%); pointer-events:none; }
+.card-phone-preview iframe { width:100%; height:100%; border:0; background:#fff; }
+.card-workspace-nav { position:fixed; z-index:30; bottom:max(14px,env(safe-area-inset-bottom)); left:50%; display:grid; width:min(530px,calc(100% - 22px)); grid-template-columns:repeat(4,1fr); padding:8px; border:1px solid rgba(19,35,31,.12); border-radius:22px; background:rgba(255,255,255,.94); box-shadow:0 24px 70px rgba(7,16,26,.22); transform:translateX(-50%); backdrop-filter:blur(18px); }
+.card-workspace-nav button { position:relative; display:grid; min-width:0; min-height:58px; place-items:center; gap:3px; padding:7px 3px; border:0; border-radius:15px; color:#74807b; background:transparent; cursor:pointer; font-size:.64rem; font-weight:800; }
+.card-workspace-nav button > span { font-size:1.12rem; line-height:1; }
+.card-workspace-nav button.is-active { color:#fff; background:#123a33; }
+.card-workspace-nav i { position:absolute; top:4px; right:15%; display:grid; min-width:18px; height:18px; place-items:center; padding:0 4px; border:2px solid #fff; border-radius:999px; color:#fff; background:#b23848; font-size:.55rem; font-style:normal; }
+.card-mobile-panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:12px; padding:24px; border:1px solid var(--card-line); border-radius:22px; background:#fff; box-shadow:0 12px 38px rgba(7,16,26,.055); }
+.card-mobile-panel-head h1 { margin:0; font:800 2rem Manrope,sans-serif; letter-spacing:-.055em; }
+.card-mobile-panel-head p:not(.card-editor-kicker) { margin:7px 0 0; color:var(--card-muted); font-size:.8rem; line-height:1.5; }
+.card-contact-count { display:grid; min-width:42px; height:42px; place-items:center; border-radius:14px; color:#fff; background:#123a33; font-size:.8rem; font-weight:800; }
+.card-contacts-list { display:grid; gap:10px; }
+.card-contacts-list[aria-busy="true"] { opacity:.55; }
+.card-workspace-empty { margin:0; padding:34px 22px; border:1px dashed rgba(19,35,31,.18); border-radius:18px; color:var(--card-muted); background:rgba(255,255,255,.65); text-align:center; font-size:.82rem; }
+.card-contact-entry { display:grid; grid-template-columns:48px minmax(0,1fr); gap:12px; padding:16px; border:1px solid var(--card-line); border-radius:18px; background:#fff; box-shadow:0 8px 26px rgba(7,16,26,.04); }
+.card-contact-avatar { display:grid; width:48px; height:48px; place-items:center; border-radius:16px; color:#fff; background:#123a33; font-size:.75rem; font-weight:800; }
+.card-contact-entry h2 { margin:2px 0 0; font-size:.95rem; }
+.card-contact-entry > div > p { margin:4px 0 0; color:var(--card-muted); font-size:.7rem; }
+.card-contact-entry-actions { display:flex; grid-column:2; gap:7px; flex-wrap:wrap; }
+.card-contact-entry-actions a { padding:7px 9px; border-radius:9px; color:#245f50; background:#edf5f2; text-decoration:none; font-size:.68rem; font-weight:700; }
+.card-contact-entry-actions p { width:100%; margin:3px 0 0; padding-top:9px; border-top:1px solid var(--card-line); color:#55625d; font-size:.76rem; line-height:1.5; }
+.card-profile-summary { display:grid; gap:1px; overflow:hidden; border:1px solid var(--card-line); border-radius:20px; background:var(--card-line); box-shadow:0 10px 32px rgba(7,16,26,.045); }
+.card-profile-summary > div { display:flex; justify-content:space-between; gap:16px; padding:16px 18px; background:#fff; }
+.card-profile-summary span { color:var(--card-muted); font-size:.75rem; }
+.card-profile-summary strong { overflow-wrap:anywhere; text-align:right; font-size:.76rem; }
+.card-profile-history { margin-top:12px; padding:20px; border:1px solid var(--card-line); border-radius:20px; background:#fff; }
+.card-profile-history h2 { margin:0 0 14px; font-size:1rem; }
+.card-order-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 0; border-bottom:1px solid var(--card-line); }
+.card-order-row:last-child { border-bottom:0; }
+.card-order-row strong,.card-order-row small { display:block; }
+.card-order-row strong { font-size:.78rem; }
+.card-order-row small { margin-top:3px; color:var(--card-muted); font-size:.65rem; text-transform:capitalize; }
+.card-order-row b { font-size:.76rem; }
+.card-upgrade-placeholder { margin-top:12px; padding:20px; border:1px solid rgba(47,125,104,.2); border-radius:20px; background:linear-gradient(145deg,#edf7f3,#fff); }
+.card-upgrade-placeholder span { color:#397363; font-size:.64rem; font-weight:800; letter-spacing:.14em; text-transform:uppercase; }
+.card-upgrade-placeholder strong { display:block; margin-top:7px; font-size:.92rem; }
+.card-upgrade-placeholder p { margin:7px 0 0; color:var(--card-muted); font-size:.75rem; line-height:1.55; }
+
 @media (max-width: 760px) {
   .contact-card-shell { width: 100%; box-shadow: none; }
   .contact-card-hero { min-height: 420px; padding-inline: 24px; }
-  .card-editor-shell { width:min(100% - 26px,620px); padding-top:96px; }
+  .card-editor-shell { width:min(100% - 22px,560px); padding-top:96px; }
   .card-editor-toolbar { justify-content:space-between; }
   .card-editor-grid { grid-template-columns: 1fr; }
   .card-editor-wide-panel, .card-editor-publish-panel, .card-editor-actions { grid-column: auto; }
@@ -201,7 +287,7 @@ a { color: inherit; }
   .card-editor-actions { align-items: stretch; flex-direction: column; }
   .card-editor-actions button { width: 100%; }
   .card-activation-head, .card-activation-actions { align-items: stretch; flex-direction: column; }
-  .card-scan-panel { grid-template-columns: 1fr; margin: 18px 0; }
+  .card-scan-panel { grid-template-columns: 1fr; margin: 0 0 12px; }
   .card-activation-form { padding: 0 18px 18px; }
   .card-activation-actions button { width: 100%; }
   .card-activation-price { align-items:flex-start; flex-direction:column; }
@@ -209,7 +295,9 @@ a { color: inherit; }
 }
 
 @media (max-width: 480px) {
-  .card-editor-shell { width: calc(100% - 18px); padding-top: 88px; }
+  .contact-card-connect-dialog { width:100%; max-width:none; max-height:calc(100dvh - 10px); margin:auto 0 0; border-radius:24px 24px 0 0; }
+  .contact-card-connect-fields input,.contact-card-connect-fields textarea { font-size:16px; }
+  .card-editor-shell { width: calc(100% - 14px); padding-top: 84px; }
   .card-editor-panel, .card-scan-panel { padding: 17px; }
   .card-activation-head { padding: 20px 18px; }
   .card-editor-fields input, .card-editor-fields textarea, .card-editor-publish-controls select, .card-editor-link-row input { font-size: 16px; }
@@ -225,4 +313,7 @@ a { color: inherit; }
   .card-scan-primary { grid-column: 1 / -1; grid-row: 1; }
   .card-editor-toolbar { gap:8px; }
   .card-auto-save-status { font-size:.68rem; }
+  .card-editor-toolbar { top:76px; }
+  .card-phone-preview { height:calc(100dvh - 174px); min-height:530px; border-radius:22px; }
+  .card-workspace-nav { bottom:max(7px,env(safe-area-inset-bottom)); }
 }

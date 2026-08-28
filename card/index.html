@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&amp;family=Manrope:wght@600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/card/card.css?v=8">
+  <link rel="stylesheet" href="/card/card.css?v=9">
 </head>
 <body class="contact-card-page">
   <main class="contact-card-shell" id="card-shell" aria-live="polite">
@@ -30,6 +30,7 @@
         <p class="contact-card-headline" id="card-headline"></p>
         <p class="contact-card-location" id="card-location"></p>
         <div class="contact-card-primary-actions" id="card-primary-actions"></div>
+        <button class="contact-card-connect-button" id="card-connect-button" type="button" hidden>Connect back</button>
       </header>
 
       <div class="contact-card-body" id="card-sections">
@@ -67,6 +68,23 @@
       <a href="https://www.n3xra.com">Visit N3XRA</a>
     </section>
   </main>
-  <script type="module" src="/card/public-card.js?v=1"></script>
+  <dialog class="contact-card-connect-dialog" id="card-connect-dialog">
+    <form class="contact-card-connect-form" id="card-connect-form">
+      <header><div><p class="contact-card-section-label">Connect back</p><h2 id="card-connect-title">Share your details</h2><p id="card-connect-intro"></p></div><button type="button" id="card-connect-close" aria-label="Close">×</button></header>
+      <div class="contact-card-connect-fields" id="card-connect-fields">
+        <label><span>Name</span><input name="name" maxlength="180" autocomplete="name" required></label>
+        <label><span>Email</span><input name="email" type="email" maxlength="320" autocomplete="email"></label>
+        <label><span>Phone</span><input name="phone" type="tel" maxlength="40" autocomplete="tel"></label>
+        <label><span>Company <small>Optional</small></span><input name="company" maxlength="220" autocomplete="organization"></label>
+        <label><span>Note <small>Optional</small></span><textarea name="message" maxlength="800" rows="3" placeholder="Where did you meet?"></textarea></label>
+        <label class="contact-card-honeypot" aria-hidden="true"><span>Website</span><input name="website" tabindex="-1" autocomplete="off"></label>
+        <p class="contact-card-connect-disclosure" id="card-connect-disclosure"></p>
+        <p class="contact-card-connect-status" id="card-connect-status" role="status"></p>
+      </div>
+      <div class="contact-card-connect-success" id="card-connect-success" hidden><span aria-hidden="true">✓</span><h3>Details shared</h3><p>Your information is now in this person’s N3XRA Contacts.</p></div>
+      <footer><button type="button" class="is-secondary" id="card-connect-cancel">Cancel</button><button type="submit" id="card-connect-submit">Share my details</button></footer>
+    </form>
+  </dialog>
+  <script type="module" src="/card/public-card.js?v=2"></script>
 </body>
 </html>

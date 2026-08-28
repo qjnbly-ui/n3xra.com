@@ -152,7 +152,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=8/);
+  assert.match(activation, /\/card\/editor\.js\?v=9/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -163,6 +163,34 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(editor, /Retrying automatically/);
   assert.match(editor, /window\.setTimeout\(\(\) => void saveChanges\(\), 4000\)/);
   assert.doesNotMatch(activation, />Save changes</);
+});
+
+test("Connect Back stores public submissions privately for the card owner", async () => {
+  const [migration, endpoint, publicCard, publicPage, editor, editorPage] = await Promise.all([
+    read("supabase/migrations/20260828125842_contact_card_connections.sql"),
+    read("api/contact-card-connect.js"),
+    read("src/contact-cards/public-card.ts"),
+    read("card/index.html"),
+    read("src/contact-cards/editor.ts"),
+    read("client-portal/contact-card/index.html"),
+  ]);
+  assert.match(migration, /create table public\.contact_card_connections/);
+  assert.match(migration, /alter table public\.contact_card_connections enable row level security/i);
+  assert.match(migration, /auth\.uid\(\)\) = owner_user_id/);
+  assert.match(migration, /revoke all on table public\.contact_card_connections from public, anon, authenticated/i);
+  assert.doesNotMatch(migration, /grant insert on table public\.contact_card_connections to anon/i);
+  assert.match(migration, /consume_contact_card_connection_rate_limit/);
+  assert.match(endpoint, /exchange_enabled: "eq\.true"/);
+  assert.match(endpoint, /createHmac\("sha256"/);
+  assert.match(endpoint, /privacy_notice_version/);
+  assert.match(publicCard, /\/api\/contact-card-connect/);
+  assert.match(publicPage, /id="card-connect-dialog"/);
+  assert.match(editor, /contact_card_connections/);
+  assert.match(editor, /switchWorkspaceView\("preview"\)/);
+  assert.match(editorPage, /data-card-tab="contacts"/);
+  assert.match(editorPage, /data-card-tab="profile"/);
+  assert.match(editorPage, /name="exchange_enabled"/);
+  assert.match(editorPage, /\/card\/card\.css\?v=9/);
 });
 
 test("contact cards store additional public emails and phone numbers", async () => {

@@ -19,12 +19,15 @@ interface ContactCard {
   section_order: Array<"about" | "contact" | "links">;
   accent_color: string;
   show_n3xra_branding: boolean;
+  exchange_enabled: boolean;
   media: {
     profile: boolean;
     logo: boolean;
     background: boolean;
   };
 }
+
+let activeCard: ContactCard | null = null;
 
 const byId = <T extends HTMLElement>(id: string): T => {
   const value = document.getElementById(id);
@@ -124,6 +127,7 @@ function downloadContact(card: ContactCard): void {
 }
 
 function render(card: ContactCard): void {
+  activeCard = card;
   document.documentElement.style.setProperty("--card-accent", card.accent_color || "#2f7d68");
   document.title = `${card.display_name} | Digital contact card`;
   byId("card-initials").textContent = initials(card.display_name);
@@ -167,6 +171,9 @@ function render(card: ContactCard): void {
   actions.append(save);
   if (!card.phone_e164) actions.style.gridTemplateColumns = "1fr";
 
+  const connectButton = byId<HTMLButtonElement>("card-connect-button");
+  connectButton.hidden = card.exchange_enabled === false;
+
   if (card.bio) {
     byId("card-bio").textContent = card.bio;
     byId("card-about-section").hidden = false;
@@ -195,6 +202,72 @@ function render(card: ContactCard): void {
   byId("card-loading").hidden = true;
   byId("contact-card").hidden = false;
 }
+
+function openConnectDialog(): void {
+  if (!activeCard) return;
+  const dialog = byId<HTMLDialogElement>("card-connect-dialog");
+  byId("card-connect-intro").textContent = `Share your contact information with ${activeCard.display_name}.`;
+  byId("card-connect-disclosure").textContent = `Your details will be shared with ${activeCard.display_name} and stored in their private N3XRA Contacts.`;
+  byId("card-connect-fields").hidden = false;
+  byId("card-connect-success").hidden = true;
+  byId("card-connect-status").textContent = "";
+  const footer = dialog.querySelector<HTMLElement>("footer");
+  if (footer) footer.hidden = false;
+  dialog.showModal();
+  window.setTimeout(() => dialog.querySelector<HTMLInputElement>('input[name="name"]')?.focus(), 50);
+}
+
+function closeConnectDialog(): void {
+  byId<HTMLDialogElement>("card-connect-dialog").close();
+}
+
+async function submitConnection(event: SubmitEvent): Promise<void> {
+  event.preventDefault();
+  if (!activeCard) return;
+  const form = event.currentTarget as HTMLFormElement;
+  const submit = byId<HTMLButtonElement>("card-connect-submit");
+  const status = byId("card-connect-status");
+  const values = new FormData(form);
+  submit.disabled = true;
+  status.textContent = "Sharing…";
+  status.className = "contact-card-connect-status";
+  try {
+    const response = await fetch("/api/contact-card-connect", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        slug: activeCard.slug,
+        name: values.get("name"),
+        email: values.get("email"),
+        phone: values.get("phone"),
+        company: values.get("company"),
+        message: values.get("message"),
+        website: values.get("website"),
+      }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string };
+    if (!response.ok) throw new Error(payload.error || "Your information could not be shared.");
+    form.reset();
+    byId("card-connect-fields").hidden = true;
+    byId("card-connect-success").hidden = false;
+    const footer = byId<HTMLDialogElement>("card-connect-dialog").querySelector<HTMLElement>("footer");
+    if (footer) footer.hidden = true;
+    window.setTimeout(closeConnectDialog, 2200);
+  } catch (error) {
+    status.textContent = error instanceof Error ? error.message : "Your information could not be shared.";
+    status.className = "contact-card-connect-status is-error";
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+byId<HTMLButtonElement>("card-connect-button").addEventListener("click", openConnectDialog);
+byId<HTMLButtonElement>("card-connect-close").addEventListener("click", closeConnectDialog);
+byId<HTMLButtonElement>("card-connect-cancel").addEventListener("click", closeConnectDialog);
+byId<HTMLFormElement>("card-connect-form").addEventListener("submit", (event) => void submitConnection(event));
+byId<HTMLDialogElement>("card-connect-dialog").addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeConnectDialog();
+});
 
 async function initialize(): Promise<void> {
   const slug = slugFromLocation();

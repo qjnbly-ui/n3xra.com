@@ -36,6 +36,14 @@ const requestState = document.querySelector("#card-request-state");
 const removeBrandingButton = document.querySelector("#card-remove-branding");
 const brandingHelp = document.querySelector("#card-branding-help");
 const brandingToggle = form?.elements.namedItem("show_n3xra_branding");
+const exchangeToggle = form?.elements.namedItem("exchange_enabled");
+const workspaceNav = document.querySelector("#card-workspace-nav");
+const previewFrame = document.querySelector("#card-preview-frame");
+const contactsList = document.querySelector("#card-contacts-list");
+const contactCount = document.querySelector("#card-contact-count");
+const contactBadge = document.querySelector("#card-contact-badge");
+const profileSummary = document.querySelector("#card-profile-summary");
+const orderHistory = document.querySelector("#card-order-history");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card = null;
 let draftCard = null;
@@ -50,6 +58,8 @@ let changeVersion = 0;
 let changesPending = false;
 let saveTimer = 0;
 let savePromise = null;
+let activeWorkspaceView = "edit";
+let entitlementData = null;
 const repeatableContainers = {
     "activation-email": document.querySelector("#card-activation-additional-emails"),
     "activation-phone": document.querySelector("#card-activation-additional-phones"),
@@ -72,6 +82,139 @@ function setSaveStatus(message, tone = "") { if (saveStatus) {
     saveStatus.textContent = message;
     saveStatus.className = `card-auto-save-status${tone ? ` is-${tone}` : ""}`;
 } }
+function formatDate(value) { if (!value)
+    return ""; return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value)); }
+function formatMoney(cents) { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100); }
+function switchWorkspaceView(view) {
+    if (!card || !workspaceNav)
+        return;
+    if (activeWorkspaceView === "edit" && view !== "edit")
+        void saveChanges();
+    activeWorkspaceView = view;
+    document.querySelectorAll("[data-card-view]").forEach((panel) => { panel.hidden = panel.dataset.cardView !== view; panel.classList.toggle("is-active", panel.dataset.cardView === view); });
+    document.querySelectorAll("[data-card-tab]").forEach((button) => { const selected = button.dataset.cardTab === view; button.classList.toggle("is-active", selected); button.setAttribute("aria-current", selected ? "page" : "false"); });
+    if (view === "preview" && previewFrame)
+        previewFrame.src = `${window.location.origin}/card/${card.slug}?preview=${Date.now()}`;
+    if (view === "contacts")
+        void loadConnections();
+}
+function renderConnections(rows) {
+    if (!contactsList || !contactCount || !contactBadge)
+        return;
+    contactCount.textContent = String(rows.length);
+    contactBadge.textContent = String(rows.filter((row) => row.status === "new").length);
+    contactBadge.hidden = !rows.some((row) => row.status === "new");
+    contactsList.replaceChildren();
+    if (!rows.length) {
+        const empty = document.createElement("p");
+        empty.className = "card-workspace-empty";
+        empty.textContent = "No contacts have connected yet.";
+        contactsList.append(empty);
+        return;
+    }
+    for (const row of rows) {
+        const article = document.createElement("article");
+        article.className = "card-contact-entry";
+        const avatar = document.createElement("span");
+        avatar.className = "card-contact-avatar";
+        avatar.textContent = row.name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("");
+        const copy = document.createElement("div");
+        const heading = document.createElement("h2");
+        heading.textContent = row.name;
+        const meta = document.createElement("p");
+        meta.textContent = [row.company_name, formatDate(row.submitted_at)].filter(Boolean).join(" · ");
+        copy.append(heading, meta);
+        const actions = document.createElement("div");
+        actions.className = "card-contact-entry-actions";
+        if (row.email) {
+            const email = document.createElement("a");
+            email.href = `mailto:${row.email}`;
+            email.textContent = row.email;
+            actions.append(email);
+        }
+        if (row.phone_e164) {
+            const phone = document.createElement("a");
+            phone.href = `tel:${row.phone_e164}`;
+            phone.textContent = row.phone_e164;
+            actions.append(phone);
+        }
+        if (row.message) {
+            const note = document.createElement("p");
+            note.textContent = row.message;
+            actions.append(note);
+        }
+        article.append(avatar, copy, actions);
+        contactsList.append(article);
+    }
+}
+async function loadConnections() {
+    if (!supabase || !card || !contactsList)
+        return;
+    contactsList.setAttribute("aria-busy", "true");
+    const { data, error } = await supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,submitted_at").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(200);
+    contactsList.removeAttribute("aria-busy");
+    if (error) {
+        contactsList.textContent = "Contacts could not be loaded.";
+        return;
+    }
+    renderConnections((data || []));
+}
+function renderProfile(orders) {
+    if (profileSummary) {
+        profileSummary.replaceChildren();
+        const items = [
+            ["Contact Card", entitlementData?.base_access ? "Active" : "Setup"],
+            ["Public address", card ? `n3xra.com/card/${card.slug}` : ""],
+            ["Connect Back", card?.exchange_enabled === false ? "Off" : "On"],
+            ["N3XRA branding", entitlementData?.branding_removal ? "Removal unlocked" : "Included"],
+        ];
+        for (const [labelText, valueText] of items) {
+            const item = document.createElement("div");
+            const label = document.createElement("span");
+            label.textContent = labelText;
+            const value = document.createElement("strong");
+            value.textContent = String(valueText);
+            item.append(label, value);
+            profileSummary.append(item);
+        }
+    }
+    if (!orderHistory)
+        return;
+    orderHistory.replaceChildren();
+    if (!orders.length) {
+        const empty = document.createElement("p");
+        empty.className = "card-workspace-empty";
+        empty.textContent = "No purchases to show.";
+        orderHistory.append(empty);
+        return;
+    }
+    const labels = { base: "Contact Card", branding_removal: "Branding removal", additional_card: "Extra tap card", three_pack: "Three-card pack" };
+    for (const row of orders) {
+        const item = document.createElement("div");
+        item.className = "card-order-row";
+        const copy = document.createElement("span");
+        const strong = document.createElement("strong");
+        strong.textContent = labels[row.order_type] || "Contact Card purchase";
+        const small = document.createElement("small");
+        small.textContent = `${formatDate(row.paid_at || row.created_at)} · ${row.status}`;
+        copy.append(strong, small);
+        const amount = document.createElement("b");
+        amount.textContent = formatMoney(row.amount_cents);
+        item.append(copy, amount);
+        orderHistory.append(item);
+    }
+}
+async function loadWorkspaceData() {
+    if (!supabase || !card)
+        return;
+    const [connections, orders] = await Promise.all([
+        supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,submitted_at").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(200),
+        supabase.from("contact_card_orders").select("id,order_type,quantity,amount_cents,status,paid_at,created_at").eq("profile_id", card.id).order("created_at", { ascending: false }).limit(50),
+    ]);
+    if (!connections.error)
+        renderConnections((connections.data || []));
+    renderProfile(orders.error ? [] : (orders.data || []));
+}
 async function startCheckout(product, button) {
     if (!supabase)
         throw new Error("Checkout is not available.");
@@ -318,6 +461,8 @@ function fillForm(row) {
         brandingHelp.textContent = hasBrandingRemoval ? "This permanent upgrade is active. You can show or hide the N3XRA credit anytime." : "Turn this off to open the one-time $9.99 checkout. After payment, it stays unlocked permanently.";
     renderContacts("editor-email", row.additional_emails);
     renderContacts("editor-phone", row.additional_phones);
+    if (exchangeToggle)
+        exchangeToggle.checked = row.exchange_enabled !== false;
     setRequestState(row);
     sectionOrder = validSectionOrder(row.section_order);
     renderSectionOrder();
@@ -340,8 +485,12 @@ function fillForm(row) {
         scanPanel.hidden = false;
     form.hidden = false;
     activation?.setAttribute("hidden", "");
+    if (workspaceNav)
+        workspaceNav.hidden = false;
     changesPending = false;
     setSaveStatus("All changes saved");
+    void loadWorkspaceData();
+    switchWorkspaceView("preview");
 }
 async function checkSlug(rawSlug, current = "") {
     const slug = slugify(rawSlug);
@@ -502,7 +651,7 @@ async function saveChanges() {
                 throw new Error("Choose an available card address.");
             const primaryEmail = normalizeEmail(String(values.get("email") || ""));
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
-            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, phone_e164: primaryPhone, additional_emails: collectContacts("editor-email").filter((value) => value !== primaryEmail), additional_phones: collectContacts("editor-phone").filter((value) => value !== primaryPhone), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), exchange_enabled: values.get("exchange_enabled") === "on", show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
             if (!payload.display_name)
                 throw new Error("Your card needs a display name.");
             if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
@@ -574,6 +723,7 @@ async function initialize() {
         }
     }
     hasBrandingRemoval = Boolean(entitlement?.branding_removal);
+    entitlementData = entitlement;
     if (data && entitlement?.base_access) {
         card = data;
         fillForm(card);
@@ -621,6 +771,7 @@ scanApplySelected?.addEventListener("click", (event) => { event.preventDefault()
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
 document.querySelectorAll("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact); if (card)
     markChanged(); }));
+document.querySelectorAll("[data-card-tab]").forEach((button) => button.addEventListener("click", () => switchWorkspaceView(button.dataset.cardTab)));
 activationForm?.addEventListener("submit", (event) => {
     event.preventDefault();
     void (async () => {

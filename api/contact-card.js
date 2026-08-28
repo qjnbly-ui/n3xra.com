@@ -20,6 +20,7 @@ const PUBLIC_COLUMNS = [
   "section_order",
   "accent_color",
   "show_n3xra_branding",
+  "exchange_enabled",
 ].join(",");
 
 function send(res, status, body) {
