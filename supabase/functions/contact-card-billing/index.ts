@@ -123,6 +123,11 @@ Deno.serve(async (request) => {
         .maybeSingle();
       if (trialError) throw new Error(trialError.message);
       if (!trial) return jsonResponse({ error: "The free trial has already been used for this account." }, 409, origin);
+      const { error: profileDefaultsError } = await admin
+        .from("contact_card_profiles")
+        .update({ show_n3xra_branding: true, exchange_enabled: true })
+        .eq("owner_user_id", user.id);
+      if (profileDefaultsError) throw new Error(profileDefaultsError.message);
       return jsonResponse({ trial_started_at: trial.premium_trial_started_at, trial_ends_at: trial.premium_trial_ends_at }, 200, origin);
     }
 

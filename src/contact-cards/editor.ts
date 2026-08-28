@@ -118,7 +118,7 @@ function applyEntitlementState(entitlement: EntitlementRow | null): void {
   hasPaidPremium = Boolean(entitlement?.premium_active);
   hasTrialAccess = !hasPaidPremium && trialIsActive(entitlement);
   hasPremium = hasPaidPremium || hasTrialAccess;
-  hasBrandingRemoval = hasPaidPremium || Boolean(entitlement?.branding_removal);
+  hasBrandingRemoval = hasPaidPremium;
 }
 function refreshPremiumTrialOffer(): void {
   const wrapper = premiumTrial?.closest<HTMLElement>(".card-premium-trial");
@@ -168,6 +168,8 @@ async function startPremiumTrial(): Promise<void> {
     if (error) throw error;
     if (!data?.trial_ends_at) throw new Error(data?.error || "The free trial could not be started.");
     applyEntitlementState({ ...(entitlementData || {}), premium_trial_started_at: String(data.trial_started_at || ""), premium_trial_ends_at: String(data.trial_ends_at) });
+    card.exchange_enabled = true;
+    card.show_n3xra_branding = true;
     premiumDialog?.close();
     fillForm(card);
     await loadWorkspaceData();

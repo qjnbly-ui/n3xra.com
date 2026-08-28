@@ -181,9 +181,17 @@ async function syncContactCardPremium(
     premium_cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
     source: "stripe",
   };
-  if (premiumActive && !entitlement?.premium_started_at) updates.premium_started_at = new Date().toISOString();
+  const firstPaidActivation = premiumActive && !entitlement?.premium_started_at;
+  if (firstPaidActivation) updates.premium_started_at = new Date().toISOString();
   const { error } = await adminClient.from("contact_card_entitlements").update(updates).eq("owner_user_id", ownerUserId);
   if (error) throw new Error(error.message);
+  if (firstPaidActivation) {
+    const { error: profileDefaultsError } = await adminClient
+      .from("contact_card_profiles")
+      .update({ show_n3xra_branding: true, exchange_enabled: true })
+      .eq("owner_user_id", ownerUserId);
+    if (profileDefaultsError) throw new Error(profileDefaultsError.message);
+  }
 }
 
 async function completeContactCardCheckout(

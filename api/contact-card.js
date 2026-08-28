@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const rows = await response.json();
     const card = Array.isArray(rows) ? rows[0] : null;
     if (!card) return send(res, 404, { error: "This digital card is not published right now." });
-    const entitlementParams = new URLSearchParams({ select: "premium_active,branding_removal,premium_trial_ends_at", owner_user_id: `eq.${card.owner_user_id}`, limit: "1" });
+    const entitlementParams = new URLSearchParams({ select: "premium_active,premium_trial_ends_at", owner_user_id: `eq.${card.owner_user_id}`, limit: "1" });
     const entitlementResponse = await fetch(`${SUPABASE_URL}/rest/v1/contact_card_entitlements?${entitlementParams}`, {
       headers: serviceHeaders({ Accept: "application/json" }),
     });
@@ -68,7 +68,7 @@ export default async function handler(req, res) {
     const hasPaidPremium = entitlement?.premium_active === true;
     const hasTrialAccess = Boolean(entitlement?.premium_trial_ends_at && new Date(entitlement.premium_trial_ends_at).getTime() > Date.now());
     const hasPremiumTools = hasPaidPremium || hasTrialAccess;
-    const canHideBranding = hasPaidPremium || entitlement?.branding_removal === true;
+    const canHideBranding = hasPaidPremium;
     const { owner_user_id, profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
     return send(res, 200, {
       card: {
