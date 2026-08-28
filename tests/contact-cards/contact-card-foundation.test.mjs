@@ -14,6 +14,7 @@ test("public contact-card endpoint returns only the approved public fields", asy
   assert.match(publicColumns, /additional_emails/);
   assert.match(publicColumns, /additional_phones/);
   assert.doesNotMatch(publicColumns, /owner_user_id/);
+  assert.match(source, /Cache-Control", "no-store"/);
   assert.doesNotMatch(publicColumns, /prospect_contact_id/);
   assert.match(source, /status: "eq\.published"/);
   assert.match(source, /const \{ profile_image_path, company_logo_path, background_image_path, \.\.\.publicCard \} = card/);
@@ -38,11 +39,12 @@ test("private card media is only served for published profiles", async () => {
   assert.match(source, /status: "eq\.published"/);
   assert.match(source, /contact-card-media/);
   assert.match(source, /SERVICE_KEY/);
+  assert.doesNotMatch(source, /stale-while-revalidate/);
   assert.doesNotMatch(source, /createSignedUrl/);
 });
 
 test("friendly card URLs and separate customer and admin entry points are connected", async () => {
-  const [vercel, account, activation, admin, adminLogic, adminStyles, sharedStyles, productShell, prospects] = await Promise.all([
+  const [vercel, account, activation, admin, adminLogic, adminStyles, sharedStyles, productShell, prospects, editor] = await Promise.all([
     read("vercel.json"),
     read("account/index.html"),
     read("client-portal/contact-card/index.html"),
@@ -52,6 +54,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
     read("card/card.css"),
     read("account/admin/product-shell.js"),
     read("account/admin/prospects/index.html"),
+    read("src/contact-cards/editor.ts"),
   ]);
   assert.match(vercel, /"source": "\/card\/:slug"[\s\S]*"destination": "\/card\?slug=:slug"/);
   assert.match(account, /\/client-portal\/contact-card\//);
@@ -97,6 +100,9 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(sharedStyles, /\.card-workspace-nav \{[^}]*bottom:0[^}]*border-radius:0/s);
   assert.match(sharedStyles, /\.card-workspace-nav \{[^}]*left:50%[^}]*width:min\(560px,calc\(100% - 28px\)\)[^}]*transform:translateX\(-50%\)/s);
   assert.match(activation, /data-card-tab="preview"[^>]*>.*<svg/s);
+  assert.match(activation, /id="card-profile-history" hidden/);
+  assert.match(editor, /\.in\("status", \["paid", "refunded"\]\)/);
+  assert.match(editor, /await saveChanges\(\)/);
   assert.match(sharedStyles, /\.card-workspace-nav button\.is-active \{[^}]*border-top-color/s);
 });
 
@@ -157,7 +163,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=10/);
+  assert.match(activation, /\/card\/editor\.js\?v=11/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);

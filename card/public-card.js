@@ -276,7 +276,7 @@ async function initialize() {
     const slug = slugFromLocation();
     if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug))
         throw new Error("This card address is not valid.");
-    const response = await fetch(`/api/contact-card?slug=${encodeURIComponent(slug)}`, { headers: { Accept: "application/json" } });
+    const response = await fetch(`/api/contact-card?slug=${encodeURIComponent(slug)}`, { cache: "no-store", headers: { Accept: "application/json" } });
     const body = await response.json().catch(() => ({}));
     if (!response.ok || !body.card)
         throw new Error(body.error || "This digital card is not published right now.");

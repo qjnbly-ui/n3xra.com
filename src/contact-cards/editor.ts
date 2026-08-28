@@ -56,6 +56,7 @@ const contactsList = document.querySelector<HTMLElement>("#card-contacts-list");
 const contactCount = document.querySelector<HTMLElement>("#card-contact-count");
 const contactBadge = document.querySelector<HTMLElement>("#card-contact-badge");
 const profileSummary = document.querySelector<HTMLElement>("#card-profile-summary");
+const profileHistory = document.querySelector<HTMLElement>("#card-profile-history");
 const orderHistory = document.querySelector<HTMLElement>("#card-order-history");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card: CardRow | null = null;
@@ -89,9 +90,9 @@ function setSaveStatus(message: string, tone = ""): void { if (saveStatus) { sav
 function formatDate(value: string | null | undefined): string { if (!value) return ""; return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value)); }
 function formatMoney(cents: number): string { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100); }
 
-function switchWorkspaceView(view: WorkspaceView): void {
+async function switchWorkspaceView(view: WorkspaceView): Promise<void> {
   if (!card || !workspaceNav) return;
-  if (activeWorkspaceView === "edit" && view !== "edit") void saveChanges();
+  if (activeWorkspaceView === "edit" && view !== "edit") await saveChanges();
   activeWorkspaceView = view;
   document.querySelectorAll<HTMLElement>("[data-card-view]").forEach((panel) => { panel.hidden = panel.dataset.cardView !== view; panel.classList.toggle("is-active", panel.dataset.cardView === view); });
   document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => { const selected = button.dataset.cardTab === view; button.classList.toggle("is-active", selected); button.setAttribute("aria-current", selected ? "page" : "false"); });
@@ -138,6 +139,7 @@ function renderProfile(orders: OrderRow[]): void {
     ];
     for (const [labelText, valueText] of items) { const item = document.createElement("div"); const label = document.createElement("span"); label.textContent = labelText; const value = document.createElement("strong"); value.textContent = String(valueText); item.append(label, value); profileSummary.append(item); }
   }
+  if (profileHistory) profileHistory.hidden = orders.length === 0;
   if (!orderHistory) return;
   orderHistory.replaceChildren();
   if (!orders.length) { const empty = document.createElement("p"); empty.className = "card-workspace-empty"; empty.textContent = "No purchases to show."; orderHistory.append(empty); return; }
@@ -149,7 +151,7 @@ async function loadWorkspaceData(): Promise<void> {
   if (!supabase || !card) return;
   const [connections, orders] = await Promise.all([
     supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,submitted_at").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(200),
-    supabase.from("contact_card_orders").select("id,order_type,quantity,amount_cents,status,paid_at,created_at").eq("profile_id", card.id).order("created_at", { ascending: false }).limit(50),
+    supabase.from("contact_card_orders").select("id,order_type,quantity,amount_cents,status,paid_at,created_at").eq("profile_id", card.id).in("status", ["paid", "refunded"]).order("created_at", { ascending: false }).limit(50),
   ]);
   if (!connections.error) renderConnections((connections.data || []) as ConnectionRow[]);
   renderProfile(orders.error ? [] : (orders.data || []) as OrderRow[]);
@@ -164,7 +166,7 @@ async function startCheckout(product: "base" | "branding_removal" | "additional_
     window.location.assign(String(data.url));
   } finally { if (button) button.disabled = false; }
 }
-function markChanged(): void { if (!card) return; changesPending = true; changeVersion += 1; setSaveStatus("Unsaved changes"); window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 750); }
+function markChanged(): void { if (!card) return; changesPending = true; changeVersion += 1; setSaveStatus("Unsaved changes"); window.clearTimeout(saveTimer); saveTimer = window.setTimeout(() => void saveChanges(), 300); }
 function slugify(value: unknown): string { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 
 function validSectionOrder(value: unknown): SectionKey[] {
@@ -362,7 +364,7 @@ scanButton?.addEventListener("click", () => void analyzeScan());
 scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
 document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact as RepeatableKey); if (card) markChanged(); }));
-document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
+document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
 
 activationForm?.addEventListener("submit", (event) => {
   event.preventDefault(); void (async () => {

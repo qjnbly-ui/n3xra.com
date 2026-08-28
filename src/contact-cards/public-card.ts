@@ -304,7 +304,7 @@ byId<HTMLDialogElement>("card-connect-dialog").addEventListener("click", (event)
 async function initialize(): Promise<void> {
   const slug = slugFromLocation();
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error("This card address is not valid.");
-  const response = await fetch(`/api/contact-card?slug=${encodeURIComponent(slug)}`, { headers: { Accept: "application/json" } });
+  const response = await fetch(`/api/contact-card?slug=${encodeURIComponent(slug)}`, { cache: "no-store", headers: { Accept: "application/json" } });
   const body = await response.json().catch(() => ({})) as { card?: ContactCard; error?: string };
   if (!response.ok || !body.card) throw new Error(body.error || "This digital card is not published right now.");
   render(body.card);

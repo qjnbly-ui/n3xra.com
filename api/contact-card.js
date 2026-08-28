@@ -28,7 +28,7 @@ const PUBLIC_COLUMNS = [
 ].join(",");
 
 function send(res, status, body) {
-  res.setHeader("Cache-Control", status === 200 ? "public, max-age=60, s-maxage=300, stale-while-revalidate=600" : "no-store");
+  res.setHeader("Cache-Control", "no-store");
   res.setHeader("Content-Type", "application/json; charset=utf-8");
   return res.status(status).json(body);
 }

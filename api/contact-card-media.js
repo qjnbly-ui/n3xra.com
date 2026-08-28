@@ -43,7 +43,7 @@ export default async function handler(req, res) {
       headers: serviceHeaders(),
     });
     if (!mediaResponse.ok) return fail(res, mediaResponse.status === 404 ? 404 : 503, "Card media not found.");
-    res.setHeader("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
+    res.setHeader("Cache-Control", "no-store");
     res.setHeader("Content-Type", mediaResponse.headers.get("content-type") || "application/octet-stream");
     const bytes = Buffer.from(await mediaResponse.arrayBuffer());
     return res.status(200).send(bytes);
