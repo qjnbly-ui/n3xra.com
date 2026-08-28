@@ -336,6 +336,13 @@ a { color: inherit; }
 .card-premium-features p,.card-premium-features strong,.card-premium-features small { display:block; margin:0; }
 .card-premium-features strong { font-size:.82rem; }
 .card-premium-features small { margin-top:4px; color:#697670; font-size:.7rem; line-height:1.45; }
+.card-premium-trial { padding:10px 30px 2px; }
+.card-premium-trial button { display:grid; width:100%; min-height:96px; align-content:center; gap:4px; padding:18px 20px; border:0; border-radius:16px; color:#fff; background:linear-gradient(135deg,#123a33,#176b58); box-shadow:0 12px 28px rgba(18,58,51,.2); cursor:pointer; text-align:left; }
+.card-premium-trial button:hover,.card-premium-trial button:focus-visible { box-shadow:0 0 0 3px rgba(47,125,104,.2),0 14px 30px rgba(18,58,51,.22); }
+.card-premium-trial button > span { color:#9ee0cf; font-size:.6rem; font-weight:900; letter-spacing:.11em; text-transform:uppercase; }
+.card-premium-trial button strong { font-size:1.08rem; }
+.card-premium-trial button small { color:#d5e7e1; font-size:.68rem; line-height:1.45; }
+.card-premium-trial button:disabled { opacity:.58; cursor:wait; }
 .card-premium-plans { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:10px 30px 20px; }
 .card-premium-plans button { position:relative; display:grid; min-height:112px; align-content:center; gap:5px; padding:18px; border:1px solid #cfd8d4; border-radius:16px; color:#10201b; background:#f8faf9; cursor:pointer; text-align:left; }
 .card-premium-plans button:hover,.card-premium-plans button:focus-visible { border-color:#2f7d68; box-shadow:0 0 0 3px rgba(47,125,104,.12); }
@@ -377,6 +384,7 @@ a { color: inherit; }
   .card-premium-features { grid-template-columns:1fr; padding:6px 20px; }
   .card-premium-features > div:nth-last-child(2) { border-bottom:1px solid #e3e9e6; }
   .card-premium-features > div:last-child { border-bottom:0; }
+  .card-premium-trial { padding:8px 20px 2px; }
   .card-premium-plans { padding:8px 20px 18px; }
   .card-premium-status { margin-left:20px; margin-right:20px; }
   .card-premium-dialog footer { align-items:flex-start; padding-left:20px; padding-right:20px; }

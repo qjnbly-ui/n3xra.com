@@ -86,7 +86,7 @@ Deno.serve(async (request) => {
       return jsonResponse({ error: "Branding removal is now included with N3XRA Contact Card Premium. New one-time purchases are no longer available." }, 410, origin);
     }
     const plan = premiumPlan(product);
-    if (!plan && !oneTimeProduct(product) && action !== "portal") return jsonResponse({ error: "Choose a valid Contact Card purchase." }, 400, origin);
+    if (!plan && !oneTimeProduct(product) && !["portal", "start_trial"].includes(action)) return jsonResponse({ error: "Choose a valid Contact Card purchase." }, 400, origin);
 
     const { data: profile, error: profileError } = await admin
       .from("contact_card_profiles")
@@ -97,9 +97,34 @@ Deno.serve(async (request) => {
 
     const { data: entitlement } = await admin
       .from("contact_card_entitlements")
-      .select("base_access, branding_removal, stripe_customer_id, stripe_subscription_id, premium_active, premium_status")
+      .select("base_access, branding_removal, stripe_customer_id, stripe_subscription_id, premium_active, premium_status, premium_started_at, premium_trial_started_at, premium_trial_ends_at")
       .eq("owner_user_id", user.id)
       .maybeSingle();
+
+    if (action === "start_trial") {
+      if (!entitlement?.base_access) return jsonResponse({ error: "Activate your Contact Card before starting the trial." }, 400, origin);
+      if (entitlement.premium_active || entitlement.premium_started_at || entitlement.stripe_subscription_id) {
+        return jsonResponse({ error: "This account has already had Premium access." }, 409, origin);
+      }
+      if (entitlement.premium_trial_started_at) {
+        return jsonResponse({ error: "The free trial has already been used for this account." }, 409, origin);
+      }
+      const trialStartedAt = new Date();
+      const trialEndsAt = new Date(trialStartedAt.getTime() + (7 * 24 * 60 * 60 * 1000));
+      const { data: trial, error: trialError } = await admin
+        .from("contact_card_entitlements")
+        .update({ premium_trial_started_at: trialStartedAt.toISOString(), premium_trial_ends_at: trialEndsAt.toISOString() })
+        .eq("owner_user_id", user.id)
+        .eq("premium_active", false)
+        .is("premium_started_at", null)
+        .is("stripe_subscription_id", null)
+        .is("premium_trial_started_at", null)
+        .select("premium_trial_started_at,premium_trial_ends_at")
+        .maybeSingle();
+      if (trialError) throw new Error(trialError.message);
+      if (!trial) return jsonResponse({ error: "The free trial has already been used for this account." }, 409, origin);
+      return jsonResponse({ trial_started_at: trial.premium_trial_started_at, trial_ends_at: trial.premium_trial_ends_at }, 200, origin);
+    }
 
     const stripe = stripeClient();
     if (action === "portal") {

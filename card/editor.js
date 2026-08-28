@@ -8,7 +8,7 @@ const SECTION_DETAILS = {
     about: { label: "About", description: "Your short biography" }, contact: { label: "Contact", description: "Email, phone, and website" }, links: { label: "Links", description: "Social, booking, portfolio, and custom links" },
 };
 const DEFAULT_SECTION_ORDER = ["about", "contact", "links"];
-const ENTITLEMENT_COLUMNS = "base_access,branding_removal,premium_active,premium_status,premium_plan,premium_current_period_end,premium_cancel_at_period_end,premium_prompt_dismissed_at,stripe_customer_id";
+const ENTITLEMENT_COLUMNS = "base_access,branding_removal,premium_active,premium_status,premium_plan,premium_current_period_end,premium_cancel_at_period_end,premium_prompt_dismissed_at,premium_trial_started_at,premium_trial_ends_at,stripe_customer_id";
 const form = document.querySelector("#card-editor-form");
 const activation = document.querySelector("#card-activation");
 const activationForm = document.querySelector("#card-activation-form");
@@ -57,6 +57,7 @@ const premiumClose = document.querySelector("#card-premium-close");
 const premiumLater = document.querySelector("#card-premium-later");
 const premiumHidePrompt = document.querySelector("#card-premium-hide-prompt");
 const premiumStatus = document.querySelector("#card-premium-status");
+const premiumTrial = document.querySelector("#card-premium-trial");
 const premiumProfileAction = document.querySelector("#card-premium-profile-action");
 const premiumProfileTitle = document.querySelector("#card-premium-profile-title");
 const premiumProfileCopy = document.querySelector("#card-premium-profile-copy");
@@ -64,6 +65,8 @@ const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card = null;
 let draftCard = null;
 let hasBrandingRemoval = false;
+let hasPaidPremium = false;
+let hasTrialAccess = false;
 let hasPremium = false;
 let ownerUserId = "";
 let accessToken = "";
@@ -108,11 +111,27 @@ function setPremiumStatus(message = "", isError = false) { if (premiumStatus) {
 function formatDate(value) { if (!value)
     return ""; return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value)); }
 function formatMoney(cents) { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100); }
+function trialIsActive(entitlement) { return Boolean(entitlement?.premium_trial_ends_at && new Date(entitlement.premium_trial_ends_at).getTime() > Date.now()); }
+function trialDaysRemaining() { if (!entitlementData?.premium_trial_ends_at)
+    return 0; return Math.max(0, Math.ceil((new Date(entitlementData.premium_trial_ends_at).getTime() - Date.now()) / 86_400_000)); }
+function applyEntitlementState(entitlement) {
+    entitlementData = entitlement;
+    hasPaidPremium = Boolean(entitlement?.premium_active);
+    hasTrialAccess = !hasPaidPremium && trialIsActive(entitlement);
+    hasPremium = hasPaidPremium || hasTrialAccess;
+    hasBrandingRemoval = hasPaidPremium || Boolean(entitlement?.branding_removal);
+}
+function refreshPremiumTrialOffer() {
+    const wrapper = premiumTrial?.closest(".card-premium-trial");
+    if (wrapper)
+        wrapper.hidden = hasPaidPremium || Boolean(entitlementData?.premium_trial_started_at);
+}
 function openPremiumDialog() {
-    if (!premiumDialog || hasPremium)
+    if (!premiumDialog || hasPaidPremium)
         return;
     if (premiumDialog.open)
         return;
+    refreshPremiumTrialOffer();
     setPremiumStatus();
     premiumDialog.showModal();
 }
@@ -145,6 +164,30 @@ async function startPremiumCheckout(plan, button) {
         setPremiumStatus(error instanceof Error ? error.message : "Premium checkout could not be opened.", true);
         document.querySelectorAll("[data-premium-plan]").forEach((item) => { item.disabled = false; });
         button.focus();
+    }
+}
+async function startPremiumTrial() {
+    if (!supabase || !premiumTrial || !card)
+        return;
+    premiumTrial.disabled = true;
+    setPremiumStatus("Starting your free trial…");
+    try {
+        const { data, error } = await supabase.functions.invoke("contact-card-billing", { body: { action: "start_trial" } });
+        if (error)
+            throw error;
+        if (!data?.trial_ends_at)
+            throw new Error(data?.error || "The free trial could not be started.");
+        applyEntitlementState({ ...(entitlementData || {}), premium_trial_started_at: String(data.trial_started_at || ""), premium_trial_ends_at: String(data.trial_ends_at) });
+        premiumDialog?.close();
+        fillForm(card);
+        await loadWorkspaceData();
+        await switchWorkspaceView("contacts");
+        showStatus(`Your Premium trial is active for ${trialDaysRemaining()} days. Branding removal unlocks after upgrading.`);
+    }
+    catch (error) {
+        setPremiumStatus(error instanceof Error ? error.message : "The free trial could not be started.", true);
+        premiumTrial.disabled = false;
+        premiumTrial.focus();
     }
 }
 async function openPremiumBilling() {
@@ -290,7 +333,7 @@ function renderProfile(orders) {
         profileSummary.replaceChildren();
         const items = [
             ["Contact Card", entitlementData?.base_access ? "Active" : "Setup"],
-            ["Premium", hasPremium ? `${entitlementData?.premium_plan === "monthly" ? "Monthly" : "Annual"} · ${String(entitlementData?.premium_status || "active").replaceAll("_", " ")}` : "Not active"],
+            ["Premium", hasPaidPremium ? `${entitlementData?.premium_plan === "monthly" ? "Monthly" : "Annual"} · ${String(entitlementData?.premium_status || "active").replaceAll("_", " ")}` : hasTrialAccess ? `Free trial · ${trialDaysRemaining()} day${trialDaysRemaining() === 1 ? "" : "s"} remaining` : "Not active"],
             ["Public address", card ? `n3xra.com/card/${card.slug}` : ""],
             ["Connect Back", hasPremium && card?.exchange_enabled !== false ? "On" : "Premium"],
             ["N3XRA branding", hasBrandingRemoval ? "Removal unlocked" : "Included"],
@@ -306,13 +349,15 @@ function renderProfile(orders) {
         }
     }
     if (premiumProfileAction)
-        premiumProfileAction.textContent = hasPremium ? "Manage Premium billing" : "View Premium";
+        premiumProfileAction.textContent = hasPaidPremium ? "Manage Premium billing" : hasTrialAccess ? "Upgrade to Premium" : "View Premium";
     if (premiumProfileTitle)
-        premiumProfileTitle.textContent = hasPremium ? "Premium is active" : "Turn introductions into contacts";
+        premiumProfileTitle.textContent = hasPaidPremium ? "Premium is active" : hasTrialAccess ? "Your free trial is active" : "Turn introductions into contacts";
     if (premiumProfileCopy)
-        premiumProfileCopy.textContent = hasPremium
+        premiumProfileCopy.textContent = hasPaidPremium
             ? `Your ${entitlementData?.premium_plan === "monthly" ? "monthly" : "annual"} plan includes Connect Back, scanning, exports, and branding removal${entitlementData?.premium_cancel_at_period_end ? " until the end of the current billing period" : ""}.`
-            : "Connect Back, scan business cards, export contacts, and remove N3XRA branding.";
+            : hasTrialAccess
+                ? `Connect Back, scanning, and exports are unlocked through ${formatDate(entitlementData?.premium_trial_ends_at)}. N3XRA branding stays visible until you upgrade.`
+                : "Start a seven-day trial of Connect Back, business-card scanning, and contact exports. No payment method required.";
     if (profileHistory)
         profileHistory.hidden = orders.length === 0;
     if (!orderHistory)
@@ -610,7 +655,7 @@ function fillForm(row) {
     if (removeBrandingButton)
         removeBrandingButton.hidden = hasBrandingRemoval;
     if (brandingHelp)
-        brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : "Branding removal is included with N3XRA Contact Card Premium.";
+        brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess ? "Branding stays visible during the free trial and unlocks after upgrading." : "Branding removal is included with paid N3XRA Contact Card Premium.";
     renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
     renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
     if (exchangeToggle) {
@@ -992,9 +1037,7 @@ async function initialize() {
                 data = refreshed.data;
         }
     }
-    hasPremium = Boolean(entitlement?.premium_active);
-    hasBrandingRemoval = hasPremium || Boolean(entitlement?.branding_removal);
-    entitlementData = entitlement;
+    applyEntitlementState(entitlement);
     if (data && entitlement?.base_access) {
         card = data;
         fillForm(card);
@@ -1110,7 +1153,8 @@ premiumClose?.addEventListener("click", () => { void closePremiumDialog(); });
 premiumLater?.addEventListener("click", () => { void closePremiumDialog(); });
 premiumDialog?.addEventListener("cancel", (event) => { event.preventDefault(); void closePremiumDialog(); });
 document.querySelectorAll("[data-premium-plan]").forEach((button) => button.addEventListener("click", () => { void startPremiumCheckout(button.dataset.premiumPlan, button); }));
-premiumProfileAction?.addEventListener("click", () => { if (hasPremium)
+premiumTrial?.addEventListener("click", () => { void startPremiumTrial(); });
+premiumProfileAction?.addEventListener("click", () => { if (hasPaidPremium)
     void openPremiumBilling();
 else
     openPremiumDialog(); });

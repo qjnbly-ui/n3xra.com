@@ -164,7 +164,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=16/);
+  assert.match(activation, /\/card\/editor\.js\?v=17/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -202,7 +202,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=16/);
+  assert.match(editorPage, /\/card\/card\.css\?v=17/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {
@@ -299,7 +299,7 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(editor, /show_n3xra_branding: hasBrandingRemoval \? values\.get\("show_n3xra_branding"\) !== "on" : true/);
   assert.match(editor, /brandingToggle\.checked = false/);
   assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
-  assert.match(editor, /Branding removal is included with N3XRA Contact Card Premium/);
+  assert.match(editor, /Branding removal is included with paid N3XRA Contact Card Premium/);
   assert.doesNotMatch(landing, /Permanent “Powered by N3XRA” removal/);
   assert.doesNotMatch(landing, /\$9\.99/);
   assert.match(landing, /3-card tap pack/);
@@ -338,7 +338,32 @@ test("Contact Card Premium is a recurring, owner-scoped upgrade with a dismissib
   assert.match(editor, /premium_prompt_dismissed_at/);
   assert.match(editor, /view === "contacts" && !hasPremium/);
   assert.match(editor, /action: "portal"/);
-  assert.match(publicEndpoint, /exchange_enabled: hasPremium/);
+  assert.match(publicEndpoint, /exchange_enabled: hasPremiumTools/);
   assert.match(connectEndpoint, /contact_card_entitlements/);
-  assert.match(connectEndpoint, /premium_active: "eq\.true"/);
+  assert.match(connectEndpoint, /premium_trial_ends_at/);
+});
+
+test("Contact Card Premium offers one server-enforced seven-day trial without branding removal", async () => {
+  const [migration, billing, editor, editorPage, publicEndpoint, connectEndpoint] = await Promise.all([
+    read("supabase/migrations/20260828170517_contact_card_premium_free_trial.sql"),
+    read("supabase/functions/contact-card-billing/index.ts"),
+    read("src/contact-cards/editor.ts"),
+    read("client-portal/contact-card/index.html"),
+    read("api/contact-card.js"),
+    read("api/contact-card-connect.js"),
+  ]);
+  assert.match(migration, /premium_trial_started_at timestamptz/);
+  assert.match(migration, /premium_trial_ends_at = premium_trial_started_at \+ interval '7 days'/);
+  assert.match(migration, /premium_active is true[\s\S]*premium_trial_ends_at > now\(\)/);
+  assert.match(billing, /action === "start_trial"/);
+  assert.match(billing, /7 \* 24 \* 60 \* 60 \* 1000/);
+  assert.match(billing, /\.is\("premium_trial_started_at", null\)/);
+  assert.match(editorPage, /Start your 7-day trial/);
+  assert.match(editorPage, /No card or payment setup required/);
+  assert.match(editorPage, /Branding stays visible during the trial/);
+  assert.match(editor, /hasPaidPremium \|\| Boolean\(entitlement\?\.branding_removal\)/);
+  assert.match(editor, /action: "start_trial"/);
+  assert.match(publicEndpoint, /hasPremiumTools = hasPaidPremium \|\| hasTrialAccess/);
+  assert.match(publicEndpoint, /canHideBranding = hasPaidPremium \|\| entitlement\?\.branding_removal/);
+  assert.match(connectEndpoint, /premium_trial_ends_at/);
 });

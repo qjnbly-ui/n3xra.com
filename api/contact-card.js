@@ -59,19 +59,21 @@ export default async function handler(req, res) {
     const rows = await response.json();
     const card = Array.isArray(rows) ? rows[0] : null;
     if (!card) return send(res, 404, { error: "This digital card is not published right now." });
-    const entitlementParams = new URLSearchParams({ select: "premium_active,branding_removal", owner_user_id: `eq.${card.owner_user_id}`, limit: "1" });
+    const entitlementParams = new URLSearchParams({ select: "premium_active,branding_removal,premium_trial_ends_at", owner_user_id: `eq.${card.owner_user_id}`, limit: "1" });
     const entitlementResponse = await fetch(`${SUPABASE_URL}/rest/v1/contact_card_entitlements?${entitlementParams}`, {
       headers: serviceHeaders({ Accept: "application/json" }),
     });
     const entitlements = entitlementResponse.ok ? await entitlementResponse.json() : [];
     const entitlement = Array.isArray(entitlements) ? entitlements[0] : null;
-    const hasPremium = entitlement?.premium_active === true;
-    const canHideBranding = hasPremium || entitlement?.branding_removal === true;
+    const hasPaidPremium = entitlement?.premium_active === true;
+    const hasTrialAccess = Boolean(entitlement?.premium_trial_ends_at && new Date(entitlement.premium_trial_ends_at).getTime() > Date.now());
+    const hasPremiumTools = hasPaidPremium || hasTrialAccess;
+    const canHideBranding = hasPaidPremium || entitlement?.branding_removal === true;
     const { owner_user_id, profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
     return send(res, 200, {
       card: {
         ...publicCard,
-        exchange_enabled: hasPremium && publicCard.exchange_enabled !== false,
+        exchange_enabled: hasPremiumTools && publicCard.exchange_enabled !== false,
         show_n3xra_branding: canHideBranding ? publicCard.show_n3xra_branding !== false : true,
         media: {
           profile: Boolean(profile_image_path),

@@ -85,9 +85,11 @@ module.exports = async function handler(req, res) {
     const profiles = await supabaseRequest(`contact_card_profiles?${params}`);
     const profile = Array.isArray(profiles) ? profiles[0] : null;
     if (!profile) return send(res, 404, { error: "This card is not accepting connections right now." });
-    const premiumParams = new URLSearchParams({ select: "premium_active", owner_user_id: `eq.${profile.owner_user_id}`, premium_active: "eq.true", limit: "1" });
+    const premiumParams = new URLSearchParams({ select: "premium_active,premium_trial_ends_at", owner_user_id: `eq.${profile.owner_user_id}`, limit: "1" });
     const premiumRows = await supabaseRequest(`contact_card_entitlements?${premiumParams}`);
-    if (!Array.isArray(premiumRows) || !premiumRows[0]?.premium_active) return send(res, 404, { error: "This card is not accepting connections right now." });
+    const premium = Array.isArray(premiumRows) ? premiumRows[0] : null;
+    const trialActive = Boolean(premium?.premium_trial_ends_at && new Date(premium.premium_trial_ends_at).getTime() > Date.now());
+    if (!premium?.premium_active && !trialActive) return send(res, 404, { error: "This card is not accepting connections right now." });
 
     const allowed = await supabaseRequest("rpc/consume_contact_card_connection_rate_limit", {
       method: "POST",
