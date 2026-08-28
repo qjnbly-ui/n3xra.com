@@ -26,6 +26,7 @@ const PUBLIC_COLUMNS = [
   "show_n3xra_branding",
   "exchange_enabled",
 ].join(",");
+const INTERNAL_COLUMNS = `${PUBLIC_COLUMNS},owner_user_id`;
 
 function send(res, status, body) {
   res.setHeader("Cache-Control", "no-store");
@@ -50,7 +51,7 @@ export default async function handler(req, res) {
   if (!SUPABASE_URL || !SERVICE_KEY) return send(res, 503, { error: "Digital cards are temporarily unavailable." });
 
   try {
-    const params = new URLSearchParams({ select: PUBLIC_COLUMNS, slug: `eq.${slug}`, status: "eq.published", limit: "1" });
+    const params = new URLSearchParams({ select: INTERNAL_COLUMNS, slug: `eq.${slug}`, status: "eq.published", limit: "1" });
     const response = await fetch(`${SUPABASE_URL}/rest/v1/contact_card_profiles?${params}`, {
       headers: serviceHeaders({ Accept: "application/json" }),
     });
@@ -58,10 +59,20 @@ export default async function handler(req, res) {
     const rows = await response.json();
     const card = Array.isArray(rows) ? rows[0] : null;
     if (!card) return send(res, 404, { error: "This digital card is not published right now." });
-    const { profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
+    const entitlementParams = new URLSearchParams({ select: "premium_active,branding_removal", owner_user_id: `eq.${card.owner_user_id}`, limit: "1" });
+    const entitlementResponse = await fetch(`${SUPABASE_URL}/rest/v1/contact_card_entitlements?${entitlementParams}`, {
+      headers: serviceHeaders({ Accept: "application/json" }),
+    });
+    const entitlements = entitlementResponse.ok ? await entitlementResponse.json() : [];
+    const entitlement = Array.isArray(entitlements) ? entitlements[0] : null;
+    const hasPremium = entitlement?.premium_active === true;
+    const canHideBranding = hasPremium || entitlement?.branding_removal === true;
+    const { owner_user_id, profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
     return send(res, 200, {
       card: {
         ...publicCard,
+        exchange_enabled: hasPremium && publicCard.exchange_enabled !== false,
+        show_n3xra_branding: canHideBranding ? publicCard.show_n3xra_branding !== false : true,
         media: {
           profile: Boolean(profile_image_path),
           logo: Boolean(company_logo_path),

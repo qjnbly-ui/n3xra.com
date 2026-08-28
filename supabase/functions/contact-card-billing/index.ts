@@ -2,14 +2,28 @@ import Stripe from "https://esm.sh/stripe@18.3.0?target=denonext";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.8";
 import { STRIPE_API_VERSION, corsHeaders, getAppOrigin, jsonResponse } from "../_shared/stripe-billing.ts";
 
-type ProductKey = "base" | "branding_removal" | "additional_card" | "three_pack";
+type OneTimeProductKey = "base" | "additional_card" | "three_pack";
+type ProductKey = OneTimeProductKey | "branding_removal" | "premium_monthly" | "premium_yearly";
+type PremiumPlan = "monthly" | "yearly";
 
-const PRODUCTS: Record<ProductKey, { env: string; amount: number; quantity: number }> = {
+const PRODUCTS: Record<OneTimeProductKey, { env: string; amount: number; quantity: number }> = {
   base: { env: "STRIPE_PRICE_CONTACT_CARD_BASE", amount: 1999, quantity: 1 },
-  branding_removal: { env: "STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL", amount: 999, quantity: 0 },
   additional_card: { env: "STRIPE_PRICE_CONTACT_CARD_ADDITIONAL", amount: 799, quantity: 1 },
   three_pack: { env: "STRIPE_PRICE_CONTACT_CARD_THREE_PACK", amount: 1999, quantity: 3 },
 };
+
+const PREMIUM_PLANS: Record<PremiumPlan, { amount: number; interval: "month" | "year"; label: string; lookupKey: string }> = {
+  monthly: { amount: 399, interval: "month", label: "$3.99 per month", lookupKey: "n3xra_contact_card_premium_monthly_399" },
+  yearly: { amount: 2999, interval: "year", label: "$29.99 per year", lookupKey: "n3xra_contact_card_premium_yearly_2999" },
+};
+
+function oneTimeProduct(value: string): value is OneTimeProductKey {
+  return value === "base" || value === "additional_card" || value === "three_pack";
+}
+
+function premiumPlan(product: ProductKey): PremiumPlan | null {
+  return product === "premium_monthly" ? "monthly" : product === "premium_yearly" ? "yearly" : null;
+}
 
 function serviceKey() {
   return Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SERVICE_ROLE_KEY");
@@ -19,6 +33,33 @@ function stripeClient() {
   const key = Deno.env.get("STRIPE_SECRET_KEY");
   if (!key) throw new Error("Stripe is not configured.");
   return new Stripe(key, { apiVersion: STRIPE_API_VERSION, httpClient: Stripe.createFetchHttpClient() });
+}
+
+async function ensurePremiumPrice(stripe: Stripe, plan: PremiumPlan): Promise<string> {
+  const definition = PREMIUM_PLANS[plan];
+  const existingPrices = await stripe.prices.list({ active: true, lookup_keys: [definition.lookupKey], limit: 1 });
+  if (existingPrices.data[0]?.id) return existingPrices.data[0].id;
+
+  const products = await stripe.products.list({ active: true, limit: 100 });
+  let product = products.data.find((item) => item.metadata?.n3xra_key === "contact_card_premium");
+  if (!product) {
+    product = await stripe.products.create({
+      name: "N3XRA Contact Card Premium",
+      description: "Connect Back, business-card scanning, contact management, exports, and branding removal.",
+      metadata: { n3xra_key: "contact_card_premium" },
+    }, { idempotencyKey: "n3xra-contact-card-premium-product-v1" });
+  }
+
+  const price = await stripe.prices.create({
+    product: product.id,
+    currency: "usd",
+    unit_amount: definition.amount,
+    recurring: { interval: definition.interval },
+    lookup_key: definition.lookupKey,
+    nickname: `Contact Card Premium · ${definition.label}`,
+    metadata: { app: "n3xra_contact_card_premium", plan },
+  }, { idempotencyKey: `${definition.lookupKey}-v1` });
+  return price.id;
 }
 
 Deno.serve(async (request) => {
@@ -39,12 +80,13 @@ Deno.serve(async (request) => {
     if (userError || !user) return jsonResponse({ error: "Your session has expired. Sign in again." }, 401, origin);
 
     const input = await request.json().catch(() => ({}));
+    const action = String(input.action || "checkout").trim().toLowerCase();
     const product = String(input.product || "") as ProductKey;
     if (product === "branding_removal") {
       return jsonResponse({ error: "Branding removal is now included with N3XRA Contact Card Premium. New one-time purchases are no longer available." }, 410, origin);
     }
-    const definition = PRODUCTS[product];
-    if (!definition) return jsonResponse({ error: "Choose a valid Contact Card purchase." }, 400, origin);
+    const plan = premiumPlan(product);
+    if (!plan && !oneTimeProduct(product) && action !== "portal") return jsonResponse({ error: "Choose a valid Contact Card purchase." }, 400, origin);
 
     const { data: profile, error: profileError } = await admin
       .from("contact_card_profiles")
@@ -55,14 +97,50 @@ Deno.serve(async (request) => {
 
     const { data: entitlement } = await admin
       .from("contact_card_entitlements")
-      .select("base_access, branding_removal, stripe_customer_id")
+      .select("base_access, branding_removal, stripe_customer_id, stripe_subscription_id, premium_active, premium_status")
       .eq("owner_user_id", user.id)
       .maybeSingle();
 
+    const stripe = stripeClient();
+    if (action === "portal") {
+      if (!entitlement?.stripe_customer_id) return jsonResponse({ error: "Premium billing is not active for this account." }, 400, origin);
+      const session = await stripe.billingPortal.sessions.create({
+        customer: entitlement.stripe_customer_id,
+        return_url: `${origin}/client-portal/contact-card/`,
+      });
+      return jsonResponse({ url: session.url }, 200, origin);
+    }
+
     if (product === "base" && entitlement?.base_access) return jsonResponse({ error: "This Contact Card is already active." }, 400, origin);
-    if (product === "branding_removal" && entitlement?.branding_removal) return jsonResponse({ error: "Branding removal is already active." }, 400, origin);
     if (product !== "base" && !entitlement?.base_access) return jsonResponse({ error: "Activate your Contact Card first." }, 400, origin);
 
+    if (plan) {
+      if (entitlement?.premium_active || ["trialing", "active", "past_due", "paused", "unpaid"].includes(String(entitlement?.premium_status || ""))) {
+        return jsonResponse({ error: "Premium billing is already active. Open billing management to review it." }, 409, origin);
+      }
+      const price = await ensurePremiumPrice(stripe, plan);
+      const metadata = {
+        app: "n3xra_contact_card_premium",
+        owner_user_id: user.id,
+        profile_id: profile.id,
+        product,
+        plan,
+      };
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        ...(entitlement?.stripe_customer_id ? { customer: entitlement.stripe_customer_id } : { customer_email: user.email || undefined }),
+        line_items: [{ price, quantity: 1 }],
+        allow_promotion_codes: true,
+        client_reference_id: profile.id,
+        success_url: `${origin}/client-portal/contact-card/?checkout=success&product=premium`,
+        cancel_url: `${origin}/client-portal/contact-card/?checkout=canceled`,
+        metadata,
+        subscription_data: { metadata },
+      }, { idempotencyKey: `contact-card-premium-${user.id}-${plan}-${Math.floor(Date.now() / 60000)}` });
+      return jsonResponse({ url: session.url }, 200, origin);
+    }
+
+    const definition = PRODUCTS[product];
     const price = Deno.env.get(definition.env);
     if (!price) throw new Error(`Missing ${definition.env}.`);
     const orderId = crypto.randomUUID();
@@ -76,7 +154,6 @@ Deno.serve(async (request) => {
     });
     if (orderError) throw new Error(orderError.message);
 
-    const stripe = stripeClient();
     try {
       const session = await stripe.checkout.sessions.create({
         mode: "payment",

@@ -17,7 +17,8 @@ test("public contact-card endpoint returns only the approved public fields", asy
   assert.match(source, /Cache-Control", "no-store"/);
   assert.doesNotMatch(publicColumns, /prospect_contact_id/);
   assert.match(source, /status: "eq\.published"/);
-  assert.match(source, /const \{ profile_image_path, company_logo_path, background_image_path, \.\.\.publicCard \} = card/);
+  assert.match(source, /const INTERNAL_COLUMNS = `\$\{PUBLIC_COLUMNS\},owner_user_id`/);
+  assert.match(source, /const \{ owner_user_id, profile_image_path, company_logo_path, background_image_path, \.\.\.publicCard \} = card/);
   assert.match(source, /profile: Boolean\(profile_image_path\)/);
 });
 
@@ -163,7 +164,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=14/);
+  assert.match(activation, /\/card\/editor\.js\?v=15/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -201,7 +202,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=14/);
+  assert.match(editorPage, /\/card\/card\.css\?v=15/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {
@@ -289,14 +290,49 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(migration, /create table public\.contact_card_entitlements/);
   assert.match(migration, /Purchase the branding removal upgrade/);
   assert.match(billing, /mode: "payment"/);
-  assert.match(billing, /STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL/);
+  assert.doesNotMatch(billing, /STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL/);
   assert.match(billing, /product === "branding_removal"[\s\S]*New one-time purchases are no longer available/);
   assert.match(webhook, /n3xra_contact_card/);
   assert.match(editor, /checkoutProduct === "branding_removal"/);
   assert.match(editor, /brandingToggle\.checked = true/);
   assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
-  assert.match(editor, /Branding removal is included with Premium/);
+  assert.match(editor, /Branding removal is included with N3XRA Contact Card Premium/);
   assert.doesNotMatch(landing, /Permanent “Powered by N3XRA” removal/);
   assert.doesNotMatch(landing, /\$9\.99/);
   assert.match(landing, /3-card tap pack/);
+});
+
+test("Contact Card Premium is a recurring, owner-scoped upgrade with a dismissible prompt", async () => {
+  const [migration, billing, webhook, editor, editorPage, publicEndpoint, connectEndpoint] = await Promise.all([
+    read("supabase/migrations/20260828160512_contact_card_premium_subscription.sql"),
+    read("supabase/functions/contact-card-billing/index.ts"),
+    read("supabase/functions/stripe-webhook/index.ts"),
+    read("src/contact-cards/editor.ts"),
+    read("client-portal/contact-card/index.html"),
+    read("api/contact-card.js"),
+    read("api/contact-card-connect.js"),
+  ]);
+  assert.match(migration, /premium_active boolean not null default false/);
+  assert.match(migration, /premium_prompt_dismissed_at/);
+  assert.match(migration, /grant update \(premium_prompt_dismissed_at\)/);
+  assert.match(migration, /for update to authenticated[\s\S]*auth\.uid\(\)[\s\S]*with check/i);
+  assert.match(migration, /guard_contact_card_connection_premium/);
+  assert.match(migration, /branding_removal or premium_active/);
+  assert.match(billing, /monthly: \{ amount: 399/);
+  assert.match(billing, /yearly: \{ amount: 2999/);
+  assert.match(billing, /mode: "subscription"/);
+  assert.match(billing, /billingPortal\.sessions\.create/);
+  assert.match(billing, /n3xra_contact_card_premium/);
+  assert.match(webhook, /syncContactCardPremium/);
+  assert.match(webhook, /customer\.subscription\.deleted/);
+  assert.match(editorPage, /id="card-premium-dialog"/);
+  assert.match(editorPage, /Don’t show this automatically again/);
+  assert.match(editorPage, /data-premium-plan="yearly"/);
+  assert.match(editorPage, /\$29\.99\/year/);
+  assert.match(editor, /premium_prompt_dismissed_at/);
+  assert.match(editor, /view === "contacts" && !hasPremium/);
+  assert.match(editor, /action: "portal"/);
+  assert.match(publicEndpoint, /exchange_enabled: hasPremium/);
+  assert.match(connectEndpoint, /contact_card_entitlements/);
+  assert.match(connectEndpoint, /premium_active: "eq\.true"/);
 });

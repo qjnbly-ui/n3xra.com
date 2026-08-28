@@ -39,7 +39,7 @@ const PRODUCTS = [
     id: "contact-cards",
     name: "N3XRA Contact Cards",
     route: "/contact-card/",
-    summary: "A public Contact Card introduction with one-time Stripe checkout, customer branding upgrades, additional physical-card ordering, personal links, imagery, scanning, friendly public URLs, and account-connected editing.",
+    summary: "A public Contact Card introduction with one-time card checkout, recurring Premium subscriptions, Connect Back, contact capture and export, additional physical-card ordering, personal links, imagery, scanning, friendly public URLs, and account-connected editing.",
   },
   {
     id: "partners",
@@ -82,7 +82,7 @@ const RECENT_CAPABILITIES = [
     introducedBy: "59dbf69",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",
-    summary: "Contact Cards use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, another card is $7.99, and a three-card pack is $19.99. New one-time branding-removal sales are retired in favor of an upcoming Premium plan, while existing paid branding entitlements remain honored. The workspace also includes Connect Back contacts, business-card scanning, CSV export, individual vCard downloads, and physical-card fulfillment through the Admin Inbox.",
+    summary: "Contact Cards use one-time Stripe checkout: $19.99 includes the permanent digital card and first physical tap card, another card is $7.99, and a three-card pack is $19.99. Premium is $3.99 monthly or $29.99 yearly and includes Connect Back, contact business-card scanning, CSV and individual vCard exports, and branding removal. Existing paid branding entitlements remain honored. Premium access and prompt preferences are owner-scoped in Supabase, subscription state is synchronized by Stripe webhooks, and physical-card fulfillment remains connected to the Admin Inbox.",
   },
   {
     introducedBy: "6c6c2a5",

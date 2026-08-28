@@ -6,7 +6,7 @@ interface ScanDetails { fullName?: string; companyName?: string; jobTitle?: stri
 type CardRow = Record<string, unknown> & { id: string; slug: string; links?: CardLink[] };
 interface ConnectionRow { id: string; name: string; email: string | null; phone_e164: string | null; company_name: string; message: string; status: string; source: "public_card" | "business_card_scan"; submitted_at: string; job_title: string; website_url: string | null; address_text: string; additional_emails: string[]; additional_phones: string[]; }
 interface OrderRow { id: string; order_type: string; quantity: number; amount_cents: number; status: string; paid_at: string | null; created_at: string; }
-interface EntitlementRow { base_access?: boolean; branding_removal?: boolean; source?: string; }
+interface EntitlementRow { base_access?: boolean; branding_removal?: boolean; premium_active?: boolean; premium_status?: string; premium_plan?: "monthly" | "yearly" | null; premium_current_period_end?: string | null; premium_cancel_at_period_end?: boolean; premium_prompt_dismissed_at?: string | null; stripe_customer_id?: string | null; source?: string; }
 type MediaType = "profile" | "logo" | "background";
 type SectionKey = "about" | "contact" | "links";
 type WorkspaceView = "preview" | "edit" | "contacts" | "profile";
@@ -20,6 +20,7 @@ const SECTION_DETAILS: Record<SectionKey, { label: string; description: string }
   about: { label: "About", description: "Your short biography" }, contact: { label: "Contact", description: "Email, phone, and website" }, links: { label: "Links", description: "Social, booking, portfolio, and custom links" },
 };
 const DEFAULT_SECTION_ORDER: SectionKey[] = ["about", "contact", "links"];
+const ENTITLEMENT_COLUMNS = "base_access,branding_removal,premium_active,premium_status,premium_plan,premium_current_period_end,premium_cancel_at_period_end,premium_prompt_dismissed_at,stripe_customer_id";
 
 const form = document.querySelector<HTMLFormElement>("#card-editor-form");
 const activation = document.querySelector<HTMLElement>("#card-activation");
@@ -64,10 +65,19 @@ const contactScanForm = document.querySelector<HTMLFormElement>("#card-contact-s
 const profileSummary = document.querySelector<HTMLElement>("#card-profile-summary");
 const profileHistory = document.querySelector<HTMLElement>("#card-profile-history");
 const orderHistory = document.querySelector<HTMLElement>("#card-order-history");
+const premiumDialog = document.querySelector<HTMLDialogElement>("#card-premium-dialog");
+const premiumClose = document.querySelector<HTMLButtonElement>("#card-premium-close");
+const premiumLater = document.querySelector<HTMLButtonElement>("#card-premium-later");
+const premiumHidePrompt = document.querySelector<HTMLInputElement>("#card-premium-hide-prompt");
+const premiumStatus = document.querySelector<HTMLElement>("#card-premium-status");
+const premiumProfileAction = document.querySelector<HTMLButtonElement>("#card-premium-profile-action");
+const premiumProfileTitle = document.querySelector<HTMLElement>("#card-premium-profile-title");
+const premiumProfileCopy = document.querySelector<HTMLElement>("#card-premium-profile-copy");
 const supabase = hasConfig() ? createBrowserSupabase() : null;
 let card: CardRow | null = null;
 let draftCard: CardRow | null = null;
 let hasBrandingRemoval = false;
+let hasPremium = false;
 let ownerUserId = "";
 let accessToken = "";
 let pendingScanDataUrl = "";
@@ -95,11 +105,59 @@ function showStatus(message = "", isError = false): void { if (status) { status.
 function showMediaStatus(message = "", isError = false): void { if (mediaStatus) { mediaStatus.textContent = message; mediaStatus.style.color = isError ? "#a33041" : ""; } }
 function setScanStatus(message = "", tone = ""): void { if (scanStatus) { scanStatus.textContent = message; scanStatus.className = tone ? `is-${tone}` : ""; } }
 function setSaveStatus(message: string, tone = ""): void { if (saveStatus) { saveStatus.textContent = message; saveStatus.className = `card-auto-save-status${tone ? ` is-${tone}` : ""}`; } }
+function setPremiumStatus(message = "", isError = false): void { if (premiumStatus) { premiumStatus.textContent = message; premiumStatus.className = `card-premium-status${isError ? " is-error" : ""}`; } }
 function formatDate(value: string | null | undefined): string { if (!value) return ""; return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value)); }
 function formatMoney(cents: number): string { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100); }
 
+function openPremiumDialog(): void {
+  if (!premiumDialog || hasPremium) return;
+  if (premiumDialog.open) return;
+  setPremiumStatus();
+  premiumDialog.showModal();
+}
+
+async function closePremiumDialog(): Promise<void> {
+  if (premiumHidePrompt?.checked && supabase && entitlementData) {
+    const dismissedAt = new Date().toISOString();
+    const { error } = await supabase.from("contact_card_entitlements").update({ premium_prompt_dismissed_at: dismissedAt }).eq("owner_user_id", ownerUserId);
+    if (error) { setPremiumStatus("That preference could not be saved. Please try again.", true); return; }
+    entitlementData.premium_prompt_dismissed_at = dismissedAt;
+  }
+  premiumDialog?.close();
+}
+
+async function startPremiumCheckout(plan: "monthly" | "yearly", button: HTMLButtonElement): Promise<void> {
+  if (!supabase) throw new Error("Premium checkout is not available.");
+  document.querySelectorAll<HTMLButtonElement>("[data-premium-plan]").forEach((item) => { item.disabled = true; });
+  setPremiumStatus("Opening secure checkout…");
+  try {
+    const { data, error } = await supabase.functions.invoke("contact-card-billing", { body: { product: `premium_${plan}` } });
+    if (error) throw error;
+    if (!data?.url) throw new Error(data?.error || "Premium checkout could not be opened.");
+    window.location.assign(String(data.url));
+  } catch (error) {
+    setPremiumStatus(error instanceof Error ? error.message : "Premium checkout could not be opened.", true);
+    document.querySelectorAll<HTMLButtonElement>("[data-premium-plan]").forEach((item) => { item.disabled = false; });
+    button.focus();
+  }
+}
+
+async function openPremiumBilling(): Promise<void> {
+  if (!supabase || !premiumProfileAction) return;
+  premiumProfileAction.disabled = true;
+  try {
+    const { data, error } = await supabase.functions.invoke("contact-card-billing", { body: { action: "portal" } });
+    if (error) throw error;
+    if (!data?.url) throw new Error(data?.error || "Billing management could not be opened.");
+    window.location.assign(String(data.url));
+  } catch (error) {
+    setSaveStatus(error instanceof Error ? error.message : "Billing management could not be opened.", "error");
+  } finally { premiumProfileAction.disabled = false; }
+}
+
 async function switchWorkspaceView(view: WorkspaceView): Promise<void> {
   if (!card || !workspaceNav) return;
+  if (view === "contacts" && !hasPremium) { openPremiumDialog(); return; }
   if (activeWorkspaceView === "edit" && view !== "edit") await saveChanges();
   activeWorkspaceView = view;
   document.querySelectorAll<HTMLElement>("[data-card-view]").forEach((panel) => { panel.hidden = panel.dataset.cardView !== view; panel.classList.toggle("is-active", panel.dataset.cardView === view); });
@@ -157,12 +215,18 @@ function renderProfile(orders: OrderRow[]): void {
     profileSummary.replaceChildren();
     const items: Array<readonly [string, string]> = [
       ["Contact Card", entitlementData?.base_access ? "Active" : "Setup"],
+      ["Premium", hasPremium ? `${entitlementData?.premium_plan === "monthly" ? "Monthly" : "Annual"} · ${String(entitlementData?.premium_status || "active").replaceAll("_", " ")}` : "Not active"],
       ["Public address", card ? `n3xra.com/card/${card.slug}` : ""],
-      ["Connect Back", card?.exchange_enabled === false ? "Off" : "On"],
-      ["N3XRA branding", entitlementData?.branding_removal ? "Removal unlocked" : "Included"],
+      ["Connect Back", hasPremium && card?.exchange_enabled !== false ? "On" : "Premium"],
+      ["N3XRA branding", hasBrandingRemoval ? "Removal unlocked" : "Included"],
     ];
     for (const [labelText, valueText] of items) { const item = document.createElement("div"); const label = document.createElement("span"); label.textContent = labelText; const value = document.createElement("strong"); value.textContent = String(valueText); item.append(label, value); profileSummary.append(item); }
   }
+  if (premiumProfileAction) premiumProfileAction.textContent = hasPremium ? "Manage Premium billing" : "View Premium";
+  if (premiumProfileTitle) premiumProfileTitle.textContent = hasPremium ? "Premium is active" : "Turn introductions into contacts";
+  if (premiumProfileCopy) premiumProfileCopy.textContent = hasPremium
+    ? `Your ${entitlementData?.premium_plan === "monthly" ? "monthly" : "annual"} plan includes Connect Back, scanning, exports, and branding removal${entitlementData?.premium_cancel_at_period_end ? " until the end of the current billing period" : ""}.`
+    : "Connect Back, scan business cards, export contacts, and remove N3XRA branding.";
   if (profileHistory) profileHistory.hidden = orders.length === 0;
   if (!orderHistory) return;
   orderHistory.replaceChildren();
@@ -288,10 +352,10 @@ function fillForm(row: CardRow): void {
     const control = form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (control) control.value = String(row[name] ?? "");
   }
   const emailLabel = form.elements.namedItem("email_label") as HTMLInputElement | null; if (emailLabel && !emailLabel.value) emailLabel.value = "Email"; const phoneLabel = form.elements.namedItem("phone_label") as HTMLInputElement | null; if (phoneLabel && !phoneLabel.value) phoneLabel.value = "Phone";
-  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) { branding.checked = hasBrandingRemoval ? row.show_n3xra_branding !== false : true; branding.dataset.locked = String(!hasBrandingRemoval); } if (removeBrandingButton) removeBrandingButton.hidden = hasBrandingRemoval; if (brandingHelp) brandingHelp.textContent = hasBrandingRemoval ? "Your existing branding-removal access stays active. You can show or hide the N3XRA credit anytime." : "Branding removal will be included with N3XRA Contact Card Premium."; renderContacts("editor-email", row.additional_emails, row.additional_email_labels); renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
-  if (exchangeToggle) exchangeToggle.checked = row.exchange_enabled !== false;
+  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) { branding.checked = hasBrandingRemoval ? row.show_n3xra_branding !== false : true; branding.dataset.locked = String(!hasBrandingRemoval); } if (removeBrandingButton) removeBrandingButton.hidden = hasBrandingRemoval; if (brandingHelp) brandingHelp.textContent = hasBrandingRemoval ? "Branding removal is active. You can show or hide the N3XRA credit anytime." : "Branding removal is included with N3XRA Contact Card Premium."; renderContacts("editor-email", row.additional_emails, row.additional_email_labels); renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
+  if (exchangeToggle) { exchangeToggle.checked = hasPremium && row.exchange_enabled !== false; exchangeToggle.closest("label")?.classList.toggle("is-premium-locked", !hasPremium); }
   setRequestState(row); sectionOrder = validSectionOrder(row.section_order); renderSectionOrder(); void loadMediaPreviews(row); linksContainer?.replaceChildren(); for (const link of row.links || []) addLinkRow(link); if (!row.links?.length) addLinkRow();
-  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", ""); if (workspaceNav) workspaceNav.hidden = false; changesPending = false; setSaveStatus("All changes saved"); void loadWorkspaceData(); switchWorkspaceView("preview");
+  const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", ""); if (workspaceNav) workspaceNav.hidden = false; changesPending = false; setSaveStatus("All changes saved"); void loadWorkspaceData(); switchWorkspaceView("preview"); if (!hasPremium && !entitlementData?.premium_prompt_dismissed_at) window.setTimeout(openPremiumDialog, 650);
 }
 
 async function checkSlug(rawSlug: string, current = ""): Promise<boolean> {
@@ -446,12 +510,12 @@ async function saveChanges(): Promise<void> {
 
 async function initialize(): Promise<void> {
   if (!supabase || !form || !activationForm || !activation) throw new Error("The Contact Card product is not configured."); const session = await getSessionOrNull(supabase); if (!session?.user) { window.location.replace(`/account/?next=${encodeURIComponent("/client-portal/contact-card/")}`); return; }
-  ownerUserId = String(session.user.id || ""); accessToken = String(session.access_token || ""); const [{ data: initialData, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle()]); if (error) throw error; let data = initialData; let entitlement = entitlementResult.data;
+  ownerUserId = String(session.user.id || ""); accessToken = String(session.access_token || ""); const [{ data: initialData, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select(ENTITLEMENT_COLUMNS).eq("owner_user_id", session.user.id).maybeSingle()]); if (error) throw error; let data = initialData; let entitlement = entitlementResult.data as EntitlementRow | null;
   const checkoutParams = new URLSearchParams(window.location.search); const checkoutSucceeded = checkoutParams.get("checkout") === "success"; const checkoutProduct = checkoutParams.get("product");
-  const purchaseConfirmed = (): boolean => checkoutProduct === "branding_removal" ? Boolean(entitlement?.branding_removal) : checkoutProduct === "base" ? Boolean(entitlement?.base_access) : true;
-  if (data && checkoutSucceeded && !purchaseConfirmed()) { showStatus("Confirming your purchase…"); for (let attempt = 0; attempt < 12 && !purchaseConfirmed(); attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 750)); const result = await supabase.from("contact_card_entitlements").select("base_access, branding_removal").eq("owner_user_id", session.user.id).maybeSingle(); entitlement = result.data; } if (purchaseConfirmed()) { const refreshed = await supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(); if (!refreshed.error) data = refreshed.data; } }
-  hasBrandingRemoval = Boolean(entitlement?.branding_removal); entitlementData = entitlement as EntitlementRow | null;
-  if (data && entitlement?.base_access) { card = data as CardRow; fillForm(card); showStatus(checkoutSucceeded ? purchaseConfirmed() ? checkoutProduct === "branding_removal" ? "Branding removal is permanently unlocked." : "Purchase complete. Your Contact Card is ready." : "Payment received. The update is still processing; refresh in a moment." : ""); }
+  const purchaseConfirmed = (): boolean => checkoutProduct === "premium" ? Boolean(entitlement?.premium_active) : checkoutProduct === "branding_removal" ? Boolean(entitlement?.branding_removal) : checkoutProduct === "base" ? Boolean(entitlement?.base_access) : true;
+  if (data && checkoutSucceeded && !purchaseConfirmed()) { showStatus("Confirming your purchase…"); for (let attempt = 0; attempt < 16 && !purchaseConfirmed(); attempt += 1) { await new Promise((resolve) => window.setTimeout(resolve, 750)); const result = await supabase.from("contact_card_entitlements").select(ENTITLEMENT_COLUMNS).eq("owner_user_id", session.user.id).maybeSingle(); entitlement = result.data as EntitlementRow | null; } if (purchaseConfirmed()) { const refreshed = await supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(); if (!refreshed.error) data = refreshed.data; } }
+  hasPremium = Boolean(entitlement?.premium_active); hasBrandingRemoval = hasPremium || Boolean(entitlement?.branding_removal); entitlementData = entitlement;
+  if (data && entitlement?.base_access) { card = data as CardRow; fillForm(card); showStatus(checkoutSucceeded ? purchaseConfirmed() ? checkoutProduct === "premium" ? "Premium is active. Your advanced contact tools are ready." : checkoutProduct === "branding_removal" ? "Branding removal is permanently unlocked." : "Purchase complete. Your Contact Card is ready." : "Payment received. The update is still processing; refresh in a moment." : ""); }
   else if (data) { draftCard = data as CardRow; const names = ["display_name", "headline", "company_name", "email", "email_label", "phone_e164", "phone_label", "website_url", "slug"]; for (const name of names) { const control = activationControl(name); if (control) control.value = String(draftCard[name] || (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : "")); } renderContacts("activation-email", draftCard.additional_emails, draftCard.additional_email_labels); renderContacts("activation-phone", draftCard.additional_phones, draftCard.additional_phone_labels); if (scanPanel) scanPanel.hidden = false; activation.hidden = false; showStatus(""); }
   else { const name = String(session.user.user_metadata?.full_name || session.user.email?.split("@")[0] || "").trim(); const nameControl = activationControl("display_name"); const emailControl = activationControl("email"); if (nameControl) nameControl.value = name; if (emailControl) emailControl.value = String(session.user.email || ""); if (slugInput) slugInput.value = slugify(name); if (scanPanel) scanPanel.hidden = false; activation.hidden = false; showStatus(""); if (slugInput?.value) void checkSlug(slugInput.value); }
   document.body.classList.remove("is-loading");
@@ -466,8 +530,8 @@ document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((butt
 document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
 document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all") as typeof contactSourceFilter; document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
 contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
-contactExport?.addEventListener("click", exportContactsCsv);
-contactScanInput?.addEventListener("change", () => { const file = contactScanInput.files?.[0]; if (!file) return; void scanContactCard(file).catch((error: unknown) => setContactToolStatus(error instanceof Error ? error.message : "The business card could not be scanned.", "error")).finally(() => { contactScanInput.value = ""; }); });
+contactExport?.addEventListener("click", () => { if (!hasPremium) { openPremiumDialog(); return; } exportContactsCsv(); });
+contactScanInput?.addEventListener("change", () => { if (!hasPremium) { contactScanInput.value = ""; openPremiumDialog(); return; } const file = contactScanInput.files?.[0]; if (!file) return; void scanContactCard(file).catch((error: unknown) => setContactToolStatus(error instanceof Error ? error.message : "The business card could not be scanned.", "error")).finally(() => { contactScanInput.value = ""; }); });
 document.querySelectorAll<HTMLButtonElement>("[data-close-contact-scan]").forEach((button) => button.addEventListener("click", () => contactScanDialog?.close()));
 contactScanForm?.addEventListener("submit", (event) => { event.preventDefault(); void saveScannedContact().catch((error: unknown) => setContactToolStatus(error instanceof Error ? error.message : "The contact could not be saved.", "error")); });
 
@@ -482,8 +546,14 @@ activationForm?.addEventListener("submit", (event) => {
 });
 
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
-removeBrandingButton?.addEventListener("click", () => { setSaveStatus("Branding removal is included with Premium. Subscription options are coming next."); });
-brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || brandingToggle.checked) return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; setSaveStatus("Branding removal is included with Premium. Subscription options are coming next."); });
+removeBrandingButton?.addEventListener("click", openPremiumDialog);
+brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || brandingToggle.checked) return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; openPremiumDialog(); });
+exchangeToggle?.closest("label")?.addEventListener("click", (event) => { if (hasPremium) return; event.preventDefault(); event.stopPropagation(); openPremiumDialog(); });
+premiumClose?.addEventListener("click", () => { void closePremiumDialog(); });
+premiumLater?.addEventListener("click", () => { void closePremiumDialog(); });
+premiumDialog?.addEventListener("cancel", (event) => { event.preventDefault(); void closePremiumDialog(); });
+document.querySelectorAll<HTMLButtonElement>("[data-premium-plan]").forEach((button) => button.addEventListener("click", () => { void startPremiumCheckout(button.dataset.premiumPlan as "monthly" | "yearly", button); }));
+premiumProfileAction?.addEventListener("click", () => { if (hasPremium) void openPremiumBilling(); else openPremiumDialog(); });
 document.querySelectorAll<HTMLButtonElement>("[data-contact-card-product]").forEach((button) => button.addEventListener("click", () => { void startCheckout(button.dataset.contactCardProduct as "additional_card" | "three_pack", button).catch((error: unknown) => setSaveStatus(error instanceof Error ? error.message : "Checkout could not be opened.", "error")); }));
 document.querySelectorAll<HTMLInputElement>("[data-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.mediaInput as MediaType; if (!file || !(type in MEDIA_CONFIG)) return; void uploadMedia(type, file).catch((error: unknown) => showMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
 document.querySelectorAll<HTMLButtonElement>("[data-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.removeMedia as MediaType; if (!(type in MEDIA_CONFIG)) return; button.disabled = true; void removeMedia(type).catch((error: unknown) => showMediaStatus(error instanceof Error ? error.message : "The image could not be removed.", true)).finally(() => { button.disabled = !card || !mediaPath(card, type); }); }));

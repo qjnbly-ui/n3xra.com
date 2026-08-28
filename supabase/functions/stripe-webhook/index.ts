@@ -21,6 +21,10 @@ function isRecordsSubscription(subscription: StripeSubscription) {
   return isRecordsPrice(subscription.items.data[0]?.price?.id);
 }
 
+function isContactCardPremiumSubscription(subscription: StripeSubscription) {
+  return String(subscription.metadata?.app || "").trim().toLowerCase() === "n3xra_contact_card_premium";
+}
+
 function getStripeClient() {
   const secretKey = Deno.env.get("STRIPE_SECRET_KEY");
   if (!secretKey) {
@@ -138,6 +142,50 @@ async function syncOrganizationSubscription(
   }
 }
 
+async function syncContactCardPremium(
+  adminClient: ReturnType<typeof createClient>,
+  subscription: StripeSubscription,
+  deleted = false
+) {
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id || null;
+  const subscriptionOwner = String(subscription.metadata?.owner_user_id || "").trim();
+  let lookup = adminClient
+    .from("contact_card_entitlements")
+    .select("owner_user_id,premium_started_at")
+    .limit(1);
+  lookup = subscriptionOwner
+    ? lookup.eq("owner_user_id", subscriptionOwner)
+    : lookup.eq("stripe_subscription_id", subscription.id);
+  const { data: entitlement, error: lookupError } = await lookup.maybeSingle();
+  if (lookupError) throw new Error(lookupError.message);
+  const ownerUserId = subscriptionOwner || String(entitlement?.owner_user_id || "");
+  if (!ownerUserId) throw new Error("Contact Card Premium subscription owner is missing.");
+
+  const status = deleted ? "canceled" : String(subscription.status || "inactive");
+  const premiumActive = !deleted && ["active", "trialing", "past_due"].includes(status);
+  const price = subscription.items.data[0]?.price;
+  const plan = String(subscription.metadata?.plan || "").trim().toLowerCase() === "monthly"
+    ? "monthly"
+    : String(subscription.metadata?.plan || "").trim().toLowerCase() === "yearly"
+      ? "yearly"
+      : price?.recurring?.interval === "month" ? "monthly" : "yearly";
+  const periodEndSeconds = subscription.current_period_end || subscription.items.data[0]?.current_period_end || null;
+  const updates: Record<string, unknown> = {
+    premium_active: premiumActive,
+    premium_status: status,
+    premium_plan: plan,
+    stripe_customer_id: customerId,
+    stripe_subscription_id: subscription.id,
+    stripe_price_id: price?.id || null,
+    premium_current_period_end: periodEndSeconds ? new Date(periodEndSeconds * 1000).toISOString() : null,
+    premium_cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+    source: "stripe",
+  };
+  if (premiumActive && !entitlement?.premium_started_at) updates.premium_started_at = new Date().toISOString();
+  const { error } = await adminClient.from("contact_card_entitlements").update(updates).eq("owner_user_id", ownerUserId);
+  if (error) throw new Error(error.message);
+}
+
 async function completeContactCardCheckout(
   adminClient: ReturnType<typeof createClient>,
   session: Stripe.Checkout.Session
@@ -239,6 +287,12 @@ Deno.serve(async (request) => {
       case "checkout.session.completed": {
         const session = event.data.object as Stripe.Checkout.Session;
         const sessionApp = String(session.metadata?.app || "").trim().toLowerCase();
+        if (sessionApp === "n3xra_contact_card_premium") {
+          if (typeof session.subscription !== "string" || !session.subscription) throw new Error("Contact Card Premium subscription is missing.");
+          const subscription = await stripe.subscriptions.retrieve(session.subscription);
+          await syncContactCardPremium(adminClient, subscription);
+          break;
+        }
         if (sessionApp === "n3xra_contact_card") {
           await completeContactCardCheckout(adminClient, session);
           break;
@@ -274,6 +328,10 @@ Deno.serve(async (request) => {
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const subscription = event.data.object as StripeSubscription;
+        if (isContactCardPremiumSubscription(subscription)) {
+          await syncContactCardPremium(adminClient, subscription, event.type === "customer.subscription.deleted");
+          break;
+        }
         if (!isRecordsSubscription(subscription)) break;
         const organizationId = await loadOrganizationId(adminClient, subscription);
         await syncOrganizationSubscription(
