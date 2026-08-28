@@ -164,7 +164,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=15/);
+  assert.match(activation, /\/card\/editor\.js\?v=16/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -202,7 +202,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=15/);
+  assert.match(editorPage, /\/card\/card\.css\?v=16/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {
@@ -280,11 +280,12 @@ test("platform administrators can update a contact card owner", async () => {
 });
 
 test("Contact Card commerce keeps one-time card checkout while reserving branding removal for Premium", async () => {
-  const [migration, billing, webhook, editor, landing] = await Promise.all([
+  const [migration, billing, webhook, editor, editorPage, landing] = await Promise.all([
     read("supabase/migrations/20260827051948_contact_card_commerce.sql"),
     read("supabase/functions/contact-card-billing/index.ts"),
     read("supabase/functions/stripe-webhook/index.ts"),
     read("src/contact-cards/editor.ts"),
+    read("client-portal/contact-card/index.html"),
     read("contact-card/index.html"),
   ]);
   assert.match(migration, /create table public\.contact_card_entitlements/);
@@ -294,7 +295,9 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(billing, /product === "branding_removal"[\s\S]*New one-time purchases are no longer available/);
   assert.match(webhook, /n3xra_contact_card/);
   assert.match(editor, /checkoutProduct === "branding_removal"/);
-  assert.match(editor, /brandingToggle\.checked = true/);
+  assert.match(editorPage, /Remove “Powered by N3XRA”/);
+  assert.match(editor, /show_n3xra_branding: hasBrandingRemoval \? values\.get\("show_n3xra_branding"\) !== "on" : true/);
+  assert.match(editor, /brandingToggle\.checked = false/);
   assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
   assert.match(editor, /Branding removal is included with N3XRA Contact Card Premium/);
   assert.doesNotMatch(landing, /Permanent “Powered by N3XRA” removal/);
@@ -303,12 +306,13 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
 });
 
 test("Contact Card Premium is a recurring, owner-scoped upgrade with a dismissible prompt", async () => {
-  const [migration, billing, webhook, editor, editorPage, publicEndpoint, connectEndpoint] = await Promise.all([
+  const [migration, billing, webhook, editor, editorPage, editorStyles, publicEndpoint, connectEndpoint] = await Promise.all([
     read("supabase/migrations/20260828160512_contact_card_premium_subscription.sql"),
     read("supabase/functions/contact-card-billing/index.ts"),
     read("supabase/functions/stripe-webhook/index.ts"),
     read("src/contact-cards/editor.ts"),
     read("client-portal/contact-card/index.html"),
+    read("card/card.css"),
     read("api/contact-card.js"),
     read("api/contact-card-connect.js"),
   ]);
@@ -329,6 +333,8 @@ test("Contact Card Premium is a recurring, owner-scoped upgrade with a dismissib
   assert.match(editorPage, /Don’t show this automatically again/);
   assert.match(editorPage, /data-premium-plan="yearly"/);
   assert.match(editorPage, /\$29\.99\/year/);
+  assert.match(editorStyles, /\.card-premium-dialog \{[^}]*width:min\(560px,calc\(100vw - 28px\)\)/);
+  assert.match(editorStyles, /width:calc\(100vw - 14px\); max-width:calc\(100vw - 14px\)/);
   assert.match(editor, /premium_prompt_dismissed_at/);
   assert.match(editor, /view === "contacts" && !hasPremium/);
   assert.match(editor, /action: "portal"/);

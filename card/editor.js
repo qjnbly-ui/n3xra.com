@@ -604,13 +604,13 @@ function fillForm(row) {
         phoneLabel.value = "Phone";
     const branding = form.elements.namedItem("show_n3xra_branding");
     if (branding) {
-        branding.checked = hasBrandingRemoval ? row.show_n3xra_branding !== false : true;
+        branding.checked = hasBrandingRemoval ? row.show_n3xra_branding === false : false;
         branding.dataset.locked = String(!hasBrandingRemoval);
     }
     if (removeBrandingButton)
         removeBrandingButton.hidden = hasBrandingRemoval;
     if (brandingHelp)
-        brandingHelp.textContent = hasBrandingRemoval ? "Branding removal is active. You can show or hide the N3XRA credit anytime." : "Branding removal is included with N3XRA Contact Card Premium.";
+        brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : "Branding removal is included with N3XRA Contact Card Premium.";
     renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
     renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
     if (exchangeToggle) {
@@ -921,7 +921,7 @@ async function saveChanges() {
             const primaryPhone = normalizePhone(String(values.get("phone_e164") || ""));
             const emailContacts = collectContacts("editor-email").filter((item) => item.value !== primaryEmail);
             const phoneContacts = collectContacts("editor-phone").filter((item) => item.value !== primaryPhone);
-            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, email_label: String(values.get("email_label") || "Email").trim() || "Email", phone_e164: primaryPhone, phone_label: String(values.get("phone_label") || "Phone").trim() || "Phone", additional_emails: emailContacts.map((item) => item.value), additional_email_labels: emailContacts.map((item) => item.label), additional_phones: phoneContacts.map((item) => item.value), additional_phone_labels: phoneContacts.map((item) => item.label), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), exchange_enabled: values.get("exchange_enabled") === "on", show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") === "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
+            const payload = { slug, display_name: String(values.get("display_name") || "").trim(), headline: String(values.get("headline") || "").trim(), company_name: String(values.get("company_name") || "").trim(), bio: String(values.get("bio") || "").trim(), email: primaryEmail, email_label: String(values.get("email_label") || "Email").trim() || "Email", phone_e164: primaryPhone, phone_label: String(values.get("phone_label") || "Phone").trim() || "Phone", additional_emails: emailContacts.map((item) => item.value), additional_email_labels: emailContacts.map((item) => item.label), additional_phones: phoneContacts.map((item) => item.value), additional_phone_labels: phoneContacts.map((item) => item.label), website_url: normalizeUrl(String(values.get("website_url") || "")), location_text: String(values.get("location_text") || "").trim(), links: collectLinks(), section_order: sectionOrder, accent_color: String(values.get("accent_color") || "#2f7d68"), exchange_enabled: values.get("exchange_enabled") === "on", show_n3xra_branding: hasBrandingRemoval ? values.get("show_n3xra_branding") !== "on" : true, status: String(values.get("status") || "draft"), physical_card_status: physicalStatus, shipping_name: String(values.get("shipping_name") || "").trim(), shipping_address_line_1: String(values.get("shipping_address_line_1") || "").trim(), shipping_address_line_2: String(values.get("shipping_address_line_2") || "").trim(), shipping_city: String(values.get("shipping_city") || "").trim(), shipping_region: String(values.get("shipping_region") || "").trim(), shipping_postal_code: String(values.get("shipping_postal_code") || "").trim(), shipping_country: String(values.get("shipping_country") || "").trim(), updated_by_user_id: ownerUserId };
             if (!payload.display_name)
                 throw new Error("Your card needs a display name.");
             if (requestChecked && (!payload.shipping_name || !payload.shipping_address_line_1 || !payload.shipping_city || !payload.shipping_region || !payload.shipping_postal_code || !payload.shipping_country))
@@ -1102,8 +1102,8 @@ activationForm?.addEventListener("submit", (event) => {
 });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 removeBrandingButton?.addEventListener("click", openPremiumDialog);
-brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || brandingToggle.checked)
-    return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = true; openPremiumDialog(); });
+brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || !brandingToggle.checked)
+    return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = false; openPremiumDialog(); });
 exchangeToggle?.closest("label")?.addEventListener("click", (event) => { if (hasPremium)
     return; event.preventDefault(); event.stopPropagation(); openPremiumDialog(); });
 premiumClose?.addEventListener("click", () => { void closePremiumDialog(); });
