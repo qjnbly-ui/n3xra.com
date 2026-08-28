@@ -5,7 +5,7 @@
   <title>N3XRA Contact Card</title><meta name="description" content="Set up and manage your N3XRA digital contact card."><meta name="robots" content="noindex, nofollow, noarchive"><meta name="theme-color" content="#070c12">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/n3xra-records/styles.css?v=20260820-mobile-interactions"><link rel="stylesheet" href="/account/account.css?v=11"><link rel="stylesheet" href="/assets/home-shell.css?v=1"><link rel="stylesheet" href="/card/card.css?v=11">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/n3xra-records/styles.css?v=20260820-mobile-interactions"><link rel="stylesheet" href="/account/account.css?v=11"><link rel="stylesheet" href="/assets/home-shell.css?v=1"><link rel="stylesheet" href="/card/card.css?v=12">
   <script src="/shared/config.js"></script><script src="/assets/site-nav.js?v=5"></script>
 </head>
 <body class="card-editor-page is-loading">
@@ -65,10 +65,10 @@
 
     <dialog class="card-scan-review" id="card-scan-review"><form method="dialog"><header><div><p class="card-editor-kicker">Scan complete</p><h2>Choose what to update</h2><p>All recognized details are selected. Uncheck anything you want to keep unchanged.</p></div><button class="card-scan-review-close" value="cancel" aria-label="Close scan review">×</button></header><div class="card-scan-review-fields" id="card-scan-review-fields"></div><footer><button class="card-scan-secondary" value="cancel">Cancel</button><button class="card-scan-secondary" id="card-scan-apply-selected" type="button">Apply selected</button><button class="card-scan-primary" id="card-scan-apply-all" type="button">Use all scanned details</button></footer></form></dialog>
     <nav class="card-workspace-nav" id="card-workspace-nav" aria-label="Contact Card workspace" hidden>
-      <button type="button" data-card-tab="preview"><span aria-hidden="true">▣</span>Preview</button>
-      <button type="button" data-card-tab="edit"><span aria-hidden="true">✎</span>Edit</button>
-      <button type="button" data-card-tab="contacts"><span aria-hidden="true">◎</span>Contacts<i id="card-contact-badge" hidden></i></button>
-      <button type="button" data-card-tab="profile"><span aria-hidden="true">●</span>Profile</button>
+      <button type="button" data-card-tab="preview"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 12s3.5-6 9.5-6 9.5 6 9.5 6-3.5 6-9.5 6-9.5-6-9.5-6Z"/><circle cx="12" cy="12" r="2.75"/></svg></span>Preview</button>
+      <button type="button" data-card-tab="edit"><span aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m14.5 5.5 4 4M4 20l3.4-.7L19.2 7.5a1.4 1.4 0 0 0 0-2l-.7-.7a1.4 1.4 0 0 0-2 0L4.7 16.6 4 20Z"/></svg></span>Edit</button>
+      <button type="button" data-card-tab="contacts"><span aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3.5 19v-1.5A4.5 4.5 0 0 1 8 13h2a4.5 4.5 0 0 1 4.5 4.5V19M16 5.5a3 3 0 0 1 0 5.8M17.5 13.5a4.5 4.5 0 0 1 3 4.25V19"/></svg></span>Contacts<i id="card-contact-badge" hidden></i></button>
+      <button type="button" data-card-tab="profile"><span aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.25"/><path d="M5.5 20v-1.5A5.5 5.5 0 0 1 11 13h2a5.5 5.5 0 0 1 5.5 5.5V20"/></svg></span>Profile</button>
     </nav>
   </main>
   <script type="module" src="/card/editor.js?v=10"></script>
