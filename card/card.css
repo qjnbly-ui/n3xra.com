@@ -226,13 +226,13 @@ a { color: inherit; }
 /* Contact Card workspace: intentionally phone-width on every screen. */
 .card-editor-page { padding-bottom:110px; }
 .card-editor-shell { width:min(560px,calc(100% - 28px)); padding:102px 0 46px; }
-.card-editor-toolbar { position:sticky; z-index:8; top:82px; min-height:42px; margin:0 0 10px; padding:0 2px; border:0; border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; justify-content:space-between; }
-.card-auto-save-status { display:inline-flex; min-height:34px; align-items:center; gap:7px; padding:7px 11px; border-radius:999px; color:#2f6e5c; background:#e7f2ed; }
-.card-auto-save-status::before { content:"✓"; display:grid; width:17px; height:17px; place-items:center; border-radius:999px; color:#fff; background:#2f7d68; font-size:.62rem; }
+.card-editor-toolbar { position:static; z-index:auto; min-height:40px; margin:0 0 12px; padding:0 2px 9px; border:0; border-bottom:1px solid var(--card-line); border-radius:0; background:transparent; box-shadow:none; backdrop-filter:none; justify-content:space-between; }
+.card-auto-save-status { display:inline-flex; min-height:30px; align-items:center; gap:6px; padding:0; border-radius:0; color:#557068; background:transparent; }
+.card-auto-save-status::before { content:"✓"; display:inline; width:auto; height:auto; color:#2f7d68; background:transparent; font-size:.72rem; }
 .card-auto-save-status.is-saving::before { content:""; border:2px solid rgba(138,90,10,.25); border-top-color:#8a5a0a; background:transparent; animation:card-save-spin .7s linear infinite; }
-.card-auto-save-status.is-error::before { content:"!"; background:#a33041; }
+.card-auto-save-status.is-error::before { content:"!"; color:#a33041; background:transparent; }
 @keyframes card-save-spin { to { transform:rotate(360deg); } }
-.card-editor-view { min-height:40px; padding:10px 15px; border:0; color:#fff; background:#123a33; box-shadow:0 6px 18px rgba(18,58,51,.18); }
+.card-editor-view { min-height:32px; padding:5px 0; border:0; border-radius:0; color:#245f50; background:transparent; box-shadow:none; text-decoration:underline; text-decoration-color:rgba(36,95,80,.3); text-underline-offset:4px; }
 .card-editor-status { padding:12px 2px; }
 .card-workspace-view { animation:card-workspace-enter .22s ease both; }
 @keyframes card-workspace-enter { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
@@ -251,10 +251,10 @@ a { color: inherit; }
 .card-phone-preview { position:relative; width:100%; height:min(760px,calc(100dvh - 190px)); min-height:590px; overflow:hidden; border:1px solid rgba(19,35,31,.13); border-radius:30px; background:#fff; box-shadow:0 26px 70px rgba(7,16,26,.16); }
 .card-phone-preview::before { position:absolute; z-index:2; top:8px; left:50%; width:72px; height:17px; border-radius:999px; background:#08120f; content:""; transform:translateX(-50%); pointer-events:none; }
 .card-phone-preview iframe { width:100%; height:100%; border:0; background:#fff; }
-.card-workspace-nav { position:fixed; z-index:30; bottom:max(14px,env(safe-area-inset-bottom)); left:50%; display:grid; width:min(530px,calc(100% - 22px)); grid-template-columns:repeat(4,1fr); padding:8px; border:1px solid rgba(19,35,31,.12); border-radius:22px; background:rgba(255,255,255,.94); box-shadow:0 24px 70px rgba(7,16,26,.22); transform:translateX(-50%); backdrop-filter:blur(18px); }
-.card-workspace-nav button { position:relative; display:grid; min-width:0; min-height:58px; place-items:center; gap:3px; padding:7px 3px; border:0; border-radius:15px; color:#74807b; background:transparent; cursor:pointer; font-size:.64rem; font-weight:800; }
+.card-workspace-nav { position:fixed; z-index:30; bottom:0; left:0; display:grid; width:100%; grid-template-columns:repeat(4,1fr); padding:0 0 max(4px,env(safe-area-inset-bottom)); border:0; border-top:1px solid rgba(19,35,31,.14); border-radius:0; background:#fff; box-shadow:none; transform:none; backdrop-filter:none; }
+.card-workspace-nav button { position:relative; display:grid; min-width:0; min-height:64px; place-items:center; gap:3px; padding:9px 3px 7px; border:0; border-top:3px solid transparent; border-radius:0; color:#74807b; background:transparent; cursor:pointer; font-size:.64rem; font-weight:800; }
 .card-workspace-nav button > span { font-size:1.12rem; line-height:1; }
-.card-workspace-nav button.is-active { color:#fff; background:#123a33; }
+.card-workspace-nav button.is-active { border-top-color:#123a33; color:#123a33; background:#f3f7f5; }
 .card-workspace-nav i { position:absolute; top:4px; right:15%; display:grid; min-width:18px; height:18px; place-items:center; padding:0 4px; border:2px solid #fff; border-radius:999px; color:#fff; background:#b23848; font-size:.55rem; font-style:normal; }
 .card-mobile-panel-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:12px; padding:24px; border:1px solid var(--card-line); border-radius:22px; background:#fff; box-shadow:0 12px 38px rgba(7,16,26,.055); }
 .card-mobile-panel-head h1 { margin:0; font:800 2rem Manrope,sans-serif; letter-spacing:-.055em; }
@@ -330,7 +330,5 @@ a { color: inherit; }
   .card-editor-toolbar { gap:8px; }
   .card-auto-save-status { font-size:.68rem; }
   .card-repeatable-row { grid-template-columns:108px minmax(0,1fr) 38px; }
-  .card-editor-toolbar { top:76px; }
   .card-phone-preview { height:calc(100dvh - 174px); min-height:530px; border-radius:22px; }
-  .card-workspace-nav { bottom:max(7px,env(safe-area-inset-bottom)); }
 }

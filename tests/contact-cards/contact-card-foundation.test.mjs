@@ -68,7 +68,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
   assert.match(admin, /\/card\/admin\.js\?v=8/);
-  assert.match(admin, /\/card\/card\.css\?v=10/);
+  assert.match(admin, /\/card\/card\.css\?v=11/);
   assert.match(admin, /\/account\/admin\/product-shell\.js\?v=19/);
   assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
@@ -93,6 +93,9 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(sharedStyles, /\.contact-card-company-logo \{[^}]*object-fit: cover/s);
   assert.match(sharedStyles, /\.card-editor-media-preview img \{[^}]*object-fit: cover/s);
   assert.doesNotMatch(sharedStyles, /\.card-editor-media-preview\.is-logo img \{[^}]*object-fit: contain/s);
+  assert.doesNotMatch(sharedStyles, /\.card-editor-toolbar \{[^}]*position:sticky/s);
+  assert.match(sharedStyles, /\.card-workspace-nav \{[^}]*bottom:0[^}]*border-radius:0/s);
+  assert.match(sharedStyles, /\.card-workspace-nav button\.is-active \{[^}]*border-top-color/s);
 });
 
 test("public Contact Card product page uses the shared N3XRA account flow", async () => {
@@ -190,7 +193,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=10/);
+  assert.match(editorPage, /\/card\/card\.css\?v=11/);
 });
 
 test("contact cards store additional public emails and phone numbers", async () => {
