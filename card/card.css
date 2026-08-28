@@ -285,7 +285,8 @@ a { color: inherit; }
 .card-contact-source { display:inline-flex; width:max-content; margin-top:7px; padding:4px 7px; border-radius:7px; color:#286752; background:#eaf4f0; font-size:.57rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .card-contact-source.is-scanned { color:#315d85; background:#eaf2f9; }
 .card-contact-entry-actions { display:flex; grid-column:2; gap:7px; flex-wrap:wrap; }
-.card-contact-entry-actions a { padding:7px 9px; border-radius:9px; color:#245f50; background:#edf5f2; text-decoration:none; font-size:.68rem; font-weight:700; }
+.card-contact-entry-actions a,.card-contact-entry-actions button { padding:7px 9px; border:0; border-radius:9px; color:#245f50; background:#edf5f2; cursor:pointer; text-decoration:none; font:700 .68rem Manrope,sans-serif; }
+.card-contact-entry-actions button { color:#fff; background:#123a33; }
 .card-contact-entry-actions p { width:100%; margin:3px 0 0; padding-top:9px; border-top:1px solid var(--card-line); color:#55625d; font-size:.76rem; line-height:1.5; }
 .card-contact-scan-dialog { width:min(690px,calc(100% - 28px)); max-height:min(860px,calc(100dvh - 28px)); padding:0; overflow:auto; border:0; border-radius:24px; color:#10201b; background:#fff; box-shadow:0 35px 100px rgba(7,16,26,.35); }
 .card-contact-scan-dialog::backdrop { background:rgba(7,16,26,.68); backdrop-filter:blur(5px); }

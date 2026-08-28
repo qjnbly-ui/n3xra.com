@@ -183,6 +183,11 @@ function renderConnections(rows) {
             website.textContent = "Website ↗";
             actions.append(website);
         }
+        const download = document.createElement("button");
+        download.type = "button";
+        download.textContent = "Download contact";
+        download.addEventListener("click", () => downloadContactVcard(row));
+        actions.append(download);
         if (row.message) {
             const note = document.createElement("p");
             note.textContent = row.message;
@@ -654,6 +659,38 @@ async function saveScannedContact() {
     }
 }
 function csvCell(value) { return `"${String(value ?? "").replace(/"/g, '""')}"`; }
+function vcardValue(value) { return String(value ?? "").replace(/\\/g, "\\\\").replace(/\r?\n/g, "\\n").replace(/;/g, "\\;").replace(/,/g, "\\,"); }
+function downloadContactVcard(row) {
+    const lines = ["BEGIN:VCARD", "VERSION:3.0", `FN:${vcardValue(row.name)}`, "N:;;;;"];
+    if (row.company_name)
+        lines.push(`ORG:${vcardValue(row.company_name)}`);
+    if (row.job_title)
+        lines.push(`TITLE:${vcardValue(row.job_title)}`);
+    if (row.email)
+        lines.push(`EMAIL;TYPE=INTERNET:${vcardValue(row.email)}`);
+    for (const email of row.additional_emails || [])
+        lines.push(`EMAIL;TYPE=INTERNET:${vcardValue(email)}`);
+    if (row.phone_e164)
+        lines.push(`TEL;TYPE=CELL:${vcardValue(row.phone_e164)}`);
+    for (const phone of row.additional_phones || [])
+        lines.push(`TEL;TYPE=VOICE:${vcardValue(phone)}`);
+    if (row.website_url)
+        lines.push(`URL:${vcardValue(row.website_url)}`);
+    if (row.address_text)
+        lines.push(`ADR;TYPE=WORK:;;${vcardValue(row.address_text)};;;;`);
+    if (row.message)
+        lines.push(`NOTE:${vcardValue(row.message)}`);
+    lines.push(`REV:${new Date(row.submitted_at).toISOString()}`, "END:VCARD");
+    const url = URL.createObjectURL(new Blob([lines.join("\r\n")], { type: "text/vcard;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${slugify(row.name) || "contact"}.vcf`;
+    document.body.append(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    setContactToolStatus(`Downloaded ${row.name}.`, "success");
+}
 function exportContactsCsv() {
     const rows = visibleConnections();
     if (!rows.length) {

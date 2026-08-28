@@ -71,7 +71,7 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
   assert.match(admin, /\/card\/admin\.js\?v=8/);
-  assert.match(admin, /\/card\/card\.css\?v=13/);
+  assert.match(admin, /\/card\/card\.css\?v=14/);
   assert.match(admin, /\/account\/admin\/product-shell\.js\?v=19/);
   assert.match(admin, /contact-cards-admin\.css\?v=4/);
   assert.match(admin, /id="admin-card-links"/);
@@ -163,7 +163,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=12/);
+  assert.match(activation, /\/card\/editor\.js\?v=13/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -201,7 +201,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=13/);
+  assert.match(editorPage, /\/card\/card\.css\?v=14/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {
@@ -224,6 +224,9 @@ test("Contact Card Contacts combines Connect Back and scanned business cards", a
   assert.match(editor, /source: "business_card_scan"/);
   assert.match(editor, /exportContactsCsv/);
   assert.match(editor, /n3xra-contacts-/);
+  assert.match(editor, /downloadContactVcard/);
+  assert.match(editor, /text\/vcard/);
+  assert.match(editor, /\.vcf/);
 });
 
 test("contact cards store additional public emails and phone numbers", async () => {
