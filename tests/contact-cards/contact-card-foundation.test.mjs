@@ -295,7 +295,7 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(billing, /product === "branding_removal"[\s\S]*New one-time purchases are no longer available/);
   assert.match(webhook, /n3xra_contact_card/);
   assert.match(editor, /checkoutProduct === "branding_removal"/);
-  assert.match(editorPage, /Remove “Powered by N3XRA”/);
+  assert.match(editorPage, /Remove “Powered by N3XRA” <i class="card-premium-tag">Premium<\/i>/);
   assert.match(editor, /show_n3xra_branding: hasBrandingRemoval \? values\.get\("show_n3xra_branding"\) !== "on" : true/);
   assert.match(editor, /brandingToggle\.checked = false/);
   assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
