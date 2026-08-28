@@ -53,6 +53,7 @@ const brandingToggle = form?.elements.namedItem("show_n3xra_branding") as HTMLIn
 const exchangeToggle = form?.elements.namedItem("exchange_enabled") as HTMLInputElement | null;
 const workspaceNav = document.querySelector<HTMLElement>("#card-workspace-nav");
 const previewFrame = document.querySelector<HTMLIFrameElement>("#card-preview-frame");
+let previewResizeObserver: ResizeObserver | null = null;
 const contactsList = document.querySelector<HTMLElement>("#card-contacts-list");
 const contactCount = document.querySelector<HTMLElement>("#card-contact-count");
 const contactBadge = document.querySelector<HTMLElement>("#card-contact-badge");
@@ -193,6 +194,26 @@ async function openPremiumBilling(): Promise<void> {
   } catch (error) {
     setSaveStatus(error instanceof Error ? error.message : "Billing management could not be opened.", "error");
   } finally { premiumProfileAction.disabled = false; }
+}
+
+function fitPreviewFrame(): void {
+  if (!previewFrame?.contentDocument) return;
+  previewResizeObserver?.disconnect();
+  const previewDocument = previewFrame.contentDocument;
+  const previewRoot = previewDocument.documentElement;
+  const previewBody = previewDocument.body;
+  const previewShell = previewDocument.querySelector<HTMLElement>(".contact-card-shell");
+  if (!previewBody || !previewShell) return;
+  previewRoot.classList.add("is-card-preview-embed");
+  previewBody.classList.add("is-card-preview-embed");
+  const resize = (): void => {
+    const height = Math.ceil(Math.max(previewShell.scrollHeight, previewShell.getBoundingClientRect().height));
+    previewFrame.style.height = `${Math.max(height, 530)}px`;
+  };
+  previewFrame.style.height = "1px";
+  resize();
+  previewResizeObserver = new ResizeObserver(resize);
+  previewResizeObserver.observe(previewShell);
 }
 
 async function switchWorkspaceView(view: WorkspaceView): Promise<void> {
@@ -570,6 +591,7 @@ scanApplySelected?.addEventListener("click", (event) => { event.preventDefault()
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
 document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact as RepeatableKey); if (card) markChanged(); }));
 document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
+previewFrame?.addEventListener("load", fitPreviewFrame);
 document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all") as typeof contactSourceFilter; document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
 contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
 contactExport?.addEventListener("click", () => { if (!hasPremium) { openPremiumDialog(); return; } exportContactsCsv(); });

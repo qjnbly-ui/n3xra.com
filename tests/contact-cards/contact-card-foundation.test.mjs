@@ -148,11 +148,12 @@ test("physical card requests create an important Admin Inbox notification", asyn
 });
 
 test("customers can activate their own card and physical requests are protected", async () => {
-  const [migration, adminOverride, editor, activation] = await Promise.all([
+  const [migration, adminOverride, editor, activation, cardStyles] = await Promise.all([
     read("supabase/migrations/20260826043457_contact_card_profiles.sql"),
     read("supabase/migrations/20260826124620_allow_admin_partial_contact_cards.sql"),
     read("src/contact-cards/editor.ts"),
     read("client-portal/contact-card/index.html"),
+    read("card/card.css"),
   ]);
   assert.match(migration, /for insert to authenticated[\s\S]*auth\.uid\(\)\) = owner_user_id/i);
   assert.match(migration, /physical_card_status text not null default 'not_requested'/);
@@ -164,7 +165,12 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=18/);
+  assert.match(activation, /\/card\/editor\.js\?v=19/);
+  assert.match(activation, /id="card-preview-frame"[\s\S]*scrolling="no"/);
+  assert.match(editor, /function fitPreviewFrame\(\)/);
+  assert.match(editor, /previewResizeObserver\.observe\(previewShell\)/);
+  assert.match(cardStyles, /\.is-card-preview-embed[\s\S]*min-height:0/);
+  assert.doesNotMatch(cardStyles, /\.card-phone-preview \{[^}]*height:min\(760px,calc\(100dvh - 190px\)\)/);
   assert.match(activation, /id="card-scan-review"/);
   assert.match(activation, /Use all scanned details/);
   assert.match(activation, /id="card-editor-additional-emails"/);
@@ -202,7 +208,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=17/);
+  assert.match(editorPage, /\/card\/card\.css\?v=18/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {

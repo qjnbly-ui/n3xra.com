@@ -40,6 +40,7 @@ const brandingToggle = form?.elements.namedItem("show_n3xra_branding");
 const exchangeToggle = form?.elements.namedItem("exchange_enabled");
 const workspaceNav = document.querySelector("#card-workspace-nav");
 const previewFrame = document.querySelector("#card-preview-frame");
+let previewResizeObserver = null;
 const contactsList = document.querySelector("#card-contacts-list");
 const contactCount = document.querySelector("#card-contact-count");
 const contactBadge = document.querySelector("#card-contact-badge");
@@ -210,6 +211,27 @@ async function openPremiumBilling() {
     finally {
         premiumProfileAction.disabled = false;
     }
+}
+function fitPreviewFrame() {
+    if (!previewFrame?.contentDocument)
+        return;
+    previewResizeObserver?.disconnect();
+    const previewDocument = previewFrame.contentDocument;
+    const previewRoot = previewDocument.documentElement;
+    const previewBody = previewDocument.body;
+    const previewShell = previewDocument.querySelector(".contact-card-shell");
+    if (!previewBody || !previewShell)
+        return;
+    previewRoot.classList.add("is-card-preview-embed");
+    previewBody.classList.add("is-card-preview-embed");
+    const resize = () => {
+        const height = Math.ceil(Math.max(previewShell.scrollHeight, previewShell.getBoundingClientRect().height));
+        previewFrame.style.height = `${Math.max(height, 530)}px`;
+    };
+    previewFrame.style.height = "1px";
+    resize();
+    previewResizeObserver = new ResizeObserver(resize);
+    previewResizeObserver.observe(previewShell);
 }
 async function switchWorkspaceView(view) {
     if (!card || !workspaceNav)
@@ -1088,6 +1110,7 @@ scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); app
 document.querySelectorAll("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact); if (card)
     markChanged(); }));
 document.querySelectorAll("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab)));
+previewFrame?.addEventListener("load", fitPreviewFrame);
 document.querySelectorAll("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all"); document.querySelectorAll("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
 contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
 contactExport?.addEventListener("click", () => { if (!hasPremium) {
