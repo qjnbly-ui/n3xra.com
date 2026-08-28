@@ -40,6 +40,9 @@ Deno.serve(async (request) => {
 
     const input = await request.json().catch(() => ({}));
     const product = String(input.product || "") as ProductKey;
+    if (product === "branding_removal") {
+      return jsonResponse({ error: "Branding removal is now included with N3XRA Contact Card Premium. New one-time purchases are no longer available." }, 410, origin);
+    }
     const definition = PRODUCTS[product];
     if (!definition) return jsonResponse({ error: "Choose a valid Contact Card purchase." }, 400, origin);
 

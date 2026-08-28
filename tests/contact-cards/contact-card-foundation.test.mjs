@@ -290,6 +290,7 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(migration, /Purchase the branding removal upgrade/);
   assert.match(billing, /mode: "payment"/);
   assert.match(billing, /STRIPE_PRICE_CONTACT_CARD_BRANDING_REMOVAL/);
+  assert.match(billing, /product === "branding_removal"[\s\S]*New one-time purchases are no longer available/);
   assert.match(webhook, /n3xra_contact_card/);
   assert.match(editor, /checkoutProduct === "branding_removal"/);
   assert.match(editor, /brandingToggle\.checked = true/);
