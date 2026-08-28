@@ -4,7 +4,7 @@ interface CardLink { label: string; url: string; }
 interface LabeledContact { value: string; label: string; }
 interface ScanDetails { fullName?: string; companyName?: string; jobTitle?: string; email?: string; emails?: string[]; phoneE164?: string; phonesE164?: string[]; websiteUrl?: string; addressText?: string; confidence?: number; }
 type CardRow = Record<string, unknown> & { id: string; slug: string; links?: CardLink[] };
-interface ConnectionRow { id: string; name: string; email: string | null; phone_e164: string | null; company_name: string; message: string; status: string; submitted_at: string; }
+interface ConnectionRow { id: string; name: string; email: string | null; phone_e164: string | null; company_name: string; message: string; status: string; source: "public_card" | "business_card_scan"; submitted_at: string; job_title: string; website_url: string | null; address_text: string; additional_emails: string[]; additional_phones: string[]; }
 interface OrderRow { id: string; order_type: string; quantity: number; amount_cents: number; status: string; paid_at: string | null; created_at: string; }
 interface EntitlementRow { base_access?: boolean; branding_removal?: boolean; source?: string; }
 type MediaType = "profile" | "logo" | "background";
@@ -55,6 +55,12 @@ const previewFrame = document.querySelector<HTMLIFrameElement>("#card-preview-fr
 const contactsList = document.querySelector<HTMLElement>("#card-contacts-list");
 const contactCount = document.querySelector<HTMLElement>("#card-contact-count");
 const contactBadge = document.querySelector<HTMLElement>("#card-contact-badge");
+const contactSearch = document.querySelector<HTMLInputElement>("#card-contact-search");
+const contactExport = document.querySelector<HTMLButtonElement>("#card-contact-export");
+const contactScanInput = document.querySelector<HTMLInputElement>("#card-contact-scan-input");
+const contactToolStatus = document.querySelector<HTMLElement>("#card-contact-tool-status");
+const contactScanDialog = document.querySelector<HTMLDialogElement>("#card-contact-scan-dialog");
+const contactScanForm = document.querySelector<HTMLFormElement>("#card-contact-scan-form");
 const profileSummary = document.querySelector<HTMLElement>("#card-profile-summary");
 const profileHistory = document.querySelector<HTMLElement>("#card-profile-history");
 const orderHistory = document.querySelector<HTMLElement>("#card-order-history");
@@ -74,6 +80,8 @@ let saveTimer = 0;
 let savePromise: Promise<void> | null = null;
 let activeWorkspaceView: WorkspaceView = "edit";
 let entitlementData: EntitlementRow | null = null;
+let connectionRows: ConnectionRow[] = [];
+let contactSourceFilter: "all" | ConnectionRow["source"] = "all";
 
 const repeatableContainers = {
   "activation-email": document.querySelector<HTMLElement>("#card-activation-additional-emails"),
@@ -100,20 +108,35 @@ async function switchWorkspaceView(view: WorkspaceView): Promise<void> {
   if (view === "contacts") void loadConnections();
 }
 
+function visibleConnections(): ConnectionRow[] {
+  const query = contactSearch?.value.trim().toLowerCase() || "";
+  return connectionRows.filter((row) => {
+    if (contactSourceFilter !== "all" && row.source !== contactSourceFilter) return false;
+    if (!query) return true;
+    return [row.name, row.job_title, row.company_name, row.email, row.phone_e164, row.website_url, row.address_text, ...row.additional_emails, ...row.additional_phones].some((value) => String(value || "").toLowerCase().includes(query));
+  });
+}
+
 function renderConnections(rows: ConnectionRow[]): void {
   if (!contactsList || !contactCount || !contactBadge) return;
+  connectionRows = rows;
+  const visible = visibleConnections();
   contactCount.textContent = String(rows.length);
-  contactBadge.textContent = String(rows.filter((row) => row.status === "new").length);
-  contactBadge.hidden = !rows.some((row) => row.status === "new");
+  const unread = rows.filter((row) => row.source === "public_card" && row.status === "new").length;
+  contactBadge.textContent = String(unread);
+  contactBadge.hidden = unread === 0;
   contactsList.replaceChildren();
-  if (!rows.length) { const empty = document.createElement("p"); empty.className = "card-workspace-empty"; empty.textContent = "No contacts have connected yet."; contactsList.append(empty); return; }
-  for (const row of rows) {
+  if (!visible.length) { const empty = document.createElement("p"); empty.className = "card-workspace-empty"; empty.textContent = rows.length ? "No contacts match this view." : "No contacts yet. Scan a business card or wait for someone to connect back."; contactsList.append(empty); return; }
+  for (const row of visible) {
     const article = document.createElement("article"); article.className = "card-contact-entry";
     const avatar = document.createElement("span"); avatar.className = "card-contact-avatar"; avatar.textContent = row.name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("");
-    const copy = document.createElement("div"); const heading = document.createElement("h2"); heading.textContent = row.name; const meta = document.createElement("p"); meta.textContent = [row.company_name, formatDate(row.submitted_at)].filter(Boolean).join(" · "); copy.append(heading, meta);
+    const copy = document.createElement("div"); const heading = document.createElement("h2"); heading.textContent = row.name; const meta = document.createElement("p"); meta.textContent = [row.job_title, row.company_name, formatDate(row.submitted_at)].filter(Boolean).join(" · "); const source = document.createElement("span"); source.className = `card-contact-source${row.source === "business_card_scan" ? " is-scanned" : ""}`; source.textContent = row.source === "business_card_scan" ? "Scanned" : "Connect Back"; copy.append(heading, meta, source);
     const actions = document.createElement("div"); actions.className = "card-contact-entry-actions";
     if (row.email) { const email = document.createElement("a"); email.href = `mailto:${row.email}`; email.textContent = row.email; actions.append(email); }
+    for (const value of row.additional_emails || []) { const email = document.createElement("a"); email.href = `mailto:${value}`; email.textContent = value; actions.append(email); }
     if (row.phone_e164) { const phone = document.createElement("a"); phone.href = `tel:${row.phone_e164}`; phone.textContent = row.phone_e164; actions.append(phone); }
+    for (const value of row.additional_phones || []) { const phone = document.createElement("a"); phone.href = `tel:${value}`; phone.textContent = value; actions.append(phone); }
+    if (row.website_url) { const website = document.createElement("a"); website.href = row.website_url; website.target = "_blank"; website.rel = "noopener"; website.textContent = "Website ↗"; actions.append(website); }
     if (row.message) { const note = document.createElement("p"); note.textContent = row.message; actions.append(note); }
     article.append(avatar, copy, actions); contactsList.append(article);
   }
@@ -122,7 +145,7 @@ function renderConnections(rows: ConnectionRow[]): void {
 async function loadConnections(): Promise<void> {
   if (!supabase || !card || !contactsList) return;
   contactsList.setAttribute("aria-busy", "true");
-  const { data, error } = await supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,submitted_at").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(200);
+  const { data, error } = await supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,source,submitted_at,job_title,website_url,address_text,additional_emails,additional_phones").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(500);
   contactsList.removeAttribute("aria-busy");
   if (error) { contactsList.textContent = "Contacts could not be loaded."; return; }
   renderConnections((data || []) as ConnectionRow[]);
@@ -150,7 +173,7 @@ function renderProfile(orders: OrderRow[]): void {
 async function loadWorkspaceData(): Promise<void> {
   if (!supabase || !card) return;
   const [connections, orders] = await Promise.all([
-    supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,submitted_at").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(200),
+    supabase.from("contact_card_connections").select("id,name,email,phone_e164,company_name,message,status,source,submitted_at,job_title,website_url,address_text,additional_emails,additional_phones").eq("profile_id", card.id).order("submitted_at", { ascending: false }).limit(500),
     supabase.from("contact_card_orders").select("id,order_type,quantity,amount_cents,status,paid_at,created_at").eq("profile_id", card.id).in("status", ["paid", "refunded"]).order("created_at", { ascending: false }).limit(50),
   ]);
   if (!connections.error) renderConnections((connections.data || []) as ConnectionRow[]);
@@ -286,6 +309,64 @@ async function compressCard(file: File): Promise<Blob> {
 }
 function blobDataUrl(blob: Blob): Promise<string> { return new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result || "")); reader.onerror = () => reject(new Error("The photo could not be read.")); reader.readAsDataURL(blob); }); }
 
+function setContactToolStatus(message = "", tone = ""): void { if (contactToolStatus) { contactToolStatus.textContent = message; contactToolStatus.className = tone ? `is-${tone}` : ""; } }
+function contactScanControl(name: string): HTMLInputElement | HTMLTextAreaElement | null { return contactScanForm?.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | null; }
+function uniqueValues(values: Array<string | null | undefined>): string[] { return Array.from(new Set(values.map((value) => String(value || "").trim()).filter(Boolean))); }
+function commaValues(value: FormDataEntryValue | null): string[] { return uniqueValues(String(value || "").split(/[;,\n]+/)); }
+
+function showContactScan(details: ScanDetails): void {
+  if (!contactScanDialog || !contactScanForm) return;
+  contactScanForm.reset();
+  const emails = uniqueValues([details.email, ...(details.emails || [])]);
+  const phones = uniqueValues([details.phoneE164, ...(details.phonesE164 || [])]);
+  const values: Record<string, string> = { name: details.fullName || "", job_title: details.jobTitle || "", company_name: details.companyName || "", email: emails[0] || "", additional_emails: emails.slice(1).join(", "), phone_e164: phones[0] || "", additional_phones: phones.slice(1).join(", "), website_url: details.websiteUrl || "", address_text: details.addressText || "" };
+  for (const [name, value] of Object.entries(values)) { const control = contactScanControl(name); if (control) control.value = value; }
+  contactScanDialog.showModal();
+}
+
+async function scanContactCard(file: File): Promise<void> {
+  if (!accessToken) throw new Error("Sign in again before scanning a card.");
+  setContactToolStatus("Preparing and reading the business card…");
+  const imageDataUrl = await blobDataUrl(await compressCard(file));
+  const response = await fetch("/api/contact-card-scan", { method: "POST", headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ imageDataUrl }) });
+  const payload = await response.json();
+  if (!response.ok) throw new Error(payload.error || "The business card could not be scanned.");
+  showContactScan(payload.details as ScanDetails);
+  setContactToolStatus("Scan complete. Confirm the details to save this contact.", "success");
+}
+
+async function saveScannedContact(): Promise<void> {
+  if (!supabase || !card || !contactScanForm) return;
+  const button = contactScanForm.querySelector<HTMLButtonElement>('button[type="submit"]');
+  if (button) button.disabled = true;
+  try {
+    const values = new FormData(contactScanForm);
+    const name = String(values.get("name") || "").trim();
+    if (!name) throw new Error("Enter the contact’s name.");
+    const email = normalizeEmail(String(values.get("email") || ""));
+    const phone = normalizePhone(String(values.get("phone_e164") || ""));
+    const additionalEmails = commaValues(values.get("additional_emails")).map((value) => normalizeEmail(value)).filter((value): value is string => Boolean(value) && value !== email).slice(0, 8);
+    const additionalPhones = commaValues(values.get("additional_phones")).map((value) => normalizePhone(value)).filter((value): value is string => Boolean(value) && value !== phone).slice(0, 8);
+    const payload = { profile_id: card.id, owner_user_id: ownerUserId, name, email, phone_e164: phone, company_name: String(values.get("company_name") || "").trim(), message: String(values.get("message") || "").trim(), source: "business_card_scan", privacy_notice_version: "owner_scan_2026-08-28", job_title: String(values.get("job_title") || "").trim(), website_url: normalizeUrl(String(values.get("website_url") || "")), address_text: String(values.get("address_text") || "").trim(), additional_emails: additionalEmails, additional_phones: additionalPhones };
+    const { error } = await supabase.from("contact_card_connections").insert(payload);
+    if (error) throw error;
+    contactScanDialog?.close();
+    setContactToolStatus("Contact saved from the scanned business card.", "success");
+    await loadConnections();
+  } finally { if (button) button.disabled = false; }
+}
+
+function csvCell(value: unknown): string { return `"${String(value ?? "").replace(/"/g, '""')}"`; }
+function exportContactsCsv(): void {
+  const rows = visibleConnections();
+  if (!rows.length) { setContactToolStatus("There are no contacts in this view to export.", "error"); return; }
+  const header = ["Source", "Name", "Job title", "Company", "Email", "Additional emails", "Phone", "Additional phones", "Website", "Address", "Note", "Added"];
+  const lines = [header, ...rows.map((row) => [row.source === "business_card_scan" ? "Scanned" : "Connect Back", row.name, row.job_title, row.company_name, row.email, row.additional_emails.join("; "), row.phone_e164, row.additional_phones.join("; "), row.website_url, row.address_text, row.message, row.submitted_at])].map((row) => row.map(csvCell).join(","));
+  const url = URL.createObjectURL(new Blob([`\uFEFF${lines.join("\r\n")}`], { type: "text/csv;charset=utf-8" }));
+  const link = document.createElement("a"); link.href = url; link.download = `n3xra-contacts-${new Date().toISOString().slice(0, 10)}.csv`; document.body.append(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  setContactToolStatus(`Exported ${rows.length} contact${rows.length === 1 ? "" : "s"}.`, "success");
+}
+
 async function prepareScan(file: File): Promise<void> {
   setScanStatus("Preparing photo…"); const blob = await compressCard(file); pendingScanDataUrl = await blobDataUrl(blob); if (scanPreview) { scanPreview.replaceChildren(); const image = document.createElement("img"); image.src = URL.createObjectURL(blob); image.alt = "Business card preview"; scanPreview.append(image); } if (scanButton) scanButton.disabled = false; setScanStatus("Photo ready. Scan it, then review the fields.", "success");
 }
@@ -365,6 +446,12 @@ scanApplySelected?.addEventListener("click", (event) => { event.preventDefault()
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
 document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact as RepeatableKey); if (card) markChanged(); }));
 document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
+document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all") as typeof contactSourceFilter; document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
+contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
+contactExport?.addEventListener("click", exportContactsCsv);
+contactScanInput?.addEventListener("change", () => { const file = contactScanInput.files?.[0]; if (!file) return; void scanContactCard(file).catch((error: unknown) => setContactToolStatus(error instanceof Error ? error.message : "The business card could not be scanned.", "error")).finally(() => { contactScanInput.value = ""; }); });
+document.querySelectorAll<HTMLButtonElement>("[data-close-contact-scan]").forEach((button) => button.addEventListener("click", () => contactScanDialog?.close()));
+contactScanForm?.addEventListener("submit", (event) => { event.preventDefault(); void saveScannedContact().catch((error: unknown) => setContactToolStatus(error instanceof Error ? error.message : "The contact could not be saved.", "error")); });
 
 activationForm?.addEventListener("submit", (event) => {
   event.preventDefault(); void (async () => {

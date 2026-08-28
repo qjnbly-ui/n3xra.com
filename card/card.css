@@ -6,6 +6,7 @@
   --card-paper: #fffefa;
   --card-line: rgba(19, 35, 31, .12);
 }
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important; margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important; white-space:nowrap!important; border:0!important; }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -261,6 +262,19 @@ a { color: inherit; }
 .card-mobile-panel-head h1 { margin:0; font:800 2rem Manrope,sans-serif; letter-spacing:-.055em; }
 .card-mobile-panel-head p:not(.card-editor-kicker) { margin:7px 0 0; color:var(--card-muted); font-size:.8rem; line-height:1.5; }
 .card-contact-count { display:grid; min-width:42px; height:42px; place-items:center; border-radius:14px; color:#fff; background:#123a33; font-size:.8rem; font-weight:800; }
+.card-contact-tools { display:grid; gap:12px; margin-bottom:12px; padding:16px; border:1px solid var(--card-line); border-radius:20px; background:#fff; box-shadow:0 10px 32px rgba(7,16,26,.045); }
+.card-contact-source-filters { display:grid; grid-template-columns:repeat(3,1fr); overflow:hidden; border:1px solid var(--card-line); border-radius:12px; background:#f5f7f6; }
+.card-contact-source-filters button { min-height:40px; padding:7px 8px; border:0; border-right:1px solid var(--card-line); color:#63716c; background:transparent; cursor:pointer; font-size:.68rem; font-weight:800; }
+.card-contact-source-filters button:last-child { border-right:0; }
+.card-contact-source-filters button.is-active { color:#fff; background:#123a33; }
+.card-contact-search input { width:100%; min-height:44px; padding:10px 13px; border:1px solid var(--card-line); border-radius:12px; color:#10201b; background:#fff; font:600 .76rem Manrope,sans-serif; }
+.card-contact-tool-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+.card-contact-tool-actions label,.card-contact-tool-actions button { display:grid; min-height:44px; place-items:center; padding:10px 12px; border:1px solid #123a33; border-radius:12px; color:#fff; background:#123a33; cursor:pointer; font:800 .72rem Manrope,sans-serif; text-align:center; }
+.card-contact-tool-actions button { color:#123a33; background:#fff; }
+#card-contact-tool-status { min-height:0; margin:0; color:var(--card-muted); font-size:.7rem; }
+#card-contact-tool-status:empty { display:none; }
+#card-contact-tool-status.is-error { color:#a33041; }
+#card-contact-tool-status.is-success { color:#286752; }
 .card-contacts-list { display:grid; gap:10px; }
 .card-contacts-list[aria-busy="true"] { opacity:.55; }
 .card-workspace-empty { margin:0; padding:34px 22px; border:1px dashed rgba(19,35,31,.18); border-radius:18px; color:var(--card-muted); background:rgba(255,255,255,.65); text-align:center; font-size:.82rem; }
@@ -268,9 +282,22 @@ a { color: inherit; }
 .card-contact-avatar { display:grid; width:48px; height:48px; place-items:center; border-radius:16px; color:#fff; background:#123a33; font-size:.75rem; font-weight:800; }
 .card-contact-entry h2 { margin:2px 0 0; font-size:.95rem; }
 .card-contact-entry > div > p { margin:4px 0 0; color:var(--card-muted); font-size:.7rem; }
+.card-contact-source { display:inline-flex; width:max-content; margin-top:7px; padding:4px 7px; border-radius:7px; color:#286752; background:#eaf4f0; font-size:.57rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.card-contact-source.is-scanned { color:#315d85; background:#eaf2f9; }
 .card-contact-entry-actions { display:flex; grid-column:2; gap:7px; flex-wrap:wrap; }
 .card-contact-entry-actions a { padding:7px 9px; border-radius:9px; color:#245f50; background:#edf5f2; text-decoration:none; font-size:.68rem; font-weight:700; }
 .card-contact-entry-actions p { width:100%; margin:3px 0 0; padding-top:9px; border-top:1px solid var(--card-line); color:#55625d; font-size:.76rem; line-height:1.5; }
+.card-contact-scan-dialog { width:min(690px,calc(100% - 28px)); max-height:min(860px,calc(100dvh - 28px)); padding:0; overflow:auto; border:0; border-radius:24px; color:#10201b; background:#fff; box-shadow:0 35px 100px rgba(7,16,26,.35); }
+.card-contact-scan-dialog::backdrop { background:rgba(7,16,26,.68); backdrop-filter:blur(5px); }
+.card-contact-scan-dialog header { display:flex; align-items:flex-start; justify-content:space-between; gap:20px; padding:22px 24px 18px; border-bottom:1px solid var(--card-line); }
+.card-contact-scan-dialog header h2 { margin:3px 0 0; font:700 1.55rem Fraunces,serif; }
+.card-contact-scan-dialog header p:not(.card-editor-kicker) { margin:5px 0 0; color:var(--card-muted); font-size:.73rem; line-height:1.5; }
+.card-contact-scan-fields { display:grid; grid-template-columns:1fr 1fr; gap:13px; padding:22px 24px; }
+.card-contact-scan-fields label { display:grid; gap:6px; color:#5e6b67; font-size:.65rem; font-weight:800; }
+.card-contact-scan-fields input,.card-contact-scan-fields textarea { width:100%; min-height:44px; padding:10px 12px; border:1px solid var(--card-line); border-radius:11px; color:#10201b; background:#fff; font:600 .76rem Manrope,sans-serif; }
+.card-contact-scan-fields textarea { resize:vertical; }
+.card-contact-scan-wide { grid-column:1 / -1; }
+.card-contact-scan-dialog footer { display:flex; justify-content:flex-end; gap:8px; padding:16px 24px 22px; border-top:1px solid var(--card-line); }
 .card-profile-summary { display:grid; gap:1px; overflow:hidden; border:1px solid var(--card-line); border-radius:20px; background:var(--card-line); box-shadow:0 10px 32px rgba(7,16,26,.045); }
 .card-profile-summary > div { display:flex; justify-content:space-between; gap:16px; padding:16px 18px; background:#fff; }
 .card-profile-summary span { color:var(--card-muted); font-size:.75rem; }
@@ -305,6 +332,10 @@ a { color: inherit; }
   .card-editor-actions button { width: 100%; }
   .card-activation-head, .card-activation-actions { align-items: stretch; flex-direction: column; }
   .card-scan-panel { grid-template-columns: 1fr; margin: 0 0 12px; }
+  .card-contact-scan-fields { grid-template-columns:1fr; padding:18px; }
+  .card-contact-scan-wide { grid-column:auto; }
+  .card-contact-scan-dialog header { padding:20px 18px 16px; }
+  .card-contact-scan-dialog footer { padding:14px 18px 18px; }
   .card-activation-form { padding: 0 18px 18px; }
   .card-activation-actions button { width: 100%; }
   .card-activation-price { align-items:flex-start; flex-direction:column; }
