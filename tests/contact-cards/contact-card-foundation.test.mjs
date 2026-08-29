@@ -165,7 +165,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=20/);
+  assert.match(activation, /\/card\/editor\.js\?v=21/);
   assert.match(activation, /id="card-preview-frame"[\s\S]*scrolling="no"/);
   assert.match(editor, /function fitPreviewFrame\(\)/);
   assert.match(editor, /previewResizeObserver\.observe\(previewShell\)/);
@@ -310,6 +310,8 @@ test("Contact Card commerce keeps one-time card checkout while reserving brandin
   assert.match(editorPage, /Remove “Powered by N3XRA” <i class="card-premium-tag">Premium<\/i>/);
   assert.match(editor, /show_n3xra_branding: hasBrandingRemoval \? values\.get\("show_n3xra_branding"\) !== "on" : true/);
   assert.match(editor, /brandingToggle\.checked = false/);
+  assert.doesNotMatch(editorPage, /id="card-remove-branding"/);
+  assert.doesNotMatch(editorPage, /Branding removal · Premium/);
   assert.doesNotMatch(editor, /startCheckout\("branding_removal"/);
   assert.match(editor, /Branding removal is included with paid N3XRA Contact Card Premium/);
   assert.doesNotMatch(landing, /Permanent “Powered by N3XRA” removal/);

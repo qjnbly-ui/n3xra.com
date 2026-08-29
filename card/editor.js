@@ -34,7 +34,6 @@ const scanReviewFields = document.querySelector("#card-scan-review-fields");
 const scanApplySelected = document.querySelector("#card-scan-apply-selected");
 const scanApplyAll = document.querySelector("#card-scan-apply-all");
 const requestState = document.querySelector("#card-request-state");
-const removeBrandingButton = document.querySelector("#card-remove-branding");
 const brandingHelp = document.querySelector("#card-branding-help");
 const brandingToggle = form?.elements.namedItem("show_n3xra_branding");
 const exchangeToggle = form?.elements.namedItem("exchange_enabled");
@@ -685,8 +684,6 @@ function fillForm(row) {
         branding.checked = hasBrandingRemoval ? row.show_n3xra_branding === false : false;
         branding.dataset.locked = String(!hasBrandingRemoval);
     }
-    if (removeBrandingButton)
-        removeBrandingButton.hidden = hasBrandingRemoval;
     if (brandingHelp)
         brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess ? "Branding stays visible during the free trial and unlocks after upgrading." : "Branding removal is included with paid N3XRA Contact Card Premium.";
     renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
@@ -1181,7 +1178,6 @@ activationForm?.addEventListener("submit", (event) => {
     })();
 });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
-removeBrandingButton?.addEventListener("click", openPremiumDialog);
 brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || !brandingToggle.checked)
     return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = false; openPremiumDialog(); });
 exchangeToggle?.closest("label")?.addEventListener("click", (event) => { if (hasPremium)

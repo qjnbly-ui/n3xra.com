@@ -47,7 +47,6 @@ const scanReviewFields = document.querySelector<HTMLElement>("#card-scan-review-
 const scanApplySelected = document.querySelector<HTMLButtonElement>("#card-scan-apply-selected");
 const scanApplyAll = document.querySelector<HTMLButtonElement>("#card-scan-apply-all");
 const requestState = document.querySelector<HTMLElement>("#card-request-state");
-const removeBrandingButton = document.querySelector<HTMLButtonElement>("#card-remove-branding");
 const brandingHelp = document.querySelector<HTMLElement>("#card-branding-help");
 const brandingToggle = form?.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null;
 const exchangeToggle = form?.elements.namedItem("exchange_enabled") as HTMLInputElement | null;
@@ -424,7 +423,7 @@ function fillForm(row: CardRow): void {
     const control = form.elements.namedItem(name) as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null; if (control) control.value = String(row[name] ?? "");
   }
   const emailLabel = form.elements.namedItem("email_label") as HTMLInputElement | null; if (emailLabel && !emailLabel.value) emailLabel.value = "Email"; const phoneLabel = form.elements.namedItem("phone_label") as HTMLInputElement | null; if (phoneLabel && !phoneLabel.value) phoneLabel.value = "Phone";
-  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) { branding.checked = hasBrandingRemoval ? row.show_n3xra_branding === false : false; branding.dataset.locked = String(!hasBrandingRemoval); } if (removeBrandingButton) removeBrandingButton.hidden = hasBrandingRemoval; if (brandingHelp) brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess ? "Branding stays visible during the free trial and unlocks after upgrading." : "Branding removal is included with paid N3XRA Contact Card Premium."; renderContacts("editor-email", row.additional_emails, row.additional_email_labels); renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
+  const branding = form.elements.namedItem("show_n3xra_branding") as HTMLInputElement | null; if (branding) { branding.checked = hasBrandingRemoval ? row.show_n3xra_branding === false : false; branding.dataset.locked = String(!hasBrandingRemoval); } if (brandingHelp) brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess ? "Branding stays visible during the free trial and unlocks after upgrading." : "Branding removal is included with paid N3XRA Contact Card Premium."; renderContacts("editor-email", row.additional_emails, row.additional_email_labels); renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
   if (exchangeToggle) { exchangeToggle.checked = hasPremium && row.exchange_enabled !== false; exchangeToggle.closest("label")?.classList.toggle("is-premium-locked", !hasPremium); }
   setRequestState(row); sectionOrder = validSectionOrder(row.section_order); renderSectionOrder(); void loadMediaPreviews(row); linksContainer?.replaceChildren(); for (const link of row.links || []) addLinkRow(link); if (!row.links?.length) addLinkRow();
   const url = `${window.location.origin}/card/${row.slug}`; if (publicLink) { publicLink.href = url; publicLink.hidden = false; } if (editorToolbar) editorToolbar.hidden = false; if (publicAddress) publicAddress.textContent = url; if (scanPanel) scanPanel.hidden = false; form.hidden = false; activation?.setAttribute("hidden", ""); if (workspaceNav) workspaceNav.hidden = false; changesPending = false; setSaveStatus("All changes saved"); void loadWorkspaceData(); switchWorkspaceView("preview"); if (!hasPremium && !entitlementData?.premium_prompt_dismissed_at) window.setTimeout(openPremiumDialog, 650);
@@ -622,7 +621,6 @@ activationForm?.addEventListener("submit", (event) => {
 });
 
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
-removeBrandingButton?.addEventListener("click", openPremiumDialog);
 brandingToggle?.addEventListener("change", (event) => { if (hasBrandingRemoval || !brandingToggle.checked) return; event.preventDefault(); event.stopPropagation(); brandingToggle.checked = false; openPremiumDialog(); });
 exchangeToggle?.closest("label")?.addEventListener("click", (event) => { if (hasPremium) return; event.preventDefault(); event.stopPropagation(); openPremiumDialog(); });
 premiumClose?.addEventListener("click", () => { void closePremiumDialog(); });
