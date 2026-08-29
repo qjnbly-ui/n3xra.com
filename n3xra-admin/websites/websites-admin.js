@@ -107,6 +107,8 @@ let versions = [];
 let assetUsageReport = { available: false, assets: [] };
 let assetViewMode = window.localStorage.getItem("n3xra-website-assets-view") === "gallery" ? "gallery" : "list";
 let previewVersionIds = [];
+let versionPreviewObserver = null;
+const fullQualityPreviewCache = new Map();
 let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
 let members = [];
@@ -180,47 +182,61 @@ function assetFileType(version) {
 }
 
 function assetFilePreviewMarkup(version, type) {
-  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
-async function hydrateVersionPreviews() {
-  const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
-  await Promise.all(previews.map(async (preview) => {
-    const version = versions.find((row) => row.id === preview.dataset.versionPreview);
-    if (!version) return;
-    const type = assetFileType(version);
-    if (!['image', 'pdf'].includes(type.tone)) return;
-    let url = version.public_url;
-    if (!url) {
-      const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
-      if (error || !data?.signedUrl) return;
-      url = data.signedUrl;
-    }
-    const image = preview.querySelector("img");
-    const canvas = preview.querySelector("canvas");
-    const fallback = preview.querySelector(":scope > span");
-    if (!url || !preview.isConnected) return;
-    if (type.tone === "pdf" && canvas) {
-      try {
-        await renderPdfFirstPage(url, canvas);
-        if (!preview.isConnected) return;
-        canvas.hidden = false;
-        if (fallback) fallback.hidden = true;
-        preview.classList.add("has-preview");
-      } catch {
-        // Keep the PDF badge when the first page cannot be rendered.
-      }
-      return;
-    }
-    if (!image) return;
-    image.addEventListener("load", () => {
+async function hydrateVersionPreview(preview) {
+  const version = versions.find((row) => row.id === preview.dataset.versionPreview);
+  if (!version) return;
+  const type = assetFileType(version);
+  if (!["image", "pdf"].includes(type.tone)) return;
+  let url = version.public_url;
+  if (!url) {
+    const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+    if (error || !data?.signedUrl) return;
+    url = data.signedUrl;
+  }
+  const image = preview.querySelector("img");
+  const canvas = preview.querySelector("canvas");
+  const fallback = preview.querySelector(":scope > span");
+  if (!url || !preview.isConnected) return;
+  if (type.tone === "pdf" && canvas) {
+    try {
+      await renderPdfFirstPage(url, canvas);
       if (!preview.isConnected) return;
-      image.hidden = false;
+      canvas.hidden = false;
       if (fallback) fallback.hidden = true;
       preview.classList.add("has-preview");
-    }, { once: true });
-    image.src = url;
-  }));
+    } catch {
+      // Keep the PDF badge when the first page cannot be rendered.
+    }
+    return;
+  }
+  if (!image) return;
+  image.addEventListener("load", () => {
+    if (!preview.isConnected) return;
+    image.hidden = false;
+    if (fallback) fallback.hidden = true;
+    preview.classList.add("has-preview");
+  }, { once: true });
+  image.src = url;
+}
+
+function hydrateVersionPreviews() {
+  versionPreviewObserver?.disconnect();
+  const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
+  if (!("IntersectionObserver" in window)) {
+    previews.slice(0, 24).forEach((preview) => void hydrateVersionPreview(preview));
+    return;
+  }
+  versionPreviewObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      versionPreviewObserver?.unobserve(entry.target);
+      void hydrateVersionPreview(entry.target);
+    });
+  }, { root: null, rootMargin: "500px 0px" });
+  previews.forEach((preview) => versionPreviewObserver.observe(preview));
 }
 
 function assetTableHeader(versionIds = []) {
@@ -1494,11 +1510,19 @@ async function renameVersion(version) {
   await loadAssets();
 }
 
-async function openVersion(version) {
+async function fullQualityPreviewUrl(version) {
+  const cached = fullQualityPreviewCache.get(version.id);
+  if (cached?.expiresAt > Date.now()) return cached.url;
   const previewResult = version.storage_bucket && version.storage_path
     ? await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600)
     : { data: { signedUrl: version.public_url }, error: null };
   if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
+  fullQualityPreviewCache.set(version.id, { url: previewResult.data.signedUrl, expiresAt: Date.now() + 8 * 60 * 1000 });
+  return previewResult.data.signedUrl;
+}
+
+async function openVersion(version) {
+  const previewUrl = await fullQualityPreviewUrl(version);
   const downloadUrl = version.public_url || await downloadUrlForVersion(version);
   const index = previewVersionIds.indexOf(version.id);
   const previousVersion = index > 0 ? versions.find((item) => item.id === previewVersionIds[index - 1]) : null;
@@ -1506,7 +1530,7 @@ async function openVersion(version) {
   await openAssetPreview({
     name: version.original_filename,
     mimeType: version.mime_type,
-    url: previewResult.data.signedUrl,
+    url: previewUrl,
     downloadUrl,
     kicker: "Websites · Files & Assets · Full quality",
     onPrevious: previousVersion ? () => openVersion(previousVersion) : null,
@@ -1514,6 +1538,7 @@ async function openVersion(version) {
     position: index + 1,
     total: previewVersionIds.length,
   });
+  [previousVersion, nextVersion].filter(Boolean).forEach((item) => void fullQualityPreviewUrl(item).catch(() => {}));
 }
 
 async function downloadUrlForVersion(version) {

@@ -92,3 +92,15 @@ test("gallery cards keep natural filename order without overlapping", () => {
   assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \.n3xra-file-row \{[^}]*min-height:280px;[^}]*height:max-content;/);
   assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \.website-asset-version \{[^}]*min-height:280px;[^}]*height:max-content;/);
 });
+
+test("mobile galleries load quickly and keep navigation reachable", () => {
+  assert.match(filesSource, /new IntersectionObserver/);
+  assert.match(filesSource, /rootMargin: "500px 0px"/);
+  assert.match(filesSource, /fullQualityFilePreviewCache/);
+  assert.match(workspaceFilesSource, /new IntersectionObserver/);
+  assert.match(workspaceFilesSource, /fullQualityPreviewCache/);
+  assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
+  assert.match(internalFilesStyles, /\.n3xra-preview-navigation button \{ flex:1; min-height:48px;/);
+  assert.match(workspaceFilesStyles, /\.website-asset-preview-navigation button \{ flex:1; min-height:48px;/);
+});

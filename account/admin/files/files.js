@@ -12,6 +12,8 @@ let currentFolderPath = "";
 let fileViewMode = window.localStorage.getItem("n3xra-internal-files-view") === "gallery" ? "gallery" : "list";
 let previewFiles = [];
 let activePreviewIndex = -1;
+let filePreviewObserver = null;
+const fullQualityFilePreviewCache = new Map();
 const expandedFolderPaths = new Set();
 const selectedFileKeys = new Set();
 const WEBSITE_PRIVATE_BUCKET = "website-assets-private";
@@ -66,42 +68,56 @@ function fileType(file) {
 
 function filePreviewMarkup(file, type) {
   const key = fileSelectionKey(file);
-  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
-async function hydrateFilePreviews() {
-  const previews = Array.from(document.querySelectorAll("#n3xra-file-list [data-file-preview]"));
-  await Promise.all(previews.map(async (preview) => {
-    const file = fileState.files.find((item) => fileSelectionKey(item) === preview.dataset.filePreview);
-    if (!file) return;
-    const type = fileType(file);
-    if (!["image", "pdf"].includes(type.tone)) return;
-    try {
-      const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
-      const image = preview.querySelector("img");
-      const canvas = preview.querySelector("canvas");
-      const fallback = preview.querySelector(":scope > span");
-      if (!data?.url || !preview.isConnected) return;
-      if (type.tone === "pdf" && canvas) {
-        await renderPdfFirstPage(data.url, canvas);
-        if (!preview.isConnected) return;
-        canvas.hidden = false;
-        if (fallback) fallback.hidden = true;
-        preview.classList.add("has-preview");
-        return;
-      }
-      if (!image) return;
-      image.addEventListener("load", () => {
-        if (!preview.isConnected) return;
-        image.hidden = false;
-        if (fallback) fallback.hidden = true;
-        preview.classList.add("has-preview");
-      }, { once: true });
-      image.src = data.url;
-    } catch {
-      // Keep the file-type badge when a preview URL is unavailable.
+async function hydrateFilePreview(preview) {
+  const file = fileState.files.find((item) => fileSelectionKey(item) === preview.dataset.filePreview);
+  if (!file) return;
+  const type = fileType(file);
+  if (!["image", "pdf"].includes(type.tone)) return;
+  try {
+    const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
+    const image = preview.querySelector("img");
+    const canvas = preview.querySelector("canvas");
+    const fallback = preview.querySelector(":scope > span");
+    if (!data?.url || !preview.isConnected) return;
+    if (type.tone === "pdf" && canvas) {
+      await renderPdfFirstPage(data.url, canvas);
+      if (!preview.isConnected) return;
+      canvas.hidden = false;
+      if (fallback) fallback.hidden = true;
+      preview.classList.add("has-preview");
+      return;
     }
-  }));
+    if (!image) return;
+    image.addEventListener("load", () => {
+      if (!preview.isConnected) return;
+      image.hidden = false;
+      if (fallback) fallback.hidden = true;
+      preview.classList.add("has-preview");
+    }, { once: true });
+    image.src = data.url;
+  } catch {
+    // Keep the file-type badge when a preview URL is unavailable.
+  }
+}
+
+function hydrateFilePreviews() {
+  filePreviewObserver?.disconnect();
+  const previews = Array.from(document.querySelectorAll("#n3xra-file-list [data-file-preview]"));
+  if (!("IntersectionObserver" in window)) {
+    previews.slice(0, 24).forEach((preview) => void hydrateFilePreview(preview));
+    return;
+  }
+  filePreviewObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      filePreviewObserver?.unobserve(entry.target);
+      void hydrateFilePreview(entry.target);
+    });
+  }, { root: null, rootMargin: "500px 0px" });
+  previews.forEach((preview) => filePreviewObserver.observe(preview));
 }
 
 function safeUploadPath(value) {
@@ -940,12 +956,23 @@ function syncPreviewNavigation() {
   if (position) position.textContent = activePreviewIndex >= 0 && previewFiles.length > 1 ? `${activePreviewIndex + 1} of ${previewFiles.length}` : "";
 }
 
+async function fullQualityFilePreviewData(file) {
+  const key = fileSelectionKey(file);
+  const cached = fullQualityFilePreviewCache.get(key);
+  if (cached?.expiresAt > Date.now()) return cached.data;
+  const data = file.source === "website"
+    ? await websiteFileUrl(file, { preferOriginal: true })
+    : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
+  fullQualityFilePreviewCache.set(key, { data, expiresAt: Date.now() + 8 * 60 * 1000 });
+  return data;
+}
+
 async function openFile(id, source = "") {
   const file = fileState.files.find((item) => String(item.id) === String(id) && (!source || item.source === source));
   if (!file) return;
   fileStatus("Preparing preview…");
   try {
-    const data = file.source === "website" ? await websiteFileUrl(file, { preferOriginal: true }) : await fileInvoke("get-n3xra-file-url", { fileId: id });
+    const data = await fullQualityFilePreviewData(file);
     const modal = document.getElementById("file-preview-modal");
     const body = document.getElementById("file-preview-body");
     const title = document.getElementById("file-preview-title");
@@ -972,6 +999,7 @@ async function openFile(id, source = "") {
     modal.hidden = false;
     activePreviewIndex = previewFiles.findIndex((item) => fileSelectionKey(item) === fileSelectionKey(file));
     syncPreviewNavigation();
+    [previewFiles[activePreviewIndex - 1], previewFiles[activePreviewIndex + 1]].filter(Boolean).forEach((item) => void fullQualityFilePreviewData(item).catch(() => {}));
     document.body.classList.add("n3xra-modal-open");
     fileStatus("Preview ready.", "success");
   } catch (error) { fileStatus(error.message, "error"); }
