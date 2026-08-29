@@ -71,10 +71,10 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(admin, /id="contact-card-modal" role="dialog" aria-modal="true"/);
   assert.match(admin, /id="contact-card-modal-close"/);
   assert.match(admin, /id="contact-card-modal-backdrop"/);
-  assert.match(admin, /\/card\/admin\.js\?v=8/);
+  assert.match(admin, /\/card\/admin\.js\?v=9/);
   assert.match(admin, /\/card\/card\.css\?v=14/);
   assert.match(admin, /\/account\/admin\/product-shell\.js\?v=19/);
-  assert.match(admin, /contact-cards-admin\.css\?v=4/);
+  assert.match(admin, /contact-cards-admin\.css\?v=5/);
   assert.match(admin, /id="admin-card-links"/);
   assert.match(admin, /data-admin-media-input="profile"/);
   assert.match(adminLogic, /function openModal/);
@@ -165,7 +165,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=21/);
+  assert.match(activation, /\/card\/editor\.js\?v=22/);
   assert.match(activation, /id="card-preview-frame"[\s\S]*scrolling="no"/);
   assert.match(editor, /function fitPreviewFrame\(\)/);
   assert.match(editor, /previewResizeObserver\.observe\(previewShell\)/);
@@ -387,7 +387,38 @@ test("Contact Card Premium offers one server-enforced seven-day trial without br
   assert.match(editor, /hasBrandingRemoval = hasPaidPremium;/);
   assert.match(editor, /card\.exchange_enabled = true;[\s\S]*card\.show_n3xra_branding = true;/);
   assert.match(editor, /action: "start_trial"/);
-  assert.match(publicEndpoint, /hasPremiumTools = hasPaidPremium \|\| hasTrialAccess/);
+  assert.match(publicEndpoint, /hasPremiumTools = hasPaidPremium \|\| hasTrialAccess \|\| hasGrantedAccess/);
   assert.match(publicEndpoint, /canHideBranding = hasPaidPremium;/);
   assert.match(connectEndpoint, /premium_trial_ends_at/);
+});
+
+test("complimentary Contact Card Premium unlocks tools while paid Premium alone removes branding", async () => {
+  const [migration, platformAdmin, adminPage, adminLogic, editor, publicEndpoint, connectEndpoint] = await Promise.all([
+    read("supabase/migrations/20260829004040_unified_product_access_grants.sql"),
+    read("supabase/functions/platform-admin/index.ts"),
+    read("n3xra-admin/contact-cards/index.html"),
+    read("src/contact-cards/admin.ts"),
+    read("src/contact-cards/editor.ts"),
+    read("api/contact-card.js"),
+    read("api/contact-card-connect.js"),
+  ]);
+  assert.match(migration, /create table public\.product_access_grants/);
+  assert.match(migration, /create table public\.product_access_grant_events/);
+  assert.match(migration, /product_access_grant_events_select_authorized[\s\S]*is_platform_admin/);
+  assert.doesNotMatch(migration, /product_access_grant_events_select_authorized[\s\S]*subject_user_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /Branding removal is a paid entitlement even when an administrator grants/);
+  assert.match(migration, /new\.show_n3xra_branding is false and not coalesce\(branding_entitled, false\)/);
+  assert.match(platformAdmin, /action === "get-product-access"/);
+  assert.match(platformAdmin, /action === "grant-product-access"/);
+  assert.match(platformAdmin, /action === "set-product-access-grant-status"/);
+  assert.match(adminPage, /id="contact-card-access-controls"/);
+  assert.match(adminPage, /Only paid Premium can remove branding/);
+  assert.match(adminLogic, /productKey: "contact_cards"/);
+  assert.match(adminLogic, /N3XRA branding remains visible/);
+  assert.match(editor, /hasPremium = hasPaidPremium \|\| hasTrialAccess \|\| hasGrantedPremium/);
+  assert.match(editor, /hasBrandingRemoval = hasPaidPremium/);
+  assert.match(editor, /Branding stays visible with trial or complimentary access/);
+  assert.match(publicEndpoint, /hasPremiumTools = hasPaidPremium \|\| hasTrialAccess \|\| hasGrantedAccess/);
+  assert.match(publicEndpoint, /canHideBranding = hasPaidPremium/);
+  assert.match(connectEndpoint, /product_access_grants/);
 });

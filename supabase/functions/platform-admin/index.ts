@@ -17,6 +17,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   records: "N3XRA Records",
   websites: "N3XRA Websites",
   communications: "N3XRA Communications",
+  contact_cards: "N3XRA Contact Cards",
   prospects: "Potential Clients",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
@@ -1825,6 +1826,131 @@ Deno.serve(async (request) => {
     if (action === "list-platform-accounts") {
       const { accounts } = await loadPlatformAccountData(adminClient);
       return jsonResponse({ ok: true, accounts, count: accounts.length });
+    }
+
+    if (action === "get-product-access") {
+      const userId = String(payload.userId || "").trim();
+      const productKey = String(payload.productKey || "").trim().toLowerCase();
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid account is required." }, 400);
+      if (!PRODUCT_LABELS[productKey] || productKey === "all") return jsonResponse({ error: "Choose a supported product." }, 400);
+
+      const { data: grants, error: grantsError } = await adminClient
+        .from("product_access_grants")
+        .select("*")
+        .eq("subject_user_id", userId)
+        .eq("product_key", productKey)
+        .order("created_at", { ascending: false });
+      if (grantsError) return jsonResponse({ error: grantsError.message }, 400);
+
+      const grantIds = (grants || []).map((grant) => String(grant.id));
+      const eventsResult = grantIds.length
+        ? await adminClient.from("product_access_grant_events").select("*").in("grant_id", grantIds).order("created_at", { ascending: false }).limit(100)
+        : { data: [], error: null };
+      if (eventsResult.error) return jsonResponse({ error: eventsResult.error.message }, 400);
+
+      let billing: Record<string, unknown> | null = null;
+      if (productKey === "contact_cards") {
+        const { data, error } = await adminClient
+          .from("contact_card_entitlements")
+          .select("base_access,premium_active,premium_status,premium_plan,premium_current_period_end,premium_cancel_at_period_end,stripe_customer_id,stripe_subscription_id,premium_trial_started_at,premium_trial_ends_at,source")
+          .eq("owner_user_id", userId)
+          .maybeSingle();
+        if (error) return jsonResponse({ error: error.message }, 400);
+        billing = data || null;
+      }
+
+      return jsonResponse({ ok: true, grants: grants || [], events: eventsResult.data || [], billing });
+    }
+
+    if (action === "grant-product-access") {
+      const userId = String(payload.userId || "").trim();
+      const productKey = String(payload.productKey || "").trim().toLowerCase();
+      const accessLevel = String(payload.accessLevel || "premium").trim().toLowerCase();
+      const source = String(payload.source || "admin").trim().toLowerCase();
+      const note = textValue(payload.note, 1000);
+      const lifetime = payload.lifetime === true;
+      const endsAtText = String(payload.endsAt || "").trim();
+      const endsAt = lifetime ? null : new Date(endsAtText);
+      if (!isValidUuid(userId)) return jsonResponse({ error: "A valid account is required." }, 400);
+      if (!PRODUCT_LABELS[productKey] || productKey === "all") return jsonResponse({ error: "Choose a supported product." }, 400);
+      if (!/^[a-z0-9_]{2,80}$/.test(accessLevel)) return jsonResponse({ error: "Choose a valid access level." }, 400);
+      if (!["admin", "promotion", "legacy"].includes(source)) return jsonResponse({ error: "Choose a valid grant source." }, 400);
+      if (!lifetime && (!endsAtText || Number.isNaN(endsAt.getTime()) || endsAt.getTime() <= Date.now())) {
+        return jsonResponse({ error: "Choose a future expiration date or lifetime access." }, 400);
+      }
+      const { data: targetResult, error: targetError } = await adminClient.auth.admin.getUserById(userId);
+      if (targetError || !targetResult?.user) return jsonResponse({ error: targetError?.message || "Account not found." }, 404);
+
+      const { data: existing, error: existingError } = await adminClient
+        .from("product_access_grants")
+        .select("*")
+        .eq("subject_user_id", userId)
+        .eq("product_key", productKey)
+        .eq("access_level", accessLevel)
+        .in("status", ["active", "paused"])
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (existingError) return jsonResponse({ error: existingError.message }, 400);
+
+      const grantPayload = {
+        product_key: productKey,
+        access_level: accessLevel,
+        subject_user_id: userId,
+        subject_organization_id: null,
+        status: "active",
+        source,
+        starts_at: new Date().toISOString(),
+        ends_at: lifetime ? null : endsAt.toISOString(),
+        lifetime,
+        note,
+        granted_by_user_id: user.id,
+        revoked_by_user_id: null,
+        revoked_at: null,
+        metadata: { managed_by: "platform_admin" },
+      };
+      const result = existing
+        ? await adminClient.from("product_access_grants").update(grantPayload).eq("id", existing.id).select("*").single()
+        : await adminClient.from("product_access_grants").insert(grantPayload).select("*").single();
+      if (result.error || !result.data) return jsonResponse({ error: result.error?.message || "Access could not be granted." }, 400);
+
+      const { error: eventError } = await adminClient.from("product_access_grant_events").insert({
+        grant_id: result.data.id,
+        actor_user_id: user.id,
+        action: existing ? "extended" : "granted",
+        before_state: existing || null,
+        after_state: result.data,
+        note,
+      });
+      if (eventError) return jsonResponse({ error: eventError.message }, 400);
+
+      if (productKey === "contact_cards" && accessLevel === "premium") {
+        const { error: profileError } = await adminClient.from("contact_card_profiles").update({ exchange_enabled: true, show_n3xra_branding: true }).eq("owner_user_id", userId);
+        if (profileError) return jsonResponse({ error: profileError.message }, 400);
+      }
+      return jsonResponse({ ok: true, grant: result.data });
+    }
+
+    if (action === "set-product-access-grant-status") {
+      const grantId = String(payload.grantId || "").trim();
+      const requestedStatus = String(payload.status || "").trim().toLowerCase();
+      const note = textValue(payload.note, 1000);
+      if (!isValidUuid(grantId)) return jsonResponse({ error: "A valid access grant is required." }, 400);
+      if (!["active", "paused", "revoked"].includes(requestedStatus)) return jsonResponse({ error: "Choose a valid access status." }, 400);
+      const { data: existing, error: existingError } = await adminClient.from("product_access_grants").select("*").eq("id", grantId).maybeSingle();
+      if (existingError || !existing) return jsonResponse({ error: existingError?.message || "Access grant not found." }, 404);
+      if (requestedStatus === "active" && !existing.lifetime && new Date(String(existing.ends_at || "")).getTime() <= Date.now()) {
+        return jsonResponse({ error: "Expired access must be granted again with a new end date." }, 400);
+      }
+      const updates = requestedStatus === "revoked"
+        ? { status: "revoked", revoked_at: new Date().toISOString(), revoked_by_user_id: user.id, note: note || existing.note }
+        : { status: requestedStatus, revoked_at: null, revoked_by_user_id: null, note: note || existing.note };
+      const { data: updated, error: updateError } = await adminClient.from("product_access_grants").update(updates).eq("id", grantId).select("*").single();
+      if (updateError || !updated) return jsonResponse({ error: updateError?.message || "Access could not be updated." }, 400);
+      const eventAction = requestedStatus === "active" ? "restored" : requestedStatus === "paused" ? "paused" : "revoked";
+      const { error: eventError } = await adminClient.from("product_access_grant_events").insert({ grant_id: grantId, actor_user_id: user.id, action: eventAction, before_state: existing, after_state: updated, note });
+      if (eventError) return jsonResponse({ error: eventError.message }, 400);
+      return jsonResponse({ ok: true, grant: updated });
     }
 
     if (action === "delete-platform-account") {

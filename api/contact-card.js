@@ -65,9 +65,14 @@ export default async function handler(req, res) {
     });
     const entitlements = entitlementResponse.ok ? await entitlementResponse.json() : [];
     const entitlement = Array.isArray(entitlements) ? entitlements[0] : null;
+    const grantParams = new URLSearchParams({ select: "status,starts_at,ends_at,lifetime", subject_user_id: `eq.${card.owner_user_id}`, product_key: "eq.contact_cards", access_level: "eq.premium", status: "eq.active", order: "created_at.desc", limit: "1" });
+    const grantResponse = await fetch(`${SUPABASE_URL}/rest/v1/product_access_grants?${grantParams}`, { headers: serviceHeaders({ Accept: "application/json" }) });
+    const grants = grantResponse.ok ? await grantResponse.json() : [];
+    const grant = Array.isArray(grants) ? grants[0] : null;
     const hasPaidPremium = entitlement?.premium_active === true;
     const hasTrialAccess = Boolean(entitlement?.premium_trial_ends_at && new Date(entitlement.premium_trial_ends_at).getTime() > Date.now());
-    const hasPremiumTools = hasPaidPremium || hasTrialAccess;
+    const hasGrantedAccess = Boolean(grant && new Date(grant.starts_at).getTime() <= Date.now() && (grant.lifetime || (grant.ends_at && new Date(grant.ends_at).getTime() > Date.now())));
+    const hasPremiumTools = hasPaidPremium || hasTrialAccess || hasGrantedAccess;
     const canHideBranding = hasPaidPremium;
     const { owner_user_id, profile_image_path, company_logo_path, background_image_path, ...publicCard } = card;
     return send(res, 200, {

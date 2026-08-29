@@ -69,6 +69,7 @@ let draftCard = null;
 let hasBrandingRemoval = false;
 let hasPaidPremium = false;
 let hasTrialAccess = false;
+let hasGrantedPremium = false;
 let hasPremium = false;
 let ownerUserId = "";
 let accessToken = "";
@@ -82,6 +83,7 @@ let saveTimer = 0;
 let savePromise = null;
 let activeWorkspaceView = "edit";
 let entitlementData = null;
+let accessGrantData = null;
 let connectionRows = [];
 let contactSourceFilter = "all";
 const repeatableContainers = {
@@ -114,19 +116,22 @@ function formatDate(value) { if (!value)
     return ""; return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(new Date(value)); }
 function formatMoney(cents) { return new Intl.NumberFormat(undefined, { style: "currency", currency: "USD" }).format(cents / 100); }
 function trialIsActive(entitlement) { return Boolean(entitlement?.premium_trial_ends_at && new Date(entitlement.premium_trial_ends_at).getTime() > Date.now()); }
+function grantIsActive(grant) { return Boolean(grant && grant.status === "active" && (grant.lifetime || (grant.ends_at && new Date(grant.ends_at).getTime() > Date.now()))); }
 function trialDaysRemaining() { if (!entitlementData?.premium_trial_ends_at)
     return 0; return Math.max(0, Math.ceil((new Date(entitlementData.premium_trial_ends_at).getTime() - Date.now()) / 86_400_000)); }
-function applyEntitlementState(entitlement) {
+function applyEntitlementState(entitlement, accessGrant = accessGrantData) {
     entitlementData = entitlement;
+    accessGrantData = accessGrant;
     hasPaidPremium = Boolean(entitlement?.premium_active);
     hasTrialAccess = !hasPaidPremium && trialIsActive(entitlement);
-    hasPremium = hasPaidPremium || hasTrialAccess;
+    hasGrantedPremium = !hasPaidPremium && grantIsActive(accessGrant);
+    hasPremium = hasPaidPremium || hasTrialAccess || hasGrantedPremium;
     hasBrandingRemoval = hasPaidPremium;
 }
 function refreshPremiumTrialOffer() {
     const wrapper = premiumTrial?.closest(".card-premium-trial");
     if (wrapper)
-        wrapper.hidden = hasPaidPremium || Boolean(entitlementData?.premium_trial_started_at);
+        wrapper.hidden = hasPremium || Boolean(entitlementData?.premium_trial_started_at);
 }
 function openPremiumDialog() {
     if (!premiumDialog || hasPaidPremium)
@@ -358,7 +363,7 @@ function renderProfile(orders) {
         profileSummary.replaceChildren();
         const items = [
             ["Contact Card", entitlementData?.base_access ? "Active" : "Setup"],
-            ["Premium", hasPaidPremium ? `${entitlementData?.premium_plan === "monthly" ? "Monthly" : "Annual"} · ${String(entitlementData?.premium_status || "active").replaceAll("_", " ")}` : hasTrialAccess ? `Free trial · ${trialDaysRemaining()} day${trialDaysRemaining() === 1 ? "" : "s"} remaining` : "Not active"],
+            ["Premium", hasPaidPremium ? `${entitlementData?.premium_plan === "monthly" ? "Monthly" : "Annual"} · ${String(entitlementData?.premium_status || "active").replaceAll("_", " ")}` : hasTrialAccess ? `Free trial · ${trialDaysRemaining()} day${trialDaysRemaining() === 1 ? "" : "s"} remaining` : hasGrantedPremium ? accessGrantData?.lifetime ? "Complimentary · lifetime" : `Complimentary · through ${formatDate(accessGrantData?.ends_at)}` : "Not active"],
             ["Public address", card ? `n3xra.com/card/${card.slug}` : ""],
             ["Connect Back", hasPremium && card?.exchange_enabled !== false ? "On" : "Premium"],
             ["N3XRA branding", hasBrandingRemoval ? "Removal unlocked" : "Included"],
@@ -374,15 +379,17 @@ function renderProfile(orders) {
         }
     }
     if (premiumProfileAction)
-        premiumProfileAction.textContent = hasPaidPremium ? "Manage Premium billing" : hasTrialAccess ? "Upgrade to Premium" : "View Premium";
+        premiumProfileAction.textContent = hasPaidPremium ? "Manage Premium billing" : hasPremium ? "Upgrade to paid Premium" : "View Premium";
     if (premiumProfileTitle)
-        premiumProfileTitle.textContent = hasPaidPremium ? "Premium is active" : hasTrialAccess ? "Your free trial is active" : "Turn introductions into contacts";
+        premiumProfileTitle.textContent = hasPaidPremium ? "Premium is active" : hasTrialAccess ? "Your free trial is active" : hasGrantedPremium ? "Complimentary Premium is active" : "Turn introductions into contacts";
     if (premiumProfileCopy)
         premiumProfileCopy.textContent = hasPaidPremium
             ? `Your ${entitlementData?.premium_plan === "monthly" ? "monthly" : "annual"} plan includes Connect Back, scanning, exports, and branding removal${entitlementData?.premium_cancel_at_period_end ? " until the end of the current billing period" : ""}.`
             : hasTrialAccess
                 ? `Connect Back, scanning, and exports are unlocked through ${formatDate(entitlementData?.premium_trial_ends_at)}. N3XRA branding stays visible until you upgrade.`
-                : "Start a seven-day trial of Connect Back, business-card scanning, and contact exports. No payment method required.";
+                : hasGrantedPremium
+                    ? `Connect Back, scanning, and exports are unlocked ${accessGrantData?.lifetime ? "for the life of this grant" : `through ${formatDate(accessGrantData?.ends_at)}`}. N3XRA branding stays visible unless paid Premium is activated.`
+                    : "Start a seven-day trial of Connect Back, business-card scanning, and contact exports. No payment method required.";
     if (profileHistory)
         profileHistory.hidden = orders.length === 0;
     if (!orderHistory)
@@ -685,7 +692,7 @@ function fillForm(row) {
         branding.dataset.locked = String(!hasBrandingRemoval);
     }
     if (brandingHelp)
-        brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess ? "Branding stays visible during the free trial and unlocks after upgrading." : "Branding removal is included with paid N3XRA Contact Card Premium.";
+        brandingHelp.textContent = hasBrandingRemoval ? (branding?.checked ? "The N3XRA credit is hidden. Turn this off to show it again." : "Turn this on to hide the N3XRA credit on your public card.") : hasTrialAccess || hasGrantedPremium ? "Branding stays visible with trial or complimentary access. Paid Premium unlocks removal." : "Branding removal is included with paid N3XRA Contact Card Premium.";
     renderContacts("editor-email", row.additional_emails, row.additional_email_labels);
     renderContacts("editor-phone", row.additional_phones, row.additional_phone_labels);
     if (exchangeToggle) {
@@ -1045,11 +1052,16 @@ async function initialize() {
     }
     ownerUserId = String(session.user.id || "");
     accessToken = String(session.access_token || "");
-    const [{ data: initialData, error }, entitlementResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select(ENTITLEMENT_COLUMNS).eq("owner_user_id", session.user.id).maybeSingle()]);
+    const [{ data: initialData, error }, entitlementResult, grantResult] = await Promise.all([supabase.from("contact_card_profiles").select("*").eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("contact_card_entitlements").select(ENTITLEMENT_COLUMNS).eq("owner_user_id", session.user.id).maybeSingle(), supabase.from("product_access_grants").select("id,status,source,starts_at,ends_at,lifetime").eq("subject_user_id", session.user.id).eq("product_key", "contact_cards").eq("access_level", "premium").order("created_at", { ascending: false }).limit(1).maybeSingle()]);
     if (error)
         throw error;
+    if (entitlementResult.error)
+        throw entitlementResult.error;
+    if (grantResult.error)
+        throw grantResult.error;
     let data = initialData;
     let entitlement = entitlementResult.data;
+    const accessGrant = grantResult.data;
     const checkoutParams = new URLSearchParams(window.location.search);
     const checkoutSucceeded = checkoutParams.get("checkout") === "success";
     const checkoutProduct = checkoutParams.get("product");
@@ -1067,7 +1079,7 @@ async function initialize() {
                 data = refreshed.data;
         }
     }
-    applyEntitlementState(entitlement);
+    applyEntitlementState(entitlement, accessGrant);
     if (data && entitlement?.base_access) {
         card = data;
         fillForm(card);

@@ -41,6 +41,20 @@ const scanReview = document.querySelector<HTMLDialogElement>("#admin-card-scan-r
 const scanReviewFields = document.querySelector<HTMLElement>("#admin-card-scan-review-fields");
 const scanApplySelected = document.querySelector<HTMLButtonElement>("#admin-card-scan-apply-selected");
 const scanApplyAll = document.querySelector<HTMLButtonElement>("#admin-card-scan-apply-all");
+const accessControls = document.querySelector<HTMLElement>("#contact-card-access-controls");
+const accessState = document.querySelector<HTMLElement>("#contact-card-access-state");
+const accessFacts = document.querySelector<HTMLElement>("#contact-card-access-facts");
+const accessTerm = document.querySelector<HTMLSelectElement>("#contact-card-access-term");
+const accessEndLabel = document.querySelector<HTMLElement>("#contact-card-access-end-label");
+const accessEnd = document.querySelector<HTMLInputElement>("#contact-card-access-end");
+const accessSource = document.querySelector<HTMLSelectElement>("#contact-card-access-source");
+const accessNote = document.querySelector<HTMLTextAreaElement>("#contact-card-access-note");
+const accessGrant = document.querySelector<HTMLButtonElement>("#contact-card-access-grant");
+const accessPause = document.querySelector<HTMLButtonElement>("#contact-card-access-pause");
+const accessRevoke = document.querySelector<HTMLButtonElement>("#contact-card-access-revoke");
+const accessStatus = document.querySelector<HTMLElement>("#contact-card-access-status");
+const accessHistory = document.querySelector<HTMLElement>("#contact-card-access-history");
+const brandingHelp = document.querySelector<HTMLElement>("#contact-card-admin-branding-help");
 let cards: Row[] = [];
 let accounts: Row[] = [];
 let selectedId = "";
@@ -54,6 +68,7 @@ let changesPending = false;
 let changeVersion = 0;
 let saveTimer = 0;
 let savePromise: Promise<boolean> | null = null;
+let accessData: Row = { grants: [], events: [], billing: null };
 
 function escapeHtml(value: unknown): string { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function slugify(value: unknown): string { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
@@ -65,7 +80,68 @@ function field(name: string): HTMLInputElement | HTMLTextAreaElement | HTMLSelec
 function setFormStatus(message = "", tone = ""): void { if (formStatus) { formStatus.textContent = message; formStatus.className = tone ? `is-${tone}` : ""; } }
 function setMediaStatus(message = "", isError = false): void { if (mediaStatus) { mediaStatus.textContent = message; mediaStatus.style.color = isError ? "#a33041" : ""; } }
 function setScanStatus(message = "", tone = ""): void { if (scanStatus) { scanStatus.textContent = message; scanStatus.className = tone ? `is-${tone}` : ""; } }
+function setAccessStatus(message = "", isError = false): void { if (accessStatus) { accessStatus.textContent = message; accessStatus.className = isError ? "is-error" : ""; } }
 function markChanged(): void { changesPending = true; changeVersion += 1; setFormStatus("Unsaved changes"); window.clearTimeout(saveTimer); if (selectedId) saveTimer = window.setTimeout(() => void saveCard(), 750); }
+function formatDate(value: unknown): string { if (!value) return "—"; const date = new Date(String(value)); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date); }
+function accessIsCurrent(grant: Row | null): boolean { return Boolean(grant && grant.status === "active" && (grant.lifetime || new Date(String(grant.ends_at || "")).getTime() > Date.now())); }
+function currentAccessGrant(): Row | null { return (accessData.grants || []).find((grant: Row) => accessIsCurrent(grant)) || (accessData.grants || []).find((grant: Row) => grant.status === "paused") || null; }
+
+function renderProductAccess(): void {
+  if (!accessControls || !accessState || !accessFacts || !accessHistory) return;
+  const billing = accessData.billing || {};
+  const paid = billing.premium_active === true;
+  const trialActive = Boolean(billing.premium_trial_ends_at && new Date(String(billing.premium_trial_ends_at)).getTime() > Date.now());
+  const grant = currentAccessGrant();
+  const grantActive = accessIsCurrent(grant);
+  const grantExpired = Boolean(grant && grant.status === "active" && !grant.lifetime && !grantActive);
+  const label = paid ? "Paid Premium" : trialActive ? "Free trial" : grantActive ? "Complimentary Premium" : grant?.status === "paused" ? "Access paused" : grantExpired ? "Access expired" : "Basic access";
+  accessState.textContent = label;
+  accessState.className = `product-access-state${paid ? " is-paid" : grantActive || trialActive ? " is-active" : grant?.status === "paused" ? " is-paused" : grantExpired ? " is-expired" : ""}`;
+  const term = paid ? formatDate(billing.premium_current_period_end) : trialActive ? formatDate(billing.premium_trial_ends_at) : grantActive ? grant?.lifetime ? "Lifetime" : formatDate(grant?.ends_at) : "—";
+  const source = paid ? "Stripe" : trialActive ? "Self-service trial" : grant ? String(grant.source || "admin").replaceAll("_", " ") : "Administrator setup";
+  const facts: Array<readonly [string, string]> = [["Base card", billing.base_access ? "Active" : "Setup"], ["Premium tools", paid || trialActive || grantActive ? "Unlocked" : "Not active"], ["Access source", source], ["Ends", String(term || "—")]];
+  accessFacts.replaceChildren();
+  for (const [name, value] of facts) { const item = document.createElement("div"); const span = document.createElement("span"); span.textContent = name; const strong = document.createElement("strong"); strong.textContent = String(value); item.append(span, strong); accessFacts.append(item); }
+  if (accessGrant) accessGrant.textContent = grant ? "Extend or replace access" : "Grant Premium access";
+  if (accessPause) { accessPause.hidden = !grant || grant.status === "revoked" || grantExpired; accessPause.textContent = grant?.status === "paused" ? "Restore access" : "Pause access"; }
+  if (accessRevoke) accessRevoke.hidden = !grant || grant.status === "revoked";
+  const branding = field("show_n3xra_branding") as HTMLInputElement;
+  branding.disabled = !paid;
+  if (!paid) branding.checked = true;
+  if (brandingHelp) brandingHelp.textContent = paid ? "Paid Premium unlocks branding removal. The client can still turn the N3XRA credit back on." : "Only paid Premium can remove branding. Trials and complimentary access keep it visible.";
+  accessHistory.replaceChildren();
+  const events = accessData.events || [];
+  if (!events.length) { const empty = document.createElement("p"); empty.textContent = "No administrator access changes yet."; accessHistory.append(empty); }
+  for (const event of events) { const item = document.createElement("article"); const strong = document.createElement("strong"); strong.textContent = String(event.action || "updated").replaceAll("_", " "); const time = document.createElement("time"); time.textContent = formatDate(event.created_at); const small = document.createElement("small"); small.textContent = String(event.note || "No administrator note."); item.append(strong, time, small); accessHistory.append(item); }
+}
+
+async function loadProductAccess(card: Row): Promise<void> {
+  if (!accessControls) return; accessControls.hidden = false; setAccessStatus("Loading access…");
+  try { accessData = await invoke("get-product-access", { userId: card.owner_user_id, productKey: "contact_cards" }); renderProductAccess(); setAccessStatus(); }
+  catch (error) { setAccessStatus(error instanceof Error ? error.message : "Access could not be loaded.", true); }
+}
+
+function accessExpiration(): { lifetime: boolean; endsAt: string | null } {
+  const value = accessTerm?.value || "30";
+  if (value === "lifetime") return { lifetime: true, endsAt: null };
+  if (value === "custom") { const selected = String(accessEnd?.value || ""); if (!selected) throw new Error("Choose the access end date."); return { lifetime: false, endsAt: new Date(`${selected}T23:59:59`).toISOString() }; }
+  const date = new Date(); date.setDate(date.getDate() + Number(value)); return { lifetime: false, endsAt: date.toISOString() };
+}
+
+async function grantProductAccess(): Promise<void> {
+  const card = cards.find((item) => item.id === selectedId); if (!card || !accessGrant) return;
+  accessGrant.disabled = true; setAccessStatus("Granting access…");
+  try { const term = accessExpiration(); await invoke("grant-product-access", { userId: card.owner_user_id, productKey: "contact_cards", accessLevel: "premium", source: accessSource?.value || "admin", note: accessNote?.value || "", ...term }); if (accessNote) accessNote.value = ""; await loadProductAccess(card); setAccessStatus("Premium tools are available now. N3XRA branding remains visible."); }
+  catch (error) { setAccessStatus(error instanceof Error ? error.message : "Access could not be granted.", true); }
+  finally { accessGrant.disabled = false; }
+}
+
+async function updateProductAccessStatus(status: "active" | "paused" | "revoked"): Promise<void> {
+  const card = cards.find((item) => item.id === selectedId); const grant = currentAccessGrant(); if (!card || !grant) return;
+  setAccessStatus("Updating access…");
+  try { await invoke("set-product-access-grant-status", { grantId: grant.id, status, note: accessNote?.value || "" }); if (accessNote) accessNote.value = ""; await loadProductAccess(card); setAccessStatus(status === "active" ? "Access restored." : status === "paused" ? "Access paused." : "Access revoked."); }
+  catch (error) { setAccessStatus(error instanceof Error ? error.message : "Access could not be updated.", true); }
+}
 
 function validSectionOrder(value: unknown): SectionKey[] {
   if (!Array.isArray(value)) return [...DEFAULT_SECTION_ORDER];
@@ -159,8 +235,8 @@ async function requestClose(): Promise<void> {
   closeModalNow();
 }
 
-async function invoke(action: string): Promise<Row> {
-  if (!supabase) throw new Error("Supabase is not configured."); const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action } }); if (error || data?.error) throw new Error(data?.error || error?.message || "Admin request failed."); return data || {};
+async function invoke(action: string, details: Row = {}): Promise<Row> {
+  if (!supabase) throw new Error("Supabase is not configured."); const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...details } }); if (error || data?.error) throw new Error(data?.error || error?.message || "Admin request failed."); return data || {};
 }
 
 function renderList(): void {
@@ -176,9 +252,10 @@ function renderOwnerOptions(selected = "", locked = false): void {
 function showCard(card: Row | null): void {
   if (!form) return; changesPending = false; window.clearTimeout(saveTimer); form.classList.remove("hidden"); selectedId = String(card?.id || ""); form.reset(); field("id").value = selectedId; renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
   for (const name of ["slug", "status", "physical_card_status", "display_name", "headline", "company_name", "bio", "email", "email_label", "phone_e164", "phone_label", "website_url", "location_text", "accent_color", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) field(name).value = String(card?.[name] ?? (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : name === "shipping_country" ? "United States" : name === "status" ? "published" : name === "physical_card_status" ? "not_requested" : name === "accent_color" ? "#2f7d68" : ""));
-  const branding = field("show_n3xra_branding") as HTMLInputElement; branding.checked = card?.show_n3xra_branding !== false; renderContacts("email", card?.additional_emails, card?.additional_email_labels); renderContacts("phone", card?.additional_phones, card?.additional_phone_labels); sectionOrder = validSectionOrder(card?.section_order); renderSectionOrder(); linksContainer?.replaceChildren(); for (const link of (card?.links || []) as CardLink[]) addLinkRow(link); if (!card?.links?.length) addLinkRow(); void loadMediaPreviews(card); setMediaStatus();
+  const branding = field("show_n3xra_branding") as HTMLInputElement; branding.checked = card?.show_n3xra_branding !== false; branding.disabled = !card; renderContacts("email", card?.additional_emails, card?.additional_email_labels); renderContacts("phone", card?.additional_phones, card?.additional_phone_labels); sectionOrder = validSectionOrder(card?.section_order); renderSectionOrder(); linksContainer?.replaceChildren(); for (const link of (card?.links || []) as CardLink[]) addLinkRow(link); if (!card?.links?.length) addLinkRow(); void loadMediaPreviews(card); setMediaStatus();
   const title = document.querySelector<HTMLElement>("#contact-card-form-title"); const kicker = document.querySelector<HTMLElement>("#contact-card-form-kicker"); const summary = document.querySelector<HTMLElement>("#contact-card-form-summary");
   if (title) title.textContent = card?.display_name || "Add Contact Card"; if (kicker) kicker.textContent = card ? "Existing card" : "Manual setup"; if (summary) summary.textContent = card ? `${owner(card)?.email || "N3XRA account"} · n3xra.com/card/${card.slug}` : "Choose an existing account and reserve an available public address.";
+  if (accessControls) accessControls.hidden = !card; if (card) void loadProductAccess(card); else { accessData = { grants: [], events: [], billing: null }; setAccessStatus(); }
   if (deleteButton) deleteButton.hidden = !card; if (publicLink) { publicLink.hidden = !card?.slug; publicLink.href = card?.slug ? `/card/${encodeURIComponent(card.slug)}` : "#"; } setFormStatus(card ? "All changes saved" : "Complete the card details, then save."); setScanStatus(); pendingScanDataUrl = ""; if (scanButton) scanButton.disabled = true; if (scanPreview) scanPreview.innerHTML = "<span>Business card photo</span>"; renderList(); openModal(card ? field("slug") : field("owner_user_id"));
 }
 
@@ -214,7 +291,7 @@ async function analyzeScan(): Promise<void> { if (!pendingScanDataUrl || !access
 
 async function saveCard(): Promise<boolean> {
   if (!supabase || !form) return false; if (!changesPending && selectedId) return true; if (savePromise) return savePromise; window.clearTimeout(saveTimer); const version = changeVersion; setFormStatus("Saving…", "saving"); form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach((button) => { button.disabled = true; });
-  savePromise = (async () => { try { const values = payload(); let result; if (selectedId) result = await supabase.from("contact_card_profiles").update({ ...values, updated_by_user_id: adminUserId }).eq("id", selectedId).select("*").single(); else result = await supabase.from("contact_card_profiles").insert({ ...values, created_by_user_id: adminUserId, updated_by_user_id: adminUserId }).select("*").single(); if (result.error) throw result.error; selectedId = result.data.id; cards = [result.data, ...cards.filter((item) => item.id !== result.data.id)]; if (version === changeVersion) changesPending = false; field("id").value = selectedId; renderOwnerOptions(String(result.data.owner_user_id || ""), true); if (deleteButton) deleteButton.hidden = false; if (publicLink) { publicLink.hidden = false; publicLink.href = `/card/${encodeURIComponent(result.data.slug)}`; } setFormStatus(changesPending ? "Saving latest changes…" : "All changes saved", changesPending ? "saving" : "success"); renderList(); return true; } catch (error) { setFormStatus(saveErrorMessage(error), "error"); return false; } finally { form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach((button) => { button.disabled = false; }); } })();
+  savePromise = (async () => { try { const values = payload(); let result; if (selectedId) result = await supabase.from("contact_card_profiles").update({ ...values, updated_by_user_id: adminUserId }).eq("id", selectedId).select("*").single(); else result = await supabase.from("contact_card_profiles").insert({ ...values, created_by_user_id: adminUserId, updated_by_user_id: adminUserId }).select("*").single(); if (result.error) throw result.error; selectedId = result.data.id; cards = [result.data, ...cards.filter((item) => item.id !== result.data.id)]; if (version === changeVersion) changesPending = false; field("id").value = selectedId; renderOwnerOptions(String(result.data.owner_user_id || ""), true); if (deleteButton) deleteButton.hidden = false; if (publicLink) { publicLink.hidden = false; publicLink.href = `/card/${encodeURIComponent(result.data.slug)}`; } if (accessControls) { accessControls.hidden = false; await loadProductAccess(result.data); } setFormStatus(changesPending ? "Saving latest changes…" : "All changes saved", changesPending ? "saving" : "success"); renderList(); return true; } catch (error) { setFormStatus(saveErrorMessage(error), "error"); return false; } finally { form.querySelectorAll<HTMLButtonElement>('button[type="submit"]').forEach((button) => { button.disabled = false; }); } })();
   try { return await savePromise; } finally { savePromise = null; if (changesPending && version !== changeVersion && selectedId) saveTimer = window.setTimeout(() => void saveCard(), 250); }
 }
 
@@ -228,7 +305,11 @@ document.querySelectorAll<HTMLInputElement>("[data-admin-media-input]").forEach(
 document.querySelectorAll<HTMLButtonElement>("[data-admin-remove-media]").forEach((button) => button.addEventListener("click", () => { const type = button.dataset.adminRemoveMedia as MediaType; if (!(type in MEDIA_CONFIG)) return; button.disabled = true; void removeMedia(type).catch((error: unknown) => setMediaStatus(error instanceof Error ? error.message : "The image could not be removed.", true)).finally(() => { const card = cards.find((item) => item.id === selectedId); button.disabled = !card || !mediaPath(card, type); }); }));
 scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0]; if (!file) return; void prepareScan(file).catch((error: unknown) => setScanStatus(error instanceof Error ? error.message : "The photo could not be prepared.", "error")).finally(() => { scanInput.value = ""; }); });
 scanButton?.addEventListener("click", () => void analyzeScan()); scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); }); scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
-form?.addEventListener("input", markChanged); form?.addEventListener("change", markChanged);
+accessTerm?.addEventListener("change", () => { if (accessEndLabel) accessEndLabel.hidden = accessTerm.value !== "custom"; });
+accessGrant?.addEventListener("click", () => void grantProductAccess());
+accessPause?.addEventListener("click", () => { const grant = currentAccessGrant(); void updateProductAccessStatus(grant?.status === "paused" ? "active" : "paused"); });
+accessRevoke?.addEventListener("click", () => { if (window.confirm("Revoke this complimentary Premium access? Paid Stripe service, if present, will not be changed.")) void updateProductAccessStatus("revoked"); });
+form?.addEventListener("input", (event) => { if (!(event.target as HTMLElement).closest("[data-access-controls]")) markChanged(); }); form?.addEventListener("change", (event) => { if (!(event.target as HTMLElement).closest("[data-access-controls]")) markChanged(); });
 modalClose?.addEventListener("click", () => void requestClose()); modalBackdrop?.addEventListener("click", () => void requestClose()); document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden && !scanReview?.open) { event.preventDefault(); void requestClose(); } });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && changesPending) void saveCard(); }); window.addEventListener("pagehide", () => { if (changesPending) void saveCard(); });
 

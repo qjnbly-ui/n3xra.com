@@ -89,7 +89,11 @@ module.exports = async function handler(req, res) {
     const premiumRows = await supabaseRequest(`contact_card_entitlements?${premiumParams}`);
     const premium = Array.isArray(premiumRows) ? premiumRows[0] : null;
     const trialActive = Boolean(premium?.premium_trial_ends_at && new Date(premium.premium_trial_ends_at).getTime() > Date.now());
-    if (!premium?.premium_active && !trialActive) return send(res, 404, { error: "This card is not accepting connections right now." });
+    const grantParams = new URLSearchParams({ select: "status,starts_at,ends_at,lifetime", subject_user_id: `eq.${profile.owner_user_id}`, product_key: "eq.contact_cards", access_level: "eq.premium", status: "eq.active", order: "created_at.desc", limit: "1" });
+    const grantRows = await supabaseRequest(`product_access_grants?${grantParams}`);
+    const grant = Array.isArray(grantRows) ? grantRows[0] : null;
+    const grantActive = Boolean(grant && new Date(grant.starts_at).getTime() <= Date.now() && (grant.lifetime || (grant.ends_at && new Date(grant.ends_at).getTime() > Date.now())));
+    if (!premium?.premium_active && !trialActive && !grantActive) return send(res, 404, { error: "This card is not accepting connections right now." });
 
     const allowed = await supabaseRequest("rpc/consume_contact_card_connection_rate_limit", {
       method: "POST",

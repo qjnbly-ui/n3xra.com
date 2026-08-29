@@ -34,6 +34,20 @@ const scanReview = document.querySelector("#admin-card-scan-review");
 const scanReviewFields = document.querySelector("#admin-card-scan-review-fields");
 const scanApplySelected = document.querySelector("#admin-card-scan-apply-selected");
 const scanApplyAll = document.querySelector("#admin-card-scan-apply-all");
+const accessControls = document.querySelector("#contact-card-access-controls");
+const accessState = document.querySelector("#contact-card-access-state");
+const accessFacts = document.querySelector("#contact-card-access-facts");
+const accessTerm = document.querySelector("#contact-card-access-term");
+const accessEndLabel = document.querySelector("#contact-card-access-end-label");
+const accessEnd = document.querySelector("#contact-card-access-end");
+const accessSource = document.querySelector("#contact-card-access-source");
+const accessNote = document.querySelector("#contact-card-access-note");
+const accessGrant = document.querySelector("#contact-card-access-grant");
+const accessPause = document.querySelector("#contact-card-access-pause");
+const accessRevoke = document.querySelector("#contact-card-access-revoke");
+const accessStatus = document.querySelector("#contact-card-access-status");
+const accessHistory = document.querySelector("#contact-card-access-history");
+const brandingHelp = document.querySelector("#contact-card-admin-branding-help");
 let cards = [];
 let accounts = [];
 let selectedId = "";
@@ -47,6 +61,7 @@ let changesPending = false;
 let changeVersion = 0;
 let saveTimer = 0;
 let savePromise = null;
+let accessData = { grants: [], events: [], billing: null };
 function escapeHtml(value) { return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;"); }
 function slugify(value) { return String(value || "").trim().toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 64); }
 function normalizePhone(value) { let digits = String(value || "").replace(/\D/g, ""); if (!digits)
@@ -72,8 +87,140 @@ function setScanStatus(message = "", tone = "") { if (scanStatus) {
     scanStatus.textContent = message;
     scanStatus.className = tone ? `is-${tone}` : "";
 } }
+function setAccessStatus(message = "", isError = false) { if (accessStatus) {
+    accessStatus.textContent = message;
+    accessStatus.className = isError ? "is-error" : "";
+} }
 function markChanged() { changesPending = true; changeVersion += 1; setFormStatus("Unsaved changes"); window.clearTimeout(saveTimer); if (selectedId)
     saveTimer = window.setTimeout(() => void saveCard(), 750); }
+function formatDate(value) { if (!value)
+    return "—"; const date = new Date(String(value)); return Number.isNaN(date.getTime()) ? "—" : new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric", year: "numeric" }).format(date); }
+function accessIsCurrent(grant) { return Boolean(grant && grant.status === "active" && (grant.lifetime || new Date(String(grant.ends_at || "")).getTime() > Date.now())); }
+function currentAccessGrant() { return (accessData.grants || []).find((grant) => accessIsCurrent(grant)) || (accessData.grants || []).find((grant) => grant.status === "paused") || null; }
+function renderProductAccess() {
+    if (!accessControls || !accessState || !accessFacts || !accessHistory)
+        return;
+    const billing = accessData.billing || {};
+    const paid = billing.premium_active === true;
+    const trialActive = Boolean(billing.premium_trial_ends_at && new Date(String(billing.premium_trial_ends_at)).getTime() > Date.now());
+    const grant = currentAccessGrant();
+    const grantActive = accessIsCurrent(grant);
+    const grantExpired = Boolean(grant && grant.status === "active" && !grant.lifetime && !grantActive);
+    const label = paid ? "Paid Premium" : trialActive ? "Free trial" : grantActive ? "Complimentary Premium" : grant?.status === "paused" ? "Access paused" : grantExpired ? "Access expired" : "Basic access";
+    accessState.textContent = label;
+    accessState.className = `product-access-state${paid ? " is-paid" : grantActive || trialActive ? " is-active" : grant?.status === "paused" ? " is-paused" : grantExpired ? " is-expired" : ""}`;
+    const term = paid ? formatDate(billing.premium_current_period_end) : trialActive ? formatDate(billing.premium_trial_ends_at) : grantActive ? grant?.lifetime ? "Lifetime" : formatDate(grant?.ends_at) : "—";
+    const source = paid ? "Stripe" : trialActive ? "Self-service trial" : grant ? String(grant.source || "admin").replaceAll("_", " ") : "Administrator setup";
+    const facts = [["Base card", billing.base_access ? "Active" : "Setup"], ["Premium tools", paid || trialActive || grantActive ? "Unlocked" : "Not active"], ["Access source", source], ["Ends", String(term || "—")]];
+    accessFacts.replaceChildren();
+    for (const [name, value] of facts) {
+        const item = document.createElement("div");
+        const span = document.createElement("span");
+        span.textContent = name;
+        const strong = document.createElement("strong");
+        strong.textContent = String(value);
+        item.append(span, strong);
+        accessFacts.append(item);
+    }
+    if (accessGrant)
+        accessGrant.textContent = grant ? "Extend or replace access" : "Grant Premium access";
+    if (accessPause) {
+        accessPause.hidden = !grant || grant.status === "revoked" || grantExpired;
+        accessPause.textContent = grant?.status === "paused" ? "Restore access" : "Pause access";
+    }
+    if (accessRevoke)
+        accessRevoke.hidden = !grant || grant.status === "revoked";
+    const branding = field("show_n3xra_branding");
+    branding.disabled = !paid;
+    if (!paid)
+        branding.checked = true;
+    if (brandingHelp)
+        brandingHelp.textContent = paid ? "Paid Premium unlocks branding removal. The client can still turn the N3XRA credit back on." : "Only paid Premium can remove branding. Trials and complimentary access keep it visible.";
+    accessHistory.replaceChildren();
+    const events = accessData.events || [];
+    if (!events.length) {
+        const empty = document.createElement("p");
+        empty.textContent = "No administrator access changes yet.";
+        accessHistory.append(empty);
+    }
+    for (const event of events) {
+        const item = document.createElement("article");
+        const strong = document.createElement("strong");
+        strong.textContent = String(event.action || "updated").replaceAll("_", " ");
+        const time = document.createElement("time");
+        time.textContent = formatDate(event.created_at);
+        const small = document.createElement("small");
+        small.textContent = String(event.note || "No administrator note.");
+        item.append(strong, time, small);
+        accessHistory.append(item);
+    }
+}
+async function loadProductAccess(card) {
+    if (!accessControls)
+        return;
+    accessControls.hidden = false;
+    setAccessStatus("Loading access…");
+    try {
+        accessData = await invoke("get-product-access", { userId: card.owner_user_id, productKey: "contact_cards" });
+        renderProductAccess();
+        setAccessStatus();
+    }
+    catch (error) {
+        setAccessStatus(error instanceof Error ? error.message : "Access could not be loaded.", true);
+    }
+}
+function accessExpiration() {
+    const value = accessTerm?.value || "30";
+    if (value === "lifetime")
+        return { lifetime: true, endsAt: null };
+    if (value === "custom") {
+        const selected = String(accessEnd?.value || "");
+        if (!selected)
+            throw new Error("Choose the access end date.");
+        return { lifetime: false, endsAt: new Date(`${selected}T23:59:59`).toISOString() };
+    }
+    const date = new Date();
+    date.setDate(date.getDate() + Number(value));
+    return { lifetime: false, endsAt: date.toISOString() };
+}
+async function grantProductAccess() {
+    const card = cards.find((item) => item.id === selectedId);
+    if (!card || !accessGrant)
+        return;
+    accessGrant.disabled = true;
+    setAccessStatus("Granting access…");
+    try {
+        const term = accessExpiration();
+        await invoke("grant-product-access", { userId: card.owner_user_id, productKey: "contact_cards", accessLevel: "premium", source: accessSource?.value || "admin", note: accessNote?.value || "", ...term });
+        if (accessNote)
+            accessNote.value = "";
+        await loadProductAccess(card);
+        setAccessStatus("Premium tools are available now. N3XRA branding remains visible.");
+    }
+    catch (error) {
+        setAccessStatus(error instanceof Error ? error.message : "Access could not be granted.", true);
+    }
+    finally {
+        accessGrant.disabled = false;
+    }
+}
+async function updateProductAccessStatus(status) {
+    const card = cards.find((item) => item.id === selectedId);
+    const grant = currentAccessGrant();
+    if (!card || !grant)
+        return;
+    setAccessStatus("Updating access…");
+    try {
+        await invoke("set-product-access-grant-status", { grantId: grant.id, status, note: accessNote?.value || "" });
+        if (accessNote)
+            accessNote.value = "";
+        await loadProductAccess(card);
+        setAccessStatus(status === "active" ? "Access restored." : status === "paused" ? "Access paused." : "Access revoked.");
+    }
+    catch (error) {
+        setAccessStatus(error instanceof Error ? error.message : "Access could not be updated.", true);
+    }
+}
 function validSectionOrder(value) {
     if (!Array.isArray(value))
         return [...DEFAULT_SECTION_ORDER];
@@ -292,10 +439,10 @@ async function requestClose() {
     }
     closeModalNow();
 }
-async function invoke(action) {
+async function invoke(action, details = {}) {
     if (!supabase)
         throw new Error("Supabase is not configured.");
-    const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action } });
+    const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...details } });
     if (error || data?.error)
         throw new Error(data?.error || error?.message || "Admin request failed.");
     return data || {};
@@ -328,6 +475,7 @@ function showCard(card) {
         field(name).value = String(card?.[name] ?? (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : name === "shipping_country" ? "United States" : name === "status" ? "published" : name === "physical_card_status" ? "not_requested" : name === "accent_color" ? "#2f7d68" : ""));
     const branding = field("show_n3xra_branding");
     branding.checked = card?.show_n3xra_branding !== false;
+    branding.disabled = !card;
     renderContacts("email", card?.additional_emails, card?.additional_email_labels);
     renderContacts("phone", card?.additional_phones, card?.additional_phone_labels);
     sectionOrder = validSectionOrder(card?.section_order);
@@ -348,6 +496,14 @@ function showCard(card) {
         kicker.textContent = card ? "Existing card" : "Manual setup";
     if (summary)
         summary.textContent = card ? `${owner(card)?.email || "N3XRA account"} · n3xra.com/card/${card.slug}` : "Choose an existing account and reserve an available public address.";
+    if (accessControls)
+        accessControls.hidden = !card;
+    if (card)
+        void loadProductAccess(card);
+    else {
+        accessData = { grants: [], events: [], billing: null };
+        setAccessStatus();
+    }
     if (deleteButton)
         deleteButton.hidden = !card;
     if (publicLink) {
@@ -510,6 +666,10 @@ async function saveCard() {
             publicLink.hidden = false;
             publicLink.href = `/card/${encodeURIComponent(result.data.slug)}`;
         }
+        if (accessControls) {
+            accessControls.hidden = false;
+            await loadProductAccess(result.data);
+        }
         setFormStatus(changesPending ? "Saving latest changes…" : "All changes saved", changesPending ? "saving" : "success");
         renderList();
         return true;
@@ -551,8 +711,16 @@ scanInput?.addEventListener("change", () => { const file = scanInput.files?.[0];
 scanButton?.addEventListener("click", () => void analyzeScan());
 scanApplySelected?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(false); });
 scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); applyScanSelection(true); });
-form?.addEventListener("input", markChanged);
-form?.addEventListener("change", markChanged);
+accessTerm?.addEventListener("change", () => { if (accessEndLabel)
+    accessEndLabel.hidden = accessTerm.value !== "custom"; });
+accessGrant?.addEventListener("click", () => void grantProductAccess());
+accessPause?.addEventListener("click", () => { const grant = currentAccessGrant(); void updateProductAccessStatus(grant?.status === "paused" ? "active" : "paused"); });
+accessRevoke?.addEventListener("click", () => { if (window.confirm("Revoke this complimentary Premium access? Paid Stripe service, if present, will not be changed."))
+    void updateProductAccessStatus("revoked"); });
+form?.addEventListener("input", (event) => { if (!event.target.closest("[data-access-controls]"))
+    markChanged(); });
+form?.addEventListener("change", (event) => { if (!event.target.closest("[data-access-controls]"))
+    markChanged(); });
 modalClose?.addEventListener("click", () => void requestClose());
 modalBackdrop?.addEventListener("click", () => void requestClose());
 document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden && !scanReview?.open) {
