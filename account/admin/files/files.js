@@ -32,6 +32,7 @@ const WEBSITE_FOLDER_LABELS = {
 let websiteFilesChannel = null;
 let websiteFilesRefreshTimer = null;
 let websiteFilesVisibilityHandler = null;
+const naturalFilenameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 function fileEscape(value) {
   return String(value ?? "").replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -337,7 +338,7 @@ function renderFiles() {
     list.innerHTML = `${listHeader}<div class="n3xra-empty">This folder is empty. Upload a file to get started.</div>`;
     return;
   }
-  const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
+  const sortedFiles = files.sort((left, right) => naturalFilenameCollator.compare(left.name, right.name));
   previewFiles = sortedFiles;
   const fileMarkup = sortedFiles.map((file) => {
     const websiteFile = file.source === "website";

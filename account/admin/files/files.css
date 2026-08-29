@@ -102,7 +102,7 @@
 .n3xra-file-browser > .admin-status { margin:1rem 0 0; font-size:.78rem; }
 .n3xra-file-list.is-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:1rem; background:transparent; border:0; }
 .n3xra-file-list.is-gallery .n3xra-file-list-head { display:none; }
-.n3xra-file-list.is-gallery .n3xra-file-row { min-height:0; display:flex; flex-direction:column; align-items:stretch; gap:.65rem; padding:.75rem; border:1px solid #d7e0e4; border-radius:10px; }
+.n3xra-file-list.is-gallery .n3xra-file-row { min-height:280px; height:max-content; align-self:start; display:flex; flex-direction:column; align-items:stretch; gap:.65rem; padding:.75rem; overflow:hidden; border:1px solid #d7e0e4; border-radius:10px; }
 .n3xra-file-list.is-gallery .n3xra-file-select { position:absolute; z-index:2; top:.85rem; left:.85rem; background:rgba(255,255,255,.9); border-radius:5px; }
 .n3xra-file-list.is-gallery .n3xra-file-name { display:block; padding:0; }
 .n3xra-file-list.is-gallery .n3xra-file-type { width:100%; height:auto; aspect-ratio:4/3; margin-bottom:.65rem; place-items:center; padding:0; border-radius:8px; clip-path:none; }

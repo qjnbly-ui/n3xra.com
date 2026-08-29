@@ -7,6 +7,8 @@ const workspaceFilesSource = await readFile(new URL("../../n3xra-admin/websites/
 const workspaceFilesPage = await readFile(new URL("../../n3xra-admin/assets/index.html", import.meta.url), "utf8");
 const internalFilesPage = await readFile(new URL("../../account/admin/files/index.html", import.meta.url), "utf8");
 const previewSource = await readFile(new URL("../../client-portal/asset-preview-modal.js", import.meta.url), "utf8");
+const internalFilesStyles = await readFile(new URL("../../account/admin/files/files.css", import.meta.url), "utf8");
+const workspaceFilesStyles = await readFile(new URL("../../client-portal/assets-manager.css", import.meta.url), "utf8");
 const navigationSource = await readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8");
 
 test("Internal Files remains the central admin library", () => {
@@ -80,4 +82,13 @@ test("full-quality previews navigate previous and next on desktop and mobile", (
   assert.match(previewSource, /event\.key === "ArrowRight"/);
   assert.match(workspaceFilesSource, /Full quality/);
   assert.match(workspaceFilesSource, /onNext: nextVersion/);
+});
+
+test("gallery cards keep natural filename order without overlapping", () => {
+  assert.match(filesSource, /Intl\.Collator\(undefined, \{ numeric: true/);
+  assert.match(filesSource, /naturalFilenameCollator\.compare\(left\.name, right\.name\)/);
+  assert.match(workspaceFilesSource, /Intl\.Collator\(undefined, \{ numeric: true/);
+  assert.match(workspaceFilesSource, /naturalFilenameCollator\.compare\(assetSortName\(left\), assetSortName\(right\)\)/);
+  assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \.n3xra-file-row \{[^}]*min-height:280px;[^}]*height:max-content;/);
+  assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \.website-asset-version \{[^}]*min-height:280px;[^}]*height:max-content;/);
 });

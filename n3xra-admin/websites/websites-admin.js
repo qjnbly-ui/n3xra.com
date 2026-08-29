@@ -116,6 +116,7 @@ let selectedProject;
 let projectProposals = [];
 let projectOnboarding;
 let toastTimer;
+const naturalFilenameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 
 function showStatus(message) {
   statusScreen.textContent = message;
@@ -261,6 +262,12 @@ function assetUsageMarkup(libraryState) {
   if (libraryState.key !== "in_use") return "";
   const routes = libraryState.locations.map((location) => location.route);
   return `<small class="website-asset-usage">Used on: ${routes.map(escapeHtml).join(" · ")}</small>`;
+}
+
+function assetSortName(asset) {
+  const current = versions.find((version) => version.id === asset.current_version_id)
+    || versions.find((version) => version.asset_id === asset.id);
+  return current?.original_filename || asset.label || asset.asset_key || "";
 }
 
 function setMemberStatus(message = "", isError = false) {
@@ -688,7 +695,9 @@ function renderAssets() {
 
   const categories = [...new Set(assets.map(assetCategory))].sort((left, right) => left.localeCompare(right));
   if (!categories.includes(selectedAssetCategory)) selectedAssetCategory = categories[0];
-  const folderAssets = assets.filter((asset) => assetCategory(asset) === selectedAssetCategory);
+  const folderAssets = assets
+    .filter((asset) => assetCategory(asset) === selectedAssetCategory)
+    .sort((left, right) => naturalFilenameCollator.compare(assetSortName(left), assetSortName(right)));
   const query = String(assetSearch?.value || "").trim().toLowerCase();
   const statusFilter = String(assetStatusFilter?.value || "all");
   const visibleAssets = folderAssets.filter((asset) => {

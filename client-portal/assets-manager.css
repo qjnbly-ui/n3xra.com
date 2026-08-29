@@ -100,7 +100,7 @@
 .website-assets-view-toggle button[aria-pressed="true"] { color:#173c38; background:#fff; box-shadow:0 1px 4px rgba(16,35,43,.12); }
 .website-assets-table.is-gallery { display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); align-content:start; gap:1rem; }
 .website-assets-table.is-gallery .website-assets-table-head { display:none; }
-.website-assets-table.is-gallery .website-asset-version { min-height:0; display:flex; flex-direction:column; align-items:stretch; gap:.65rem; padding:.75rem; border:1px solid #dfe5e8; border-radius:10px; }
+.website-assets-table.is-gallery .website-asset-version { min-height:280px; height:max-content; align-self:start; display:flex; flex-direction:column; align-items:stretch; gap:.65rem; padding:.75rem; overflow:hidden; border:1px solid #dfe5e8; border-radius:10px; }
 .website-assets-table.is-gallery .website-asset-select { position:absolute; z-index:2; top:.85rem; left:.85rem; background:rgba(255,255,255,.9); border-radius:5px; }
 .website-assets-table.is-gallery .website-asset-file { display:block; }
 .website-assets-table.is-gallery .website-asset-file-type { width:100%; height:auto; aspect-ratio:4/3; margin-bottom:.65rem; place-items:center; padding:0; border-radius:8px; clip-path:none; }

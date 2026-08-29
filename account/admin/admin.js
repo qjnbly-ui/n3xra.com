@@ -220,7 +220,7 @@ async function loadAdminView(adminContext) {
     const accountsController = await import("/account/admin/controllers/accounts.js?v=5");
     await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: adminContext.admin?.role, currentUserId: adminContext.user?.id });
   } else if (view === "files") {
-    const files = await import("/account/admin/files/files.js?v=22");
+    const files = await import("/account/admin/files/files.js?v=23");
     await files.startFiles({ supabase, session, invoke });
   } else if (view === "prospects") {
     const prospects = await import("/account/admin/prospects/prospects.js?v=1");
