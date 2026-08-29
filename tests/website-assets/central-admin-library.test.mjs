@@ -38,3 +38,10 @@ test("central admin uploads are approved immediately", () => {
   assert.match(filesSource, /status: "approved"/);
   assert.match(filesSource, /approved_by_user_id: fileUserId/);
 });
+
+test("central website libraries show live usage states", () => {
+  assert.match(filesSource, /website-asset-usage/);
+  assert.match(filesSource, /In use/);
+  assert.match(filesSource, /Available/);
+  assert.match(filesSource, /New/);
+});

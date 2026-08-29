@@ -7,6 +7,7 @@ let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets
 let fileSupabase = null;
 let fileInvoke = null;
 let fileUserId = null;
+let fileAccessToken = "";
 let currentFolderPath = "";
 const expandedFolderPaths = new Set();
 const selectedFileKeys = new Set();
@@ -168,6 +169,29 @@ function publishedUrl(file) {
   return file.cdn_url || file.public_url || "";
 }
 
+function websiteLibraryState(file) {
+  if (file.source !== "website") return { key: "", label: "", title: "" };
+  const isCurrent = String(file.current_version_id || "") === String(file.id || "");
+  if (isCurrent && file.public_url && file.usage_report_available) {
+    const locations = Array.isArray(file.asset_usage_locations) ? file.asset_usage_locations : [];
+    if (locations.length) {
+      return {
+        key: "in_use",
+        label: `In use · ${locations.length} page${locations.length === 1 ? "" : "s"}`,
+        title: locations.map((location) => location.route).join(", "),
+      };
+    }
+    return { key: "available", label: "Available", title: "Published to the CDN and not used by the live website." };
+  }
+  if (isCurrent && file.public_url) return { key: "published", label: "Published", title: "The live website usage report is not available yet." };
+  const createdAt = new Date(file.created_at).getTime();
+  if (["draft", "pending_review", "approved"].includes(file.status) && Number.isFinite(createdAt) && Date.now() - createdAt < 7 * 24 * 60 * 60 * 1000) {
+    return { key: "new", label: "New", title: "Uploaded within the last seven days." };
+  }
+  if (file.status === "approved") return { key: "ready", label: "Ready to publish", title: "Approved and waiting to be published to the CDN." };
+  return { key: file.status || "draft", label: String(file.status || "draft").replaceAll("_", " "), title: "" };
+}
+
 function isUnderPath(parts, parentParts) {
   return parentParts.every((part, index) => parts[index] === part);
 }
@@ -226,6 +250,7 @@ function renderFolderTree() {
 function syncFileActions() {
   const website = currentWebsite();
   const websiteRoot = currentFolderPath === "Websites";
+  const statusFilter = document.getElementById("n3xra-file-status-filter");
   const uploadFilesLabel = document.querySelector('label[for="n3xra-file-input"]');
   const uploadFolderButton = document.getElementById("n3xra-folder-button");
   const fileInput = document.getElementById("n3xra-file-input");
@@ -235,6 +260,10 @@ function syncFileActions() {
   if (folderInput) folderInput.disabled = websiteRoot;
   if (uploadFolderButton) uploadFolderButton.disabled = websiteRoot;
   if (uploadFilesLabel) uploadFilesLabel.title = websiteRoot ? "Choose a website folder before uploading." : website ? `Upload to ${website.name}` : "Upload files";
+  if (statusFilter) {
+    statusFilter.disabled = !website;
+    if (!website) statusFilter.value = "all";
+  }
 }
 
 function renderFileSelectionActions() {
@@ -283,12 +312,14 @@ function renderFiles() {
   syncFileActions();
   const parentParts = pathParts(currentFolderPath);
   const query = String(document.getElementById("n3xra-file-search")?.value || "").trim().toLowerCase();
+  const statusFilter = String(document.getElementById("n3xra-file-status-filter")?.value || "all");
   const files = [];
   fileState.files.forEach((file) => {
     const parts = pathParts(file.name);
     if (!isUnderPath(parts, parentParts) || parts.length <= parentParts.length) return;
     const remaining = parts.slice(parentParts.length);
-    if (remaining.length === 1 && (!query || String(file.name || "").toLowerCase().includes(query))) {
+    const matchesStatus = statusFilter === "all" || (file.source === "website" && websiteLibraryState(file).key === statusFilter);
+    if (remaining.length === 1 && matchesStatus && (!query || String(file.name || "").toLowerCase().includes(query))) {
       files.push(file);
     }
   });
@@ -304,7 +335,8 @@ function renderFiles() {
     const websiteFile = file.source === "website";
     const access = websiteFile ? new Set() : accessFor(file.id);
     const type = fileType(file);
-    const accessLabel = websiteFile ? String(file.status || "draft").replaceAll("_", " ") : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
+    const libraryState = websiteLibraryState(file);
+    const accessLabel = websiteFile ? libraryState.label : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
     const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : `${file.mime_type || "File"}${file.cdn_url ? " · CDN published" : ""}`;
     const asset = websiteFile ? fileState.websiteAssets.find((item) => String(item.id) === String(file.asset_id)) : null;
     const websiteActions = websiteFile ? [
@@ -321,7 +353,7 @@ function renderFiles() {
     return `<article class="n3xra-file-row is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}" data-selectable-file="${fileEscape(selectionKey)}">
       <label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>
       <button class="n3xra-file-name" type="button" data-file-open="${fileEscape(file.id)}">${filePreviewMarkup(file, type)}<span><strong>${fileEscape(pathParts(file.name).at(-1))}</strong><small>${fileEscape(fileMeta)}</small></span></button>
-      ${websiteFile ? `<span class="n3xra-file-access is-status"><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
+      ${websiteFile ? `<span class="n3xra-file-access is-status is-${fileEscape(libraryState.key)}"${libraryState.title ? ` title="${fileEscape(libraryState.title)}"` : ""}><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
       <time datetime="${fileEscape(file.created_at)}">${fileEscape(fileDate(file.created_at))}</time>
       <span class="n3xra-file-size">${fileEscape(fileSize(file.size_bytes))}</span>
       <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button></div></details>
@@ -333,7 +365,7 @@ function renderFiles() {
 }
 
 async function loadWebsiteFiles() {
-  const websiteResult = await fileSupabase.from("client_websites").select("id,name,slug,status").order("name");
+  const websiteResult = await fileSupabase.from("client_websites").select("id,name,slug,live_url,status").order("name");
   if (websiteResult.error) throw websiteResult.error;
   const websites = websiteResult.data || [];
   const usedPaths = new Set();
@@ -355,12 +387,27 @@ async function loadWebsiteFiles() {
     ? await fileSupabase.from("website_asset_versions").select("*").in("asset_id", assetIds).order("created_at", { ascending: false })
     : { data: [], error: null };
   if (versionResult.error) throw versionResult.error;
+  const usageReports = await Promise.all(websites.map(async (website) => {
+    if (!fileAccessToken || !website.live_url) return [String(website.id), { available: false, assets: [] }];
+    try {
+      const response = await fetch(`/api/website-asset-usage?slug=${encodeURIComponent(website.slug)}`, {
+        headers: { Authorization: `Bearer ${fileAccessToken}`, Accept: "application/json" },
+      });
+      const payload = await response.json().catch(() => ({}));
+      return [String(website.id), response.ok ? payload : { available: false, assets: [] }];
+    } catch {
+      return [String(website.id), { available: false, assets: [] }];
+    }
+  }));
+  const usageByWebsite = new Map(usageReports);
   const websiteById = new Map(websites.map((website) => [String(website.id), website]));
   const assetById = new Map(assets.map((asset) => [String(asset.id), asset]));
   const files = (versionResult.data || []).flatMap((version) => {
     const asset = assetById.get(String(version.asset_id));
     const website = asset && websiteById.get(String(asset.website_id));
-    return website ? [{ ...version, source: "website", website_id: website.id, website_name: website.name, asset_id: asset.id, asset_key: asset.asset_key, asset_category: asset.category, current_version_id: asset.current_version_id, name: `${website.folder_path}/${websiteCategoryFolder(asset.category)}/${version.original_filename}` }] : [];
+    const report = website ? usageByWebsite.get(String(website.id)) : null;
+    const usage = report?.assets?.find((item) => item.assetKey === asset?.asset_key || item.filename === version.original_filename);
+    return website ? [{ ...version, source: "website", website_id: website.id, website_name: website.name, asset_id: asset.id, asset_key: asset.asset_key, asset_category: asset.category, current_version_id: asset.current_version_id, usage_report_available: Boolean(report?.available), asset_usage_locations: usage?.locations || [], asset_usage_count: usage?.occurrenceCount || 0, name: `${website.folder_path}/${websiteCategoryFolder(asset.category)}/${version.original_filename}` }] : [];
   });
   return { websites, assets, versions: versionResult.data || [], files };
 }
@@ -1114,6 +1161,7 @@ export async function startFiles({ supabase, session, invoke }) {
   fileSupabase = supabase;
   fileInvoke = invoke;
   fileUserId = session?.user?.id || null;
+  fileAccessToken = session?.access_token || "";
   const requestedFolder = new URLSearchParams(window.location.search).get("folder");
   currentFolderPath = requestedFolder ? pathParts(requestedFolder).join("/") : "";
   expandedFolderPaths.clear();
@@ -1203,6 +1251,7 @@ export async function startFiles({ supabase, session, invoke }) {
     renderFiles();
   });
   document.getElementById("n3xra-file-search")?.addEventListener("input", renderFiles);
+  document.getElementById("n3xra-file-status-filter")?.addEventListener("change", renderFiles);
   document.querySelectorAll("[data-preview-close]").forEach((element) => element.addEventListener("click", closePreview));
   document.addEventListener("keydown", (event) => { if (event.key === "Escape") closePreview(); });
   await loadFiles();
