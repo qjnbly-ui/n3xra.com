@@ -1,4 +1,11 @@
 let activePreviewUrl = "";
+let activePrevious = null;
+let activeNext = null;
+
+function navigatePreview(direction) {
+  const action = direction === "previous" ? activePrevious : activeNext;
+  if (typeof action === "function") void action();
+}
 
 function ensurePreviewModal() {
   let modal = document.getElementById("website-asset-preview-modal");
@@ -15,12 +22,16 @@ function ensurePreviewModal() {
         <button class="website-asset-preview-close" type="button" data-asset-preview-close aria-label="Close preview">×</button>
       </div>
       <div class="website-asset-preview-body" id="website-asset-preview-body"></div>
-      <div class="website-asset-preview-actions"><button class="portal-button portal-button-secondary" type="button" data-asset-preview-close>Close</button><a class="portal-button" id="website-asset-preview-download" href="#" target="_blank" rel="noreferrer" download>Download</a></div>
+      <div class="website-asset-preview-actions"><div class="website-asset-preview-navigation"><button class="portal-button portal-button-secondary" type="button" data-asset-preview-previous aria-label="Preview previous file">← Previous</button><span id="website-asset-preview-position"></span><button class="portal-button portal-button-secondary" type="button" data-asset-preview-next aria-label="Preview next file">Next →</button></div><div><button class="portal-button portal-button-secondary" type="button" data-asset-preview-close>Close</button><a class="portal-button" id="website-asset-preview-download" href="#" target="_blank" rel="noreferrer" download>Download</a></div></div>
     </section>`;
   document.body.append(modal);
   modal.querySelectorAll("[data-asset-preview-close]").forEach((element) => element.addEventListener("click", closeAssetPreview));
+  modal.querySelector("[data-asset-preview-previous]")?.addEventListener("click", () => navigatePreview("previous"));
+  modal.querySelector("[data-asset-preview-next]")?.addEventListener("click", () => navigatePreview("next"));
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !modal.hidden) closeAssetPreview();
+    if (event.key === "ArrowLeft" && !modal.hidden) navigatePreview("previous");
+    if (event.key === "ArrowRight" && !modal.hidden) navigatePreview("next");
   });
   return modal;
 }
@@ -33,9 +44,11 @@ export function closeAssetPreview() {
   const body = modal.querySelector("#website-asset-preview-body");
   if (body) body.innerHTML = "";
   activePreviewUrl = "";
+  activePrevious = null;
+  activeNext = null;
 }
 
-export async function openAssetPreview({ name, mimeType, url, downloadUrl = url, kicker = "Files & Assets" }) {
+export async function openAssetPreview({ name, mimeType, url, downloadUrl = url, kicker = "Files & Assets", onPrevious = null, onNext = null, position = 1, total = 1 }) {
   const modal = ensurePreviewModal();
   const body = modal.querySelector("#website-asset-preview-body");
   modal.querySelector("#website-asset-preview-title").textContent = name || "Preview";
@@ -43,6 +56,14 @@ export async function openAssetPreview({ name, mimeType, url, downloadUrl = url,
   const download = modal.querySelector("#website-asset-preview-download");
   download.href = downloadUrl;
   download.download = name || "download";
+  activePrevious = onPrevious;
+  activeNext = onNext;
+  const previous = modal.querySelector("[data-asset-preview-previous]");
+  const next = modal.querySelector("[data-asset-preview-next]");
+  const positionLabel = modal.querySelector("#website-asset-preview-position");
+  previous.disabled = typeof onPrevious !== "function";
+  next.disabled = typeof onNext !== "function";
+  if (positionLabel) positionLabel.textContent = total > 1 ? `${position} of ${total}` : "";
   body.innerHTML = '<p class="website-asset-preview-loading">Preparing preview…</p>';
   modal.hidden = false;
   document.body.classList.add("website-asset-preview-open");

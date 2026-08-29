@@ -3,7 +3,7 @@ import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
-import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
+import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=2";
 import { resolveWebsiteRepository, resolveWebsiteUrl } from "/client-portal/website-url.js";
 import {
   humanizeWebsiteAssetFilename,
@@ -105,6 +105,8 @@ let selectedWebsite;
 let assets = [];
 let versions = [];
 let assetUsageReport = { available: false, assets: [] };
+let assetViewMode = window.localStorage.getItem("n3xra-website-assets-view") === "gallery" ? "gallery" : "list";
+let previewVersionIds = [];
 let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
 let members = [];
@@ -667,9 +669,12 @@ function versionActions(version, asset) {
 }
 
 function renderAssets() {
+  assetGrid?.classList.toggle("is-gallery", assetViewMode === "gallery");
+  document.querySelectorAll("[data-asset-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.assetView === assetViewMode)));
   renderAssetBatchActions();
   if (!selectedWebsite || !assets.length) {
     assetGrid.innerHTML = "";
+    previewVersionIds = [];
     if (assetFolderList) assetFolderList.innerHTML = "";
     selectedAssetCategory = "";
     if (selectedAssetName) selectedAssetName.textContent = "Select a folder";
@@ -711,6 +716,7 @@ function renderAssets() {
     });
   });
   const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
+  previewVersionIds = visibleVersionIds;
   assetGrid.innerHTML = assetTableHeader(visibleVersionIds) + (rows.length ? rows.join("") : '<div class="website-assets-empty"><p>No files match this search.</p></div>');
   void hydrateVersionPreviews();
 }
@@ -1480,12 +1486,25 @@ async function renameVersion(version) {
 }
 
 async function openVersion(version) {
-  const previewResult = version.public_url
-    ? { data: { signedUrl: version.public_url }, error: null }
-    : await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+  const previewResult = version.storage_bucket && version.storage_path
+    ? await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600)
+    : { data: { signedUrl: version.public_url }, error: null };
   if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
   const downloadUrl = version.public_url || await downloadUrlForVersion(version);
-  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Websites · Files & Assets" });
+  const index = previewVersionIds.indexOf(version.id);
+  const previousVersion = index > 0 ? versions.find((item) => item.id === previewVersionIds[index - 1]) : null;
+  const nextVersion = index >= 0 && index < previewVersionIds.length - 1 ? versions.find((item) => item.id === previewVersionIds[index + 1]) : null;
+  await openAssetPreview({
+    name: version.original_filename,
+    mimeType: version.mime_type,
+    url: previewResult.data.signedUrl,
+    downloadUrl,
+    kicker: "Websites · Files & Assets · Full quality",
+    onPrevious: previousVersion ? () => openVersion(previousVersion) : null,
+    onNext: nextVersion ? () => openVersion(nextVersion) : null,
+    position: index + 1,
+    total: previewVersionIds.length,
+  });
 }
 
 async function downloadUrlForVersion(version) {
@@ -1749,6 +1768,11 @@ async function initWebsiteAdmin() {
     assetGrid?.addEventListener("click", handleAssetAction);
     assetGrid?.addEventListener("change", handleAssetSelection);
     selectedAssetActions?.addEventListener("click", handleAssetAction);
+    document.querySelectorAll("[data-asset-view]").forEach((button) => button.addEventListener("click", () => {
+      assetViewMode = button.dataset.assetView === "gallery" ? "gallery" : "list";
+      window.localStorage.setItem("n3xra-website-assets-view", assetViewMode);
+      renderAssets();
+    }));
     assetFolderList?.addEventListener("click", (event) => {
       const folder = event.target.closest("[data-select-category]");
       if (!folder) return;

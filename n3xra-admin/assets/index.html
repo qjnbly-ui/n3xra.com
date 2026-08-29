@@ -6,7 +6,7 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=15">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=16">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -32,7 +32,7 @@
             <div class="website-assets-folder-list" id="admin-asset-folders"></div>
           </aside>
           <section class="website-assets-content">
-            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions" id="admin-selected-asset-actions"><button class="portal-button" id="open-admin-upload" type="button">Upload images</button><button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button></div></header>
+            <header class="website-assets-content-head"><div><p class="portal-kicker">Folder contents</p><h1 id="admin-selected-asset-name">Select a folder</h1><p id="admin-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions" id="admin-selected-asset-actions"><div class="website-assets-view-toggle" role="group" aria-label="File view"><button type="button" data-asset-view="list" aria-pressed="true">List</button><button type="button" data-asset-view="gallery" aria-pressed="false">Gallery</button></div><button class="portal-button" id="open-admin-upload" type="button">Upload images</button><button class="portal-button portal-button-secondary" id="refresh-admin" type="button">Refresh</button></div></header>
             <div class="website-assets-batch" id="admin-asset-toolbar" hidden><p class="portal-inline-status" id="admin-batch-status" role="status"></p><div><button class="portal-button portal-button-secondary" id="clear-asset-selection" type="button">Clear selection</button><button class="portal-button portal-button-secondary" id="download-selected-files" type="button">Download selected</button><button class="portal-button portal-button-secondary" id="copy-published-links" type="button" hidden>Copy published links</button><button class="portal-button portal-button-secondary" id="optimize-published-batch" type="button" hidden>Refresh CDN files</button><button class="portal-button portal-button-secondary" id="reject-pending-batch" type="button" hidden>Reject pending</button><button class="portal-button portal-button-secondary" id="approve-pending-batch" type="button" hidden>Approve pending</button><button class="portal-button" id="publish-approved-batch" type="button" hidden>Publish approved</button><button class="portal-button portal-button-danger" id="delete-selected-files" type="button">Delete selected</button></div></div>
             <div class="website-assets-table" id="admin-asset-grid"></div><div class="website-assets-empty" id="admin-empty"><p>No assets are available for this website yet.</p></div>
           </section>
@@ -51,6 +51,6 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening files and assets…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=17"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=18"></script>
 </body>
 </html>

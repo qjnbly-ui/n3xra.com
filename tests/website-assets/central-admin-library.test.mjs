@@ -5,6 +5,8 @@ import test from "node:test";
 const filesSource = await readFile(new URL("../../account/admin/files/files.js", import.meta.url), "utf8");
 const workspaceFilesSource = await readFile(new URL("../../n3xra-admin/websites/websites-admin.js", import.meta.url), "utf8");
 const workspaceFilesPage = await readFile(new URL("../../n3xra-admin/assets/index.html", import.meta.url), "utf8");
+const internalFilesPage = await readFile(new URL("../../account/admin/files/index.html", import.meta.url), "utf8");
+const previewSource = await readFile(new URL("../../client-portal/asset-preview-modal.js", import.meta.url), "utf8");
 const navigationSource = await readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8");
 
 test("Internal Files remains the central admin library", () => {
@@ -57,4 +59,25 @@ test("organization workspace files show and filter live usage states", () => {
   assert.match(workspaceFilesSource, /label: "Available"/);
   assert.match(workspaceFilesSource, /label: "New"/);
   assert.match(workspaceFilesSource, /label: "Ready to publish"/);
+});
+
+test("both file areas offer persistent list and gallery views", () => {
+  assert.match(internalFilesPage, /data-file-view="list"/);
+  assert.match(internalFilesPage, /data-file-view="gallery"/);
+  assert.match(filesSource, /n3xra-internal-files-view/);
+  assert.match(workspaceFilesPage, /data-asset-view="list"/);
+  assert.match(workspaceFilesPage, /data-asset-view="gallery"/);
+  assert.match(workspaceFilesSource, /n3xra-website-assets-view/);
+});
+
+test("full-quality previews navigate previous and next on desktop and mobile", () => {
+  assert.match(internalFilesPage, /id="file-preview-previous"/);
+  assert.match(internalFilesPage, /id="file-preview-next"/);
+  assert.match(filesSource, /preferOriginal: true/);
+  assert.match(filesSource, /event\.key === "ArrowLeft"/);
+  assert.match(previewSource, /data-asset-preview-previous/);
+  assert.match(previewSource, /data-asset-preview-next/);
+  assert.match(previewSource, /event\.key === "ArrowRight"/);
+  assert.match(workspaceFilesSource, /Full quality/);
+  assert.match(workspaceFilesSource, /onNext: nextVersion/);
 });

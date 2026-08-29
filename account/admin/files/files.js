@@ -9,6 +9,9 @@ let fileInvoke = null;
 let fileUserId = null;
 let fileAccessToken = "";
 let currentFolderPath = "";
+let fileViewMode = window.localStorage.getItem("n3xra-internal-files-view") === "gallery" ? "gallery" : "list";
+let previewFiles = [];
+let activePreviewIndex = -1;
 const expandedFolderPaths = new Set();
 const selectedFileKeys = new Set();
 const WEBSITE_PRIVATE_BUCKET = "website-assets-private";
@@ -307,6 +310,8 @@ function renderFileSelectionActions() {
 function renderFiles() {
   const list = document.getElementById("n3xra-file-list");
   if (!list) return;
+  list.classList.toggle("is-gallery", fileViewMode === "gallery");
+  document.querySelectorAll("[data-file-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.fileView === fileViewMode)));
   renderBreadcrumb();
   renderFolderTree();
   syncFileActions();
@@ -328,10 +333,13 @@ function renderFiles() {
   const listHeader = `<div class="n3xra-file-list-head is-selectable"><label class="n3xra-file-select"><input type="checkbox" data-file-select-all${allSelected ? " checked" : ""} aria-label="Select all files in this folder"></label><span>Name</span><span>Access</span><span>Modified</span><span>Size</span><span></span></div>`;
   renderFileSelectionActions();
   if (!files.length) {
+    previewFiles = [];
     list.innerHTML = `${listHeader}<div class="n3xra-empty">This folder is empty. Upload a file to get started.</div>`;
     return;
   }
-  const fileMarkup = files.sort((a, b) => a.name.localeCompare(b.name)).map((file) => {
+  const sortedFiles = files.sort((a, b) => a.name.localeCompare(b.name));
+  previewFiles = sortedFiles;
+  const fileMarkup = sortedFiles.map((file) => {
     const websiteFile = file.source === "website";
     const access = websiteFile ? new Set() : accessFor(file.id);
     const type = fileType(file);
@@ -729,8 +737,8 @@ async function handleWebsiteFileAction(action, id) {
   }
 }
 
-async function websiteFileUrl(file, { download = false } = {}) {
-  if (file.public_url && !download) return { url: file.public_url, name: file.original_filename, mimeType: file.mime_type };
+async function websiteFileUrl(file, { download = false, preferOriginal = false } = {}) {
+  if (file.public_url && !download && !preferOriginal) return { url: file.public_url, name: file.original_filename, mimeType: file.mime_type };
   const options = download ? { download: file.original_filename } : undefined;
   const { data, error } = await fileSupabase.storage.from(file.storage_bucket).createSignedUrl(file.storage_path, 60 * 10, options);
   if (error || !data?.signedUrl) throw new Error(error?.message || "Unable to prepare the website file.");
@@ -922,12 +930,21 @@ function openCdnLink(id) {
   if (file?.cdn_url) window.open(file.cdn_url, "_blank", "noopener,noreferrer");
 }
 
-async function openFile(id) {
-  const file = fileState.files.find((item) => String(item.id) === String(id));
+function syncPreviewNavigation() {
+  const previous = document.getElementById("file-preview-previous");
+  const next = document.getElementById("file-preview-next");
+  const position = document.getElementById("file-preview-position");
+  if (previous) previous.disabled = activePreviewIndex <= 0;
+  if (next) next.disabled = activePreviewIndex < 0 || activePreviewIndex >= previewFiles.length - 1;
+  if (position) position.textContent = activePreviewIndex >= 0 && previewFiles.length > 1 ? `${activePreviewIndex + 1} of ${previewFiles.length}` : "";
+}
+
+async function openFile(id, source = "") {
+  const file = fileState.files.find((item) => String(item.id) === String(id) && (!source || item.source === source));
   if (!file) return;
   fileStatus("Preparing preview…");
   try {
-    const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: id });
+    const data = file.source === "website" ? await websiteFileUrl(file, { preferOriginal: true }) : await fileInvoke("get-n3xra-file-url", { fileId: id });
     const modal = document.getElementById("file-preview-modal");
     const body = document.getElementById("file-preview-body");
     const title = document.getElementById("file-preview-title");
@@ -952,6 +969,8 @@ async function openFile(id) {
       const message = document.createElement("p"); message.textContent = "This file type cannot be previewed here. Use Download to open it."; body.append(message);
     }
     modal.hidden = false;
+    activePreviewIndex = previewFiles.findIndex((item) => fileSelectionKey(item) === fileSelectionKey(file));
+    syncPreviewNavigation();
     document.body.classList.add("n3xra-modal-open");
     fileStatus("Preview ready.", "success");
   } catch (error) { fileStatus(error.message, "error"); }
@@ -960,6 +979,14 @@ async function openFile(id) {
 function closePreview() {
   document.getElementById("file-preview-modal")?.setAttribute("hidden", "");
   document.body.classList.remove("n3xra-modal-open");
+  activePreviewIndex = -1;
+}
+
+function movePreview(direction) {
+  const nextIndex = activePreviewIndex + direction;
+  const file = previewFiles[nextIndex];
+  if (!file) return;
+  void openFile(file.id, file.source);
 }
 
 function confirmAction({ title, copy: message, confirmLabel, danger = false }) {
@@ -1252,8 +1279,21 @@ export async function startFiles({ supabase, session, invoke }) {
   });
   document.getElementById("n3xra-file-search")?.addEventListener("input", renderFiles);
   document.getElementById("n3xra-file-status-filter")?.addEventListener("change", renderFiles);
+  document.querySelectorAll("[data-file-view]").forEach((button) => button.addEventListener("click", () => {
+    fileViewMode = button.dataset.fileView === "gallery" ? "gallery" : "list";
+    window.localStorage.setItem("n3xra-internal-files-view", fileViewMode);
+    renderFiles();
+  }));
   document.querySelectorAll("[data-preview-close]").forEach((element) => element.addEventListener("click", closePreview));
-  document.addEventListener("keydown", (event) => { if (event.key === "Escape") closePreview(); });
+  document.getElementById("file-preview-previous")?.addEventListener("click", () => movePreview(-1));
+  document.getElementById("file-preview-next")?.addEventListener("click", () => movePreview(1));
+  document.addEventListener("keydown", (event) => {
+    const modal = document.getElementById("file-preview-modal");
+    if (modal?.hidden) return;
+    if (event.key === "Escape") closePreview();
+    if (event.key === "ArrowLeft") movePreview(-1);
+    if (event.key === "ArrowRight") movePreview(1);
+  });
   await loadFiles();
   await subscribeToWebsiteLibraries();
 }
