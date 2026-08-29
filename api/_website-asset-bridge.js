@@ -29,6 +29,15 @@ function publicAssetVersion(version) {
   }
 }
 
+function publicAssetFilename(publicUrl, fallback) {
+  try {
+    const filename = decodeURIComponent(new URL(publicUrl).pathname.split("/").pop() || "");
+    return filename.replace(/^v\d+-/i, "") || String(fallback || "");
+  } catch {
+    return String(fallback || "");
+  }
+}
+
 async function publishedAssetManifest(website) {
   const assets = await serviceRequest(
     `website_assets?select=id,asset_key,label,category,alt_text,current_version_id,status,created_at,updated_at&website_id=eq.${encodeURIComponent(website.id)}&status=eq.active&order=created_at.asc&limit=${MAX_ASSETS}`,
@@ -48,7 +57,7 @@ async function publishedAssetManifest(website) {
     return [{
       assetKey: asset.asset_key,
       label: `${asset.label} · v${version.version_number}`,
-      filename: version.original_filename,
+      filename: publicAssetFilename(url, version.original_filename),
       localReference: null,
       url,
       category: asset.category,
@@ -108,6 +117,7 @@ function normalizedUsageReport(payload, slug) {
 module.exports = {
   liveUsageReportUrl,
   normalizedUsageReport,
+  publicAssetFilename,
   publicAssetVersion,
   publishedAssetManifest,
   websiteBySlug,

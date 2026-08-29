@@ -6,6 +6,7 @@ const require = createRequire(import.meta.url);
 const {
   liveUsageReportUrl,
   normalizedUsageReport,
+  publicAssetFilename,
   publicAssetVersion,
   websiteSlug,
 } = require("../../api/_website-asset-bridge.js");
@@ -20,6 +21,13 @@ test("exports only published website CDN versions", () => {
   assert.equal(publicAssetVersion({ status: "published", public_url: url }), url);
   assert.equal(publicAssetVersion({ status: "approved", public_url: url }), null);
   assert.equal(publicAssetVersion({ status: "published", public_url: "https://example.com/private.jpg" }), null);
+});
+
+test("uses the canonical public CDN filename instead of upload casing", () => {
+  assert.equal(
+    publicAssetFilename("https://example.supabase.co/storage/v1/object/public/website-assets-public/site/asset/v1-homephoto.png", "HomePhoto.png"),
+    "homephoto.png",
+  );
 });
 
 test("builds a fixed well-known usage report URL", () => {
