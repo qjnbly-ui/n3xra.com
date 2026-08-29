@@ -165,7 +165,7 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(adminOverride, /physical_card_status = 'not_requested'/);
   assert.match(editor, /state === "delivered"/);
   assert.match(editor, /Complete the mailing address before requesting a physical card/);
-  assert.match(activation, /\/card\/editor\.js\?v=19/);
+  assert.match(activation, /\/card\/editor\.js\?v=20/);
   assert.match(activation, /id="card-preview-frame"[\s\S]*scrolling="no"/);
   assert.match(editor, /function fitPreviewFrame\(\)/);
   assert.match(editor, /previewResizeObserver\.observe\(previewShell\)/);
@@ -180,6 +180,12 @@ test("customers can activate their own card and physical requests are protected"
   assert.match(editor, /All changes saved/);
   assert.match(editor, /Retrying automatically/);
   assert.match(editor, /window\.setTimeout\(\(\) => void saveChanges\(\), 4000\)/);
+  assert.match(activation, /id="card-physical-toggle"[^>]*aria-expanded="false"[^>]*aria-controls="card-physical-purchase"/);
+  assert.match(activation, /id="card-physical-purchase" hidden/);
+  assert.ok(activation.indexOf('id="card-view-profile"') < activation.indexOf('id="card-physical-purchase"'));
+  assert.match(activation, /form="card-editor-form" name="shipping_name"/);
+  assert.match(editor, /function setPhysicalCardPurchaseOpen/);
+  assert.match(editor, /physicalCardPurchase\?\.addEventListener\("input", markChanged\)/);
   assert.doesNotMatch(activation, />Save changes</);
 });
 
@@ -208,7 +214,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
   assert.match(editorPage, /data-card-tab="contacts"/);
   assert.match(editorPage, /data-card-tab="profile"/);
   assert.match(editorPage, /name="exchange_enabled"/);
-  assert.match(editorPage, /\/card\/card\.css\?v=18/);
+  assert.match(editorPage, /\/card\/card\.css\?v=19/);
 });
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {

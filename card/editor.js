@@ -48,6 +48,8 @@ const contactSearch = document.querySelector("#card-contact-search");
 const contactExport = document.querySelector("#card-contact-export");
 const contactScanInput = document.querySelector("#card-contact-scan-input");
 const contactToolStatus = document.querySelector("#card-contact-tool-status");
+const physicalCardToggle = document.querySelector("#card-physical-toggle");
+const physicalCardPurchase = document.querySelector("#card-physical-purchase");
 const contactScanDialog = document.querySelector("#card-contact-scan-dialog");
 const contactScanForm = document.querySelector("#card-contact-scan-form");
 const profileSummary = document.querySelector("#card-profile-summary");
@@ -657,6 +659,13 @@ function setRequestState(row) {
         toggle.disabled = ["processing", "shipped", "delivered"].includes(state);
     }
 }
+function setPhysicalCardPurchaseOpen(open) {
+    if (!physicalCardToggle || !physicalCardPurchase)
+        return;
+    physicalCardPurchase.hidden = !open;
+    physicalCardToggle.setAttribute("aria-expanded", String(open));
+    physicalCardToggle.textContent = open ? "Close card options" : "Purchase new card";
+}
 function fillForm(row) {
     if (!form)
         return;
@@ -1111,6 +1120,9 @@ document.querySelectorAll("[data-add-contact]").forEach((button) => button.addEv
     markChanged(); }));
 document.querySelectorAll("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab)));
 previewFrame?.addEventListener("load", fitPreviewFrame);
+physicalCardToggle?.addEventListener("click", () => setPhysicalCardPurchaseOpen(physicalCardPurchase?.hidden !== false));
+physicalCardPurchase?.addEventListener("input", markChanged);
+physicalCardPurchase?.addEventListener("change", markChanged);
 document.querySelectorAll("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all"); document.querySelectorAll("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
 contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
 contactExport?.addEventListener("click", () => { if (!hasPremium) {

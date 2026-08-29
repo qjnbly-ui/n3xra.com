@@ -305,6 +305,16 @@ html.is-card-preview-embed { overflow:hidden; }
 .card-profile-summary > div { display:flex; justify-content:space-between; gap:16px; padding:16px 18px; background:#fff; }
 .card-profile-summary span { color:var(--card-muted); font-size:.75rem; }
 .card-profile-summary strong { overflow-wrap:anywhere; text-align:right; font-size:.76rem; }
+.card-profile-physical { margin-top:12px; padding:20px; border:1px solid var(--card-line); border-radius:20px; background:#fff; box-shadow:0 10px 32px rgba(7,16,26,.045); }
+.card-profile-physical-head { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
+.card-profile-physical-head span { color:#397363; font-size:.62rem; font-weight:800; letter-spacing:.13em; text-transform:uppercase; }
+.card-profile-physical-head strong { display:block; margin-top:5px; font-size:.94rem; }
+.card-profile-physical-head p { margin:6px 0 0; color:var(--card-muted); font-size:.72rem; line-height:1.5; }
+.card-profile-physical-head button { flex:none; min-height:42px; padding:0 15px; border:0; border-radius:11px; color:#fff; background:#123a33; cursor:pointer; font:800 .72rem Manrope,Arial,sans-serif; }
+.card-profile-physical .card-request-state { margin:16px 0 0; }
+.card-profile-physical-purchase { margin-top:16px; padding-top:16px; border-top:1px solid var(--card-line); }
+.card-profile-physical-purchase[hidden] { display:none; }
+.card-profile-physical-purchase .card-extra-card-actions { margin-bottom:18px; }
 .card-profile-history { margin-top:12px; padding:20px; border:1px solid var(--card-line); border-radius:20px; background:#fff; }
 .card-profile-history h2 { margin:0 0 14px; font-size:1rem; }
 .card-order-row { display:flex; align-items:center; justify-content:space-between; gap:14px; padding:13px 0; border-bottom:1px solid var(--card-line); }
@@ -417,6 +427,8 @@ html.is-card-preview-embed { overflow:hidden; }
   .card-editor-toolbar { gap:8px; }
   .card-auto-save-status { font-size:.68rem; }
   .card-repeatable-row { grid-template-columns:108px minmax(0,1fr) 38px; }
+  .card-profile-physical-head { align-items:stretch; flex-direction:column; }
+  .card-profile-physical-head button { width:100%; }
   .card-phone-preview { border-radius:22px; }
   .card-phone-preview iframe { height:530px; }
 }

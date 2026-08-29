@@ -61,6 +61,8 @@ const contactSearch = document.querySelector<HTMLInputElement>("#card-contact-se
 const contactExport = document.querySelector<HTMLButtonElement>("#card-contact-export");
 const contactScanInput = document.querySelector<HTMLInputElement>("#card-contact-scan-input");
 const contactToolStatus = document.querySelector<HTMLElement>("#card-contact-tool-status");
+const physicalCardToggle = document.querySelector<HTMLButtonElement>("#card-physical-toggle");
+const physicalCardPurchase = document.querySelector<HTMLElement>("#card-physical-purchase");
 const contactScanDialog = document.querySelector<HTMLDialogElement>("#card-contact-scan-dialog");
 const contactScanForm = document.querySelector<HTMLFormElement>("#card-contact-scan-form");
 const profileSummary = document.querySelector<HTMLElement>("#card-profile-summary");
@@ -409,6 +411,13 @@ function setRequestState(row: CardRow): void {
   if (toggle) { toggle.checked = state !== "not_requested"; toggle.disabled = ["processing", "shipped", "delivered"].includes(state); }
 }
 
+function setPhysicalCardPurchaseOpen(open: boolean): void {
+  if (!physicalCardToggle || !physicalCardPurchase) return;
+  physicalCardPurchase.hidden = !open;
+  physicalCardToggle.setAttribute("aria-expanded", String(open));
+  physicalCardToggle.textContent = open ? "Close card options" : "Purchase new card";
+}
+
 function fillForm(row: CardRow): void {
   if (!form) return;
   for (const name of ["display_name", "headline", "company_name", "bio", "email", "email_label", "phone_e164", "phone_label", "website_url", "location_text", "accent_color", "status", "slug", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) {
@@ -592,6 +601,9 @@ scanApplyAll?.addEventListener("click", (event) => { event.preventDefault(); app
 document.querySelectorAll<HTMLButtonElement>("[data-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.addContact as RepeatableKey); if (card) markChanged(); }));
 document.querySelectorAll<HTMLButtonElement>("[data-card-tab]").forEach((button) => button.addEventListener("click", () => void switchWorkspaceView(button.dataset.cardTab as WorkspaceView)));
 previewFrame?.addEventListener("load", fitPreviewFrame);
+physicalCardToggle?.addEventListener("click", () => setPhysicalCardPurchaseOpen(physicalCardPurchase?.hidden !== false));
+physicalCardPurchase?.addEventListener("input", markChanged);
+physicalCardPurchase?.addEventListener("change", markChanged);
 document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((button) => button.addEventListener("click", () => { contactSourceFilter = (button.dataset.contactSource || "all") as typeof contactSourceFilter; document.querySelectorAll<HTMLButtonElement>("[data-contact-source]").forEach((item) => item.classList.toggle("is-active", item === button)); renderConnections(connectionRows); }));
 contactSearch?.addEventListener("input", () => renderConnections(connectionRows));
 contactExport?.addEventListener("click", () => { if (!hasPremium) { openPremiumDialog(); return; } exportContactsCsv(); });
