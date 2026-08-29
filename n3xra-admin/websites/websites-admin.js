@@ -31,6 +31,7 @@ const assetToolbar = document.getElementById("admin-asset-toolbar");
 const assetGrid = document.getElementById("admin-asset-grid");
 const assetFolderList = document.getElementById("admin-asset-folders");
 const assetSearch = document.getElementById("admin-asset-search");
+const assetStatusFilter = document.getElementById("admin-asset-status-filter");
 const selectedAssetName = document.getElementById("admin-selected-asset-name");
 const selectedAssetMeta = document.getElementById("admin-selected-asset-meta");
 const selectedAssetActions = document.getElementById("admin-selected-asset-actions");
@@ -95,6 +96,7 @@ const adminUploadSubmit = document.getElementById("admin-upload-submit");
 
 let supabase;
 let currentUser;
+let currentSession;
 let websites = [];
 let domains = [];
 let repositories = [];
@@ -102,6 +104,7 @@ let organizations = [];
 let selectedWebsite;
 let assets = [];
 let versions = [];
+let assetUsageReport = { available: false, assets: [] };
 let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
 let members = [];
@@ -230,6 +233,32 @@ function folderLabel(value) {
   const normalized = String(value || "Uncategorized").trim().toLowerCase().replaceAll("_", " ");
   const labels = { image: "Images", images: "Images", brand: "Brand assets", document: "Documents", documents: "Documents", video: "Videos", font: "Fonts", other: "Other files", uncategorized: "Uncategorized" };
   return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function usageForAsset(asset) {
+  return assetUsageReport.assets.find((item) => item.assetKey === asset.asset_key) || null;
+}
+
+function websiteLibraryState(asset, version) {
+  if (version.status === "pending_review") return { key: "new", label: "New", locations: [] };
+  if (version.status === "approved") return { key: "ready", label: "Ready to publish", locations: [] };
+  const isCurrentPublished = asset.current_version_id === version.id && version.status === "published" && version.public_url;
+  if (!isCurrentPublished || !assetUsageReport.available) {
+    return { key: version.status, label: version.status.replaceAll("_", " "), locations: [] };
+  }
+  const locations = usageForAsset(asset)?.locations || [];
+  if (!locations.length) return { key: "available", label: "Available", locations: [] };
+  return {
+    key: "in_use",
+    label: `In use · ${locations.length} page${locations.length === 1 ? "" : "s"}`,
+    locations,
+  };
+}
+
+function assetUsageMarkup(libraryState) {
+  if (libraryState.key !== "in_use") return "";
+  const routes = libraryState.locations.map((location) => location.route);
+  return `<small class="website-asset-usage">Used on: ${routes.map(escapeHtml).join(" · ")}</small>`;
 }
 
 function setMemberStatus(message = "", isError = false) {
@@ -656,7 +685,12 @@ function renderAssets() {
   if (!categories.includes(selectedAssetCategory)) selectedAssetCategory = categories[0];
   const folderAssets = assets.filter((asset) => assetCategory(asset) === selectedAssetCategory);
   const query = String(assetSearch?.value || "").trim().toLowerCase();
-  const visibleAssets = folderAssets.filter((asset) => [asset.label, asset.asset_key, asset.category].some((value) => String(value || "").toLowerCase().includes(query)));
+  const statusFilter = String(assetStatusFilter?.value || "all");
+  const visibleAssets = folderAssets.filter((asset) => {
+    const matchesSearch = [asset.label, asset.asset_key, asset.category].some((value) => String(value || "").toLowerCase().includes(query));
+    const matchesStatus = statusFilter === "all" || versions.some((version) => version.asset_id === asset.id && websiteLibraryState(asset, version).key === statusFilter);
+    return matchesSearch && matchesStatus;
+  });
   const folderVersions = versions.filter((version) => folderAssets.some((asset) => asset.id === version.asset_id));
   if (selectedAssetName) selectedAssetName.textContent = folderLabel(selectedAssetCategory);
   if (selectedAssetMeta) selectedAssetMeta.textContent = `${folderAssets.length} file${folderAssets.length === 1 ? "" : "s"} · ${folderVersions.length} version${folderVersions.length === 1 ? "" : "s"}`;
@@ -672,7 +706,8 @@ function renderAssets() {
     }
     return assetVersions.map((version) => {
       const type = assetFileType(version);
-      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file">${assetFilePreviewMarkup(version, type)}<span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small></span></div><span class="website-asset-status is-${escapeHtml(version.status)}">${escapeHtml(version.status.replaceAll("_", " "))}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version, asset)}</div></details></article>`;
+      const libraryState = websiteLibraryState(asset, version);
+      return `<article class="website-asset-version is-selectable${selectedVersionIds.has(version.id) ? " is-selected" : ""}" data-selectable-version="${version.id}"><label class="website-asset-select"><input type="checkbox" data-select-version="${version.id}"${selectedVersionIds.has(version.id) ? " checked" : ""} aria-label="Select ${escapeHtml(version.original_filename)}"></label><div class="website-asset-file">${assetFilePreviewMarkup(version, type)}<span><strong>${escapeHtml(version.original_filename)}</strong><small>${escapeHtml(asset.label)} · Version ${version.version_number}${version.change_note ? ` · ${escapeHtml(version.change_note)}` : ""}</small>${assetUsageMarkup(libraryState)}</span></div><span class="website-asset-status is-${escapeHtml(libraryState.key)}">${escapeHtml(libraryState.label)}</span><time datetime="${escapeHtml(version.created_at)}">${formatDate(version.created_at)}</time><span class="website-asset-size">${formatBytes(version.size_bytes) || "—"}</span><details class="website-asset-actions"><summary aria-label="Actions for ${escapeHtml(version.original_filename)}">•••</summary><div class="website-asset-action-menu">${versionActions(version, asset)}</div></details></article>`;
     });
   });
   const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
@@ -758,12 +793,18 @@ async function loadAssets() {
   if (!selectedWebsite) {
     assets = [];
     versions = [];
+    assetUsageReport = { available: false, assets: [] };
     renderSelectedWebsite();
     renderAssets();
     return;
   }
 
-  const assetResult = await supabase.from("website_assets").select("*").eq("website_id", selectedWebsite.id).order("created_at");
+  const [assetResult, usageResult] = await Promise.all([
+    supabase.from("website_assets").select("*").eq("website_id", selectedWebsite.id).order("created_at"),
+    fetch(`/api/website-asset-usage?slug=${encodeURIComponent(selectedWebsite.slug)}`, {
+      headers: { Authorization: `Bearer ${currentSession?.access_token || ""}` },
+    }).then(async (response) => response.ok ? response.json() : { available: false, assets: [] }).catch(() => ({ available: false, assets: [] })),
+  ]);
   if (assetResult.error) throw assetResult.error;
   const assetIds = (assetResult.data || []).map((asset) => asset.id);
   const versionResult = assetIds.length
@@ -772,6 +813,7 @@ async function loadAssets() {
   if (versionResult.error) throw versionResult.error;
   assets = assetResult.data || [];
   versions = versionResult.data || [];
+  assetUsageReport = usageResult?.available ? usageResult : { available: false, assets: [] };
   renderSelectedWebsite();
   if (memberForm) memberForm.reset();
   setMemberStatus("");
@@ -885,6 +927,7 @@ async function selectWebsite(id) {
   selectedAssetCategory = "";
   selectedVersionIds.clear();
   if (assetSearch) assetSearch.value = "";
+  if (assetStatusFilter) assetStatusFilter.value = "all";
   if (projectLinkForm) {
     projectLinkForm.hidden = true;
     setProjectStatus("");
@@ -1677,6 +1720,7 @@ async function initWebsiteAdmin() {
     if (!context.allowed) return;
     supabase = context.supabase;
     currentUser = context.user;
+    currentSession = context.session;
 
     await loadWebsites();
     document.body.classList.remove("portal-loading");
@@ -1714,6 +1758,7 @@ async function initWebsiteAdmin() {
       renderAssets();
     });
     assetSearch?.addEventListener("input", renderAssets);
+    assetStatusFilter?.addEventListener("change", renderAssets);
     adminRequestList?.addEventListener("click", (event) => {
       const button = event.target.closest("[data-save-request]");
       if (!button) return;

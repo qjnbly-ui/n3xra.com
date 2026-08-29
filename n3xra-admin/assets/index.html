@@ -6,7 +6,7 @@
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=14">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/client-portal/assets-manager.css?v=15">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -27,6 +27,7 @@
             <div class="website-assets-site-picker"><label>Working with<select class="portal-select" id="admin-website-select"></select></label></div>
             <div class="website-assets-client-site website-assets-admin-site" id="admin-site-summary" hidden><div><span id="admin-site-status">Managed website</span><strong id="admin-site-name">Website</strong><small id="admin-site-meta"></small></div><div><a id="admin-live-link" href="#" target="_blank" rel="noopener">Visit live site</a><a id="admin-client-view" href="/client-portal/">Open client files</a></div></div>
             <label class="website-assets-search"><span>Search this folder</span><input id="admin-asset-search" type="search" placeholder="Search this folder"></label>
+            <label class="website-assets-search"><span>Asset status</span><select class="portal-select" id="admin-asset-status-filter"><option value="all">All statuses</option><option value="in_use">In use</option><option value="available">Available</option><option value="new">New</option><option value="ready">Ready to publish</option><option value="published">Published</option></select></label>
             <p class="website-assets-folder-label">Folders</p>
             <div class="website-assets-folder-list" id="admin-asset-folders"></div>
           </aside>
@@ -50,6 +51,6 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening files and assets…</div>
-  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=16"></script>
+  <script type="module" src="/client-portal/portal-shell.js"></script><script type="module" src="/n3xra-admin/websites/websites-admin.js?v=17"></script>
 </body>
 </html>

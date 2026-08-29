@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const filesSource = await readFile(new URL("../../account/admin/files/files.js", import.meta.url), "utf8");
+const workspaceFilesSource = await readFile(new URL("../../n3xra-admin/websites/websites-admin.js", import.meta.url), "utf8");
+const workspaceFilesPage = await readFile(new URL("../../n3xra-admin/assets/index.html", import.meta.url), "utf8");
 const navigationSource = await readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8");
 
 test("Internal Files remains the central admin library", () => {
@@ -44,4 +46,15 @@ test("central website libraries show live usage states", () => {
   assert.match(filesSource, /In use/);
   assert.match(filesSource, /Available/);
   assert.match(filesSource, /New/);
+});
+
+test("organization workspace files show and filter live usage states", () => {
+  assert.match(workspaceFilesPage, /id="admin-asset-status-filter"/);
+  assert.match(workspaceFilesSource, /website-asset-usage/);
+  assert.match(workspaceFilesSource, /Authorization: `Bearer \$\{currentSession\?\.access_token/);
+  assert.match(workspaceFilesSource, /In use · \$\{locations\.length\}/);
+  assert.match(workspaceFilesSource, /Used on:/);
+  assert.match(workspaceFilesSource, /label: "Available"/);
+  assert.match(workspaceFilesSource, /label: "New"/);
+  assert.match(workspaceFilesSource, /label: "Ready to publish"/);
 });

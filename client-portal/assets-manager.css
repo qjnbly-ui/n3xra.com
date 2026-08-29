@@ -68,9 +68,18 @@
 .website-asset-file strong, .website-asset-file small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .website-asset-file strong { font-size:.8rem; }
 .website-asset-file small { margin-top:.18rem; color:var(--portal-muted); font-size:.66rem; }
+.website-asset-file .website-asset-usage { overflow:visible; color:#257d72; font-weight:700; text-overflow:clip; white-space:normal; }
 .website-asset-status { justify-self:start; display:inline-flex; align-items:center; gap:.4rem; padding:.36rem .52rem; color:#53656f; background:#f1f4f5; border-radius:999px; font-size:.65rem; font-weight:800; text-transform:capitalize; }
 .website-asset-status::before { content:""; width:6px; height:6px; background:#819099; border-radius:50%; }
 .website-asset-status.is-published::before { background:#2b8b70; }
+.website-asset-status.is-in_use { color:#176654; background:#e2f3ed; }
+.website-asset-status.is-in_use::before { background:#168263; }
+.website-asset-status.is-available { color:#315f7a; background:#e5f0f5; }
+.website-asset-status.is-available::before { background:#3d83a6; }
+.website-asset-status.is-new { color:#895b1c; background:#f8eedc; }
+.website-asset-status.is-new::before { background:#b77c2f; }
+.website-asset-status.is-ready { color:#315f9a; background:#e7eef8; }
+.website-asset-status.is-ready::before { background:#427db2; }
 .website-asset-status.is-approved::before { background:#427db2; }
 .website-asset-status.is-pending_review::before { background:#b77c2f; }
 .website-asset-status.is-rejected::before { background:#ad4450; }
