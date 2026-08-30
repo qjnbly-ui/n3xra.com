@@ -137,7 +137,10 @@ async function deleteStorageObject(bucket, path) {
   if (!bucket || !path) return false;
   const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
     method: "DELETE",
-    headers: serviceHeaders(),
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
   });
   if (response.status === 404) return false;
   if (!response.ok) {
@@ -178,7 +181,10 @@ async function createSignedStorageUpload(bucket, path) {
 async function storageObjectExists(bucket, path) {
   const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
     method: "HEAD",
-    headers: serviceHeaders(),
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+    },
   });
   if (response.status === 404) return false;
   if (!response.ok) throw apiError("The uploaded image could not be verified.", response.status);

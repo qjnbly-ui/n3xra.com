@@ -65,6 +65,24 @@ test("automatic CDN publication is limited to authenticated website editors", as
   );
 });
 
+test("storage deletion does not claim to send an empty JSON body", async () => {
+  const helper = require("../../api/_website-proposal-ai-supabase.js");
+  const originalFetch = globalThis.fetch;
+  let requestOptions;
+  globalThis.fetch = async (_url, options) => {
+    requestOptions = options;
+    return new Response("{}", { status: 200, headers: { "Content-Type": "application/json" } });
+  };
+  try {
+    assert.equal(await helper.deleteStorageObject("website-assets-private", "site/customer-photo.jpg"), true);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+  assert.equal(requestOptions.method, "DELETE");
+  assert.equal(requestOptions.body, undefined);
+  assert.equal(requestOptions.headers["Content-Type"], undefined);
+});
+
 test("the public feed exposes published CDN media only", () => {
   const { mediaItem } = require("../../api/website-content-feed.js");
   const row = { id: "media", alt_text: "An antique chest", caption: "Found a home" };
