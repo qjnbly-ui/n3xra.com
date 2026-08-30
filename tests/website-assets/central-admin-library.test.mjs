@@ -130,3 +130,11 @@ test("mobile galleries load quickly and keep navigation reachable", () => {
   assert.match(workspaceFilesStyles, /grid-template-rows:auto minmax\(0,1fr\) auto/);
   assert.match(workspaceFilesStyles, /height:calc\(100dvh - 1rem\)/);
 });
+
+test("mobile file controls stay compact across admin and client libraries", () => {
+  assert.match(workspaceFilesStyles, /\.website-assets-folder-list \{ display:grid; grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(workspaceFilesStyles, /\.website-assets-head-actions, #admin-selected-asset-actions \{ width:100%; display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(workspaceFilesStyles, /\.website-assets-head-actions \.website-assets-view-toggle, #admin-selected-asset-actions \.website-assets-view-toggle \{ grid-column:1 \/ -1;/);
+  assert.match(internalFilesStyles, /\.n3xra-file-filters \{ grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+  assert.match(internalFilesStyles, /\.n3xra-files-actions \{ display:grid; grid-template-columns:repeat\(2,minmax\(0,1fr\)\)/);
+});

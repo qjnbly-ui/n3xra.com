@@ -182,10 +182,30 @@ body.website-asset-preview-open { overflow:hidden; }
   .website-assets-upload-drawer { position:fixed; top:76px; }
 }
 @media (max-width:600px) {
-  .website-assets-content-head { display:grid; }
-  .website-assets-content-head .portal-button { width:100%; }
+  .website-assets-search { margin:.8rem .75rem .7rem; }
+  .website-assets-search input { min-height:46px; padding:.72rem .75rem .72rem 2.35rem; font-size:.82rem; }
+  .website-assets-folder-label { margin:.1rem .75rem .45rem !important; }
+  .website-assets-folder-list { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.4rem; max-height:none; padding:0 .75rem .8rem; }
+  .website-asset-folder { min-height:64px; grid-template-columns:24px minmax(0,1fr); gap:.45rem; padding:.55rem .5rem; border:1px solid transparent; }
+  .website-asset-folder.is-current { border-color:#cee2de; }
+  .website-asset-folder-icon { width:22px; height:15px; }
+  .website-asset-folder-icon::before { width:9px; height:5px; top:-4px; }
+  .website-asset-folder strong { font-size:.72rem; }
+  .website-asset-folder small { font-size:.61rem; }
+  .website-asset-folder-count { display:none; }
+  .website-assets-content-head { display:grid; gap:.75rem; padding:.85rem .75rem; }
+  .website-assets-content-head > div:first-child { display:flex; align-items:baseline; flex-wrap:wrap; gap:.25rem .6rem; min-width:0; }
+  .website-assets-content-head .portal-kicker { display:none; }
+  .website-assets-content-head h1 { font-size:1.35rem; }
+  .website-assets-content-head p:last-child { margin:0; font-size:.68rem; }
+  .website-assets-head-actions, #admin-selected-asset-actions { width:100%; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.5rem; }
+  .website-assets-head-actions .website-assets-view-toggle, #admin-selected-asset-actions .website-assets-view-toggle { grid-column:1 / -1; }
+  .website-assets-head-actions .portal-button, #admin-selected-asset-actions .portal-button { width:100%; min-height:44px; padding:.6rem .7rem; }
+  .website-assets-head-actions > .portal-button:only-of-type { grid-column:1 / -1; }
+  .website-assets-view-toggle button:focus-visible { outline:2px solid #167b72; outline-offset:2px; }
+  .website-assets-table { padding:.75rem; }
   .website-assets-table-head { display:none; }
-  .website-asset-version { grid-template-columns:minmax(0,1fr) 40px; gap:.65rem; padding:.2rem .75rem; }
+  .website-asset-version { min-height:64px; grid-template-columns:minmax(0,1fr) 40px; gap:.65rem; padding:.2rem .65rem; }
   .website-asset-version.is-selectable { grid-template-columns:28px minmax(0,1fr) 40px; }
   .website-asset-status, .website-asset-version > time, .website-asset-date, .website-asset-size { display:none; }
 }

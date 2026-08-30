@@ -54,15 +54,16 @@ function createMobileWorkspaceNavigation(pageKey) {
   const navigation = document.createElement("nav");
   navigation.className = "website-admin-mobile-navigation";
   navigation.setAttribute("aria-label", "Website workspace sections");
-  navigation.innerHTML = mobileWorkspaceRoutes.map(({ keys, label, href }) => {
+  const currentRoute = mobileWorkspaceRoutes.find(({ keys }) => keys.includes(pageKey)) || mobileWorkspaceRoutes[0];
+  const links = mobileWorkspaceRoutes.map(({ keys, label, href }) => {
     const current = keys.includes(pageKey);
     return `<a class="${current ? "is-current" : ""}" href="${href}"${current ? ' aria-current="page"' : ""}>${label}</a>`;
   }).join("");
-  const current = navigation.querySelector(".is-current");
-  requestAnimationFrame(() => {
-    if (!current || navigation.scrollWidth <= navigation.clientWidth) return;
-    navigation.scrollLeft = Math.max(0, current.offsetLeft - ((navigation.clientWidth - current.offsetWidth) / 2));
-  });
+  navigation.innerHTML = `
+    <details>
+      <summary><span>Website section</span><strong>${currentRoute.label}</strong><i aria-hidden="true"></i></summary>
+      <div class="website-admin-mobile-navigation-menu">${links}</div>
+    </details>`;
   return navigation;
 }
 
