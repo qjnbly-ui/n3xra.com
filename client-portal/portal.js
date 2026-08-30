@@ -1073,6 +1073,7 @@ async function initPortal() {
       clientAssetViewMode = button.dataset.clientAssetView === "gallery" ? "gallery" : "list";
       window.localStorage.setItem("n3xra-client-files-view", clientAssetViewMode);
       renderAssets();
+      showPortalView("files");
     }));
     assetFolderList?.addEventListener("click", (event) => {
       const folder = event.target.closest("[data-select-category]");

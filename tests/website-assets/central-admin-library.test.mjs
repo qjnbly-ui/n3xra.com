@@ -75,6 +75,7 @@ test("all file areas offer persistent list and gallery views", () => {
   assert.match(clientFilesPage, /data-client-asset-view="list"/);
   assert.match(clientFilesPage, /data-client-asset-view="gallery"/);
   assert.match(clientFilesSource, /n3xra-client-files-view/);
+  assert.match(clientFilesSource, /renderAssets\(\);\s*showPortalView\("files"\);/);
 });
 
 test("full-quality previews navigate previous and next on desktop and mobile", () => {
