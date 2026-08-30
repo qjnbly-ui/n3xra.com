@@ -11,6 +11,7 @@ const mobileWorkspaceRoutes = [
   { keys: ["requests"], label: "Requests", href: "/n3xra-admin/requests/" },
   { keys: ["progress", "onboarding", "proposals"], label: "Project", href: "/n3xra-admin/projects/" },
   { keys: ["assets"], label: "Files", href: "/n3xra-admin/assets/" },
+  { keys: ["publishing"], label: "Publishing", href: "/n3xra-admin/publishing/" },
   { keys: ["build"], label: "Build", href: "/n3xra-admin/build-studio/" },
   { keys: ["services"], label: "Services", href: "/n3xra-admin/services/" },
   { keys: ["billing"], label: "Billing", href: "/n3xra-admin/billing/" },
@@ -27,6 +28,7 @@ const routeDetails = {
   "/n3xra-admin/projects/": { key: "progress", kicker: "Websites", title: "Progress", description: "Control project status, milestones, dates, and client-facing next steps." },
   "/n3xra-admin/onboarding/": { key: "onboarding", kicker: "Websites", title: "Onboarding", description: "Review intake responses and files after proposal approval." },
   "/n3xra-admin/assets/": { key: "assets", kicker: "Websites", title: "Files & Assets", description: "Review, publish, and manage website files." },
+  "/n3xra-admin/publishing/": { key: "publishing", kicker: "Websites", title: "Website Publishing", description: "Create posts and review visitor submissions for the selected website." },
   "/n3xra-admin/build-studio/": { key: "build", kicker: "Websites", title: "Build Studio", description: "Build against the selected website repository with Codex and a live preview." },
   "/n3xra-admin/billing/": { key: "billing", kicker: "Websites", title: "Billing", description: "Manage approved charges, invoices, subscriptions, and Stripe state." },
 };

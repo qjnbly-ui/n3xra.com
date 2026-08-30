@@ -1,5 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { portalLoginUrl, resolvePortalTenant, scopeWebsitesToPortalTenant } from "./tenant-context.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "./workspace-context.js";
 const PRIVATE_BUCKET = "website-assets-private";
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const websiteSelect = document.querySelector("#publishing-website-select");
@@ -17,6 +18,7 @@ let versions = [];
 let selectedMedia = [];
 let submissions = [];
 let selectedSubmissionId = "";
+let pageSettings = null;
 function element(id) {
     const found = document.getElementById(id);
     if (!found)
@@ -63,6 +65,7 @@ function resetEditor() {
     element("editor-kicker").textContent = "New post";
     element("editor-title").textContent = "Create a story";
     element("delete-post").hidden = true;
+    element("save-post").textContent = "Save changes";
     selectedMedia = [];
     selectedSubmissionId = "";
     renderSelectedMedia();
@@ -75,8 +78,20 @@ function renderSubmissions() {
     element("submission-list").innerHTML = submissions.length ? submissions.map((submission) => {
         const version = versions.find((item) => item.id === submission.asset_version_id);
         const preview = version?.public_url ? `<img src="${escapeHtml(version.public_url)}" alt="">` : '<span aria-hidden="true"></span>';
-        return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><button type="button" data-use-submission="${submission.id}">Create post</button></article>`;
+        return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><button type="button" data-use-submission="${submission.id}">Review submission</button></article>`;
     }).join("") : '<p class="publishing-list-empty">No community stories are waiting for review.</p>';
+}
+function renderPageSettings() {
+    element("page-title").value = pageSettings?.page_title || "From the Greenhouse";
+    element("page-kicker").value = pageSettings?.page_kicker || "Stories, finds, and life on the farm";
+    element("page-intro").value = pageSettings?.page_intro || "";
+    const hero = element("page-hero");
+    hero.innerHTML = '<option value="">Use the website default</option>' + assets.flatMap((asset) => {
+        const version = versions.find((row) => row.id === asset.current_version_id && row.status === "published" && row.public_url);
+        return version ? [`<option value="${version.id}">${escapeHtml(asset.label)}</option>`] : [];
+    }).join("");
+    hero.value = pageSettings?.hero_asset_version_id || "";
+    element("page-settings").hidden = false;
 }
 async function editPost(id) {
     const post = posts.find((row) => row.id === id);
@@ -113,10 +128,11 @@ function renderLibrary() {
 }
 async function loadData() {
     showStatus("Loading website publishing…");
-    const [{ data: postRows, error: postError }, { data: assetRows, error: assetError }, { data: submissionRows, error: submissionError }] = await Promise.all([
+    const [{ data: postRows, error: postError }, { data: assetRows, error: assetError }, { data: submissionRows, error: submissionError }, { data: settingsRow, error: settingsError }] = await Promise.all([
         supabase.from("website_posts").select("*").eq("website_id", website.id).order("updated_at", { ascending: false }),
         supabase.from("website_assets").select("id,asset_key,label,alt_text,current_version_id").eq("website_id", website.id).eq("status", "active").order("updated_at", { ascending: false }),
         supabase.from("website_story_submissions").select("id,submitter_name,story_title,story_body,status,asset_id,asset_version_id,created_at").eq("website_id", website.id).eq("status", "pending").order("created_at", { ascending: false }),
+        supabase.from("website_publishing_settings").select("website_id,page_title,page_kicker,page_intro,hero_asset_version_id").eq("website_id", website.id).maybeSingle(),
     ]);
     if (postError)
         throw postError;
@@ -124,9 +140,12 @@ async function loadData() {
         throw assetError;
     if (submissionError)
         throw submissionError;
+    if (settingsError)
+        throw settingsError;
     posts = (postRows || []);
     assets = (assetRows || []);
     submissions = (submissionRows || []);
+    pageSettings = (settingsRow || null);
     if (assets.length) {
         const { data, error } = await supabase.from("website_asset_versions").select("id,asset_id,version_number,status,public_url,original_filename").in("asset_id", assets.map((asset) => asset.id)).order("version_number", { ascending: false });
         if (error)
@@ -139,11 +158,20 @@ async function loadData() {
     renderPosts();
     renderLibrary();
     renderSubmissions();
+    renderPageSettings();
     if (statusElement)
         statusElement.hidden = true;
     if (layout)
         layout.hidden = false;
     document.querySelector("#publishing-app")?.setAttribute("aria-busy", "false");
+}
+async function savePageSettings() {
+    const values = { website_id: website.id, page_title: element("page-title").value.trim(), page_kicker: element("page-kicker").value.trim(), page_intro: element("page-intro").value.trim() || null, hero_asset_version_id: element("page-hero").value || null, updated_by_user_id: session.user.id };
+    const { error } = await supabase.from("website_publishing_settings").upsert(values, { onConflict: "website_id" });
+    if (error)
+        throw error;
+    pageSettings = { ...values };
+    element("page-settings-status").textContent = "Page settings saved.";
 }
 async function useSubmission(id) {
     const submission = submissions.find((row) => row.id === id);
@@ -166,6 +194,7 @@ async function useSubmission(id) {
     renderSelectedMedia();
     element("editor-kicker").textContent = "Community story";
     element("editor-title").textContent = "Review and publish";
+    element("save-post").textContent = "Approve & publish";
     form?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 async function publishVersion(versionId) {
@@ -260,6 +289,7 @@ async function savePost(forceDraft = false) {
 }
 function bindEvents() {
     element("new-post").addEventListener("click", resetEditor);
+    element("page-settings-form").addEventListener("submit", (event) => { event.preventDefault(); void savePageSettings().catch((error) => { element("page-settings-status").textContent = error instanceof Error ? error.message : "Settings could not be saved."; }); });
     element("open-media").addEventListener("click", () => mediaModal?.showModal());
     element("close-media").addEventListener("click", () => mediaModal?.close());
     element("media-search").addEventListener("input", renderLibrary);
@@ -294,15 +324,24 @@ async function init() {
     websites = scopeWebsitesToPortalTenant((data || []), tenant);
     if (!websites.length)
         throw new Error("No website publishing workspace is available for this account.");
-    website = websites[0];
+    const workspaceScope = document.body.dataset.publishingMode === "admin" ? "admin" : "client";
+    const context = readWorkspaceContext(workspaceScope, session.user.id);
+    const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
+    website = websites.find((row) => row.id === explicitWebsiteId)
+        || websites.find((row) => row.id === context.websiteId)
+        || websites[0];
     if (websiteSelect) {
         websiteSelect.innerHTML = websites.map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
         websiteSelect.value = website.id;
         websiteSelect.disabled = tenant.mode !== "unbound" || websites.length < 2;
-        websiteSelect.addEventListener("change", () => { const next = websites.find((row) => row.id === websiteSelect.value); if (next) {
+        websiteSelect.addEventListener("change", () => {
+            const next = websites.find((row) => row.id === websiteSelect.value);
+            if (!next)
+                return;
             website = next;
+            writeWorkspaceContext(workspaceScope, session.user.id, { ...readWorkspaceContext(workspaceScope, session.user.id), websiteId: next.id, name: next.name });
             void loadData();
-        } });
+        });
     }
     bindEvents();
     document.body.classList.remove("portal-loading");

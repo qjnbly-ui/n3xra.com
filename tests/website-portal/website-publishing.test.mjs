@@ -19,19 +19,26 @@ test("website publishing is tenant-owned and protected by RLS", async () => {
 });
 
 test("portal publishing offers the shared file library and direct CDN upload", async () => {
-  const [page, source, navigation] = await Promise.all([
+  const [page, adminPage, source, navigation, clientContext, adminContext] = await Promise.all([
     projectFile("client-portal/publishing/index.html"),
+    projectFile("n3xra-admin/publishing/index.html"),
     projectFile("src/client-portal/publishing.ts"),
     projectFile("client-portal/client-shell.js"),
+    projectFile("client-portal/client-workspace-context.js"),
+    projectFile("n3xra-admin/website-admin-context.js"),
   ]);
   assert.match(page, /Choose from Files/);
   assert.match(page, /Upload New/);
   assert.match(page, /Share Your Find/);
+  assert.match(adminPage, /Share Your Find approvals/);
+  assert.match(adminPage, /data-publishing-mode="admin"/);
   assert.match(source, /from\("website_assets"\)/);
   assert.match(source, /website_asset_versions/);
   assert.match(source, /\/api\/client-website-publishing/);
   assert.match(source, /website_story_submissions/);
   assert.match(navigation, /Website Publishing/);
+  assert.match(clientContext, /Website Publishing/);
+  assert.match(adminContext, /Website Publishing/);
 });
 
 test("automatic CDN publication is limited to authenticated website editors", async () => {
@@ -55,9 +62,10 @@ test("the public feed exposes published CDN media only", () => {
 });
 
 test("visitor stories use private signed uploads and cannot auto-publish", async () => {
-  const [endpoint, page] = await Promise.all([
+  const [endpoint, page, siteScript] = await Promise.all([
     projectFile("api/website-story-submission.js"),
     projectFile("../Roots and Relics/src/pages/from-the-greenhouse/index.astro").catch(() => ""),
+    projectFile("../Roots and Relics/src/scripts/from-the-greenhouse.ts").catch(() => ""),
   ]);
   assert.match(endpoint, /createSignedStorageUpload/);
   assert.match(endpoint, /website-assets-private/);
@@ -66,4 +74,8 @@ test("visitor stories use private signed uploads and cannot auto-publish", async
   assert.match(endpoint, /permissionToPublish/);
   assert.match(endpoint, /rateLimit/);
   if (page) assert.match(page, /Your photo stays private until reviewed/);
+  if (siteScript) {
+    assert.match(siteScript, /https:\/\/www\.n3xra\.com/);
+    assert.doesNotMatch(siteScript, /https:\/\/n3xra\.com\/api/);
+  }
 });

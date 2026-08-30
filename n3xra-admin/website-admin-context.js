@@ -7,6 +7,7 @@ const ORGANIZATION_ROUTES = [
   [["overview", "new"], "Overview", "/n3xra-admin/websites/"],
   [["proposals", "progress", "onboarding"], "Project", "/n3xra-admin/projects/"],
   [["assets"], "Files & assets", "/n3xra-admin/assets/"],
+  [["publishing"], "Website Publishing", "/n3xra-admin/publishing/"],
   [["build"], "Build Studio", "/n3xra-admin/build-studio/"],
   [["services"], "Services & ownership", "/n3xra-admin/services/"],
   [["billing"], "Billing", "/n3xra-admin/billing/"],

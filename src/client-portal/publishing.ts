@@ -1,5 +1,6 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { portalLoginUrl, resolvePortalTenant, scopeWebsitesToPortalTenant } from "./tenant-context.js";
+import { readWorkspaceContext, writeWorkspaceContext } from "./workspace-context.js";
 
 interface Website { id: string; name: string; }
 interface Post { id: string; website_id: string; post_type: string; slug: string; title: string; excerpt: string | null; body: string; status: string; featured: boolean; published_at: string | null; updated_at: string; }
@@ -80,6 +81,7 @@ function resetEditor(): void {
   element("editor-kicker").textContent = "New post";
   element("editor-title").textContent = "Create a story";
   element<HTMLButtonElement>("delete-post").hidden = true;
+  element<HTMLButtonElement>("save-post").textContent = "Save changes";
   selectedMedia = [];
   selectedSubmissionId = "";
   renderSelectedMedia();
@@ -93,7 +95,7 @@ function renderSubmissions(): void {
   element("submission-list").innerHTML = submissions.length ? submissions.map((submission) => {
     const version = versions.find((item) => item.id === submission.asset_version_id);
     const preview = version?.public_url ? `<img src="${escapeHtml(version.public_url)}" alt="">` : '<span aria-hidden="true"></span>';
-    return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><button type="button" data-use-submission="${submission.id}">Create post</button></article>`;
+    return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><button type="button" data-use-submission="${submission.id}">Review submission</button></article>`;
   }).join("") : '<p class="publishing-list-empty">No community stories are waiting for review.</p>';
 }
 
@@ -201,6 +203,7 @@ async function useSubmission(id: string): Promise<void> {
   renderSelectedMedia();
   element("editor-kicker").textContent = "Community story";
   element("editor-title").textContent = "Review and publish";
+  element<HTMLButtonElement>("save-post").textContent = "Approve & publish";
   form?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -302,12 +305,23 @@ async function init(): Promise<void> {
   if (error) throw error;
   websites = scopeWebsitesToPortalTenant((data || []) as Website[], tenant);
   if (!websites.length) throw new Error("No website publishing workspace is available for this account.");
-  website = websites[0]!;
+  const workspaceScope = document.body.dataset.publishingMode === "admin" ? "admin" : "client";
+  const context = readWorkspaceContext(workspaceScope, session.user.id);
+  const explicitWebsiteId = new URLSearchParams(window.location.search).get("website");
+  website = websites.find((row) => row.id === explicitWebsiteId)
+    || websites.find((row) => row.id === context.websiteId)
+    || websites[0]!;
   if (websiteSelect) {
     websiteSelect.innerHTML = websites.map((row) => `<option value="${row.id}">${escapeHtml(row.name)}</option>`).join("");
     websiteSelect.value = website.id;
     websiteSelect.disabled = tenant.mode !== "unbound" || websites.length < 2;
-    websiteSelect.addEventListener("change", () => { const next = websites.find((row) => row.id === websiteSelect.value); if (next) { website = next; void loadData(); } });
+    websiteSelect.addEventListener("change", () => {
+      const next = websites.find((row) => row.id === websiteSelect.value);
+      if (!next) return;
+      website = next;
+      writeWorkspaceContext(workspaceScope, session.user.id, { ...readWorkspaceContext(workspaceScope, session.user.id), websiteId: next.id, name: next.name });
+      void loadData();
+    });
   }
   bindEvents();
   document.body.classList.remove("portal-loading");

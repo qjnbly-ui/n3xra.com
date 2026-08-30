@@ -27,6 +27,7 @@ const websiteWorkspacePaths = new Set([
   "/n3xra-admin/projects/",
   "/n3xra-admin/onboarding/",
   "/n3xra-admin/assets/",
+  "/n3xra-admin/publishing/",
   "/n3xra-admin/build-studio/",
   "/n3xra-admin/billing/",
 ]);
@@ -72,6 +73,7 @@ const productApps = [
       "/n3xra-admin/projects/",
       "/n3xra-admin/onboarding/",
       "/n3xra-admin/assets/",
+      "/n3xra-admin/publishing/",
       "/n3xra-admin/build-studio/",
       "/n3xra-admin/billing/",
     ],

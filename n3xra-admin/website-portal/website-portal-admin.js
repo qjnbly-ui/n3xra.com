@@ -9,7 +9,7 @@ const DEFAULT_BRAND = {
   body_font: "Manrope",
   powered_by_label: "Powered by N3XRA",
 };
-const FEATURE_DEFAULTS = { overview: true, progress: true, files_assets: true, services: true, billing: true, support: true, analytics: false };
+const FEATURE_DEFAULTS = { overview: true, progress: true, files_assets: true, publishing: false, services: true, billing: true, support: true, analytics: false };
 const COUNTER_DEFAULTS = { enabled: false, metric: "all_time_pageviews", label: "Website visits", public_key: null };
 const byId = (id) => document.getElementById(id);
 const websiteSelect = byId("portal-website-select");

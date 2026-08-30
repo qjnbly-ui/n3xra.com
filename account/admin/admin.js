@@ -119,6 +119,7 @@ const productAdminApps = {
       progress: ["Website Progress", "Follow active website project progress.", "/n3xra-admin/projects/"],
       onboarding: ["Website Onboarding", "Manage website onboarding workflows.", "/n3xra-admin/onboarding/"],
       assets: ["Files & Assets", "Manage website files and assets.", "/n3xra-admin/assets/"],
+      publishing: ["Website Publishing", "Create posts and review visitor submissions.", "/n3xra-admin/publishing/"],
       billing: ["Website Billing", "Review website billing records.", "/n3xra-admin/billing/"],
     },
   },

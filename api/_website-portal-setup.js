@@ -14,6 +14,7 @@ const FEATURE_DEFAULTS = Object.freeze({
   overview: true,
   progress: true,
   files_assets: true,
+  publishing: false,
   services: true,
   billing: true,
   support: true,
