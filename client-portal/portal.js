@@ -223,7 +223,7 @@ function hydrateVersionPreviews() {
       clientVersionPreviewObserver?.unobserve(entry.target);
       void hydrateVersionPreview(entry.target);
     });
-  }, { root: assetGrid, rootMargin: "500px 0px" });
+  }, { root: null, rootMargin: "500px 0px" });
   previews.forEach((preview) => clientVersionPreviewObserver.observe(preview));
 }
 

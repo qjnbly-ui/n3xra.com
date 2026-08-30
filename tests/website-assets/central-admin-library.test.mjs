@@ -109,6 +109,7 @@ test("mobile galleries load quickly and keep navigation reachable", () => {
   assert.match(workspaceFilesSource, /new IntersectionObserver/);
   assert.match(workspaceFilesSource, /fullQualityPreviewCache/);
   assert.match(clientFilesSource, /new IntersectionObserver/);
+  assert.match(clientFilesSource, /\{ root: null, rootMargin: "500px 0px" \}/);
   assert.match(clientFilesSource, /rootMargin: "500px 0px"/);
   assert.match(clientFilesSource, /clientFullQualityPreviewCache/);
   assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
