@@ -133,13 +133,54 @@ async function downloadStorageObject(bucket, path) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+async function uploadStorageObject(bucket, path, bytes, { contentType = "application/octet-stream", cacheControl = "31536000", upsert = false } = {}) {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
+    method: "POST",
+    headers: {
+      apikey: SUPABASE_SERVICE_ROLE_KEY,
+      Authorization: `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+      "Content-Type": contentType,
+      "Cache-Control": `max-age=${cacheControl}`,
+      "x-upsert": upsert ? "true" : "false",
+    },
+    body: bytes,
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw apiError(text || `Unable to store ${path}.`, response.status);
+  }
+  return readResponse(response);
+}
+
+async function createSignedStorageUpload(bucket, path) {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/upload/sign/${encodeStoragePath(bucket, path)}`, {
+    method: "POST",
+    headers: serviceHeaders({ "x-upsert": "false" }),
+    body: JSON.stringify({ upsert: false }),
+  });
+  return readResponse(response);
+}
+
+async function storageObjectExists(bucket, path) {
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
+    method: "HEAD",
+    headers: serviceHeaders(),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) throw apiError("The uploaded image could not be verified.", response.status);
+  return true;
+}
+
 module.exports = {
   SUPABASE_URL,
   apiError,
   callerRpc,
+  createSignedStorageUpload,
   downloadStorageObject,
   parseJson,
   serviceRequest,
+  storageObjectExists,
+  uploadStorageObject,
   verifyAdminRequest,
   verifyAuthenticatedRequest,
 };

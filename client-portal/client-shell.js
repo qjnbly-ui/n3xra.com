@@ -22,6 +22,7 @@ const appSections = [
 const websiteSections = [
   { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/", feature: "progress" },
   { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files", feature: "files_assets" },
+  { key: "publishing", label: "Website Publishing", href: "/client-portal/publishing/", path: "/client-portal/publishing/", feature: "publishing" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/", feature: "services" },
   { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
   { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/", feature: "billing" },
@@ -38,6 +39,7 @@ const routeDetails = {
   "/client-portal/": { key: "dashboard", kicker: "Business portal", title: "Apps Dashboard", description: "Open the business tools and subscriptions available to this organization." },
   "/client-portal/services/": { key: "services", kicker: "Website workspace", title: "Services & Ownership", description: "Services, domains, source code, and ownership records for this organization." },
   "/client-portal/analytics/": { key: "analytics", kicker: "Website performance", title: "Analytics", description: "A clear view of traffic, popular content, referrals, audience, and devices." },
+  "/client-portal/publishing/": { key: "publishing", kicker: "Website publishing", title: "From the Greenhouse", description: "Create and publish new pieces, farm stories, updates, and customer moments." },
   "/client-portal/team/": { key: "team", kicker: "Owner controls", title: "Organization Admin", description: "Invite people, assign organization roles, and manage access from one shared control center." },
   "/client-portal/communications/": { key: "communications", kicker: "Business portal", title: "Communications", description: "Manage subscriber preferences, consent history, signup tools, and messaging readiness." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },

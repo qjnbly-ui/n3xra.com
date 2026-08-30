@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" class="portal-brand-pending">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Website Publishing | Management Portal</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=18">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
+  <link rel="stylesheet" href="/client-portal/publishing/publishing.css?v=1">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="portal-loading" data-disable-site-assistant>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell">
+    <section class="portal-heading"><div><p class="portal-kicker">Website publishing</p><h1>From the Greenhouse</h1><p>Create stories and updates using the same files already stored in N3XRA.</p></div></section>
+    <section class="portal-project-picker"><div><p class="portal-kicker">Current workspace</p><h2>Selected website</h2></div><label class="portal-project-select"><span>Website</span><select class="portal-select" id="publishing-website-select"></select></label></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website client portal"></nav>
+      <section class="portal-workspace">
+        <div class="publishing-app" id="publishing-app" aria-busy="true">
+          <header class="publishing-head"><div><p class="portal-kicker">Website journal</p><h2>From the Greenhouse</h2><p>Publish new pieces, farm stories, updates, and customer moments.</p></div><button class="publishing-primary" id="new-post" type="button">New post</button></header>
+          <div class="publishing-status" id="publishing-status" role="status" aria-live="polite">Opening publishing…</div>
+          <details class="publishing-page-settings" id="page-settings" hidden><summary>Page settings</summary><form id="page-settings-form"><div class="publishing-fields two"><label><span>Page title</span><input id="page-title" maxlength="180" required></label><label><span>Small heading</span><input id="page-kicker" maxlength="240" required></label></div><div class="publishing-fields"><label><span>Introduction</span><textarea id="page-intro" maxlength="1000" rows="3"></textarea></label><label><span>Hero image</span><select id="page-hero"><option value="">Use the website default</option></select></label></div><div class="publishing-actions"><span></span><button class="publishing-primary" type="submit">Save page settings</button></div><p id="page-settings-status" class="publishing-save-status" role="status"></p></form></details>
+          <div class="publishing-layout" id="publishing-layout" hidden>
+            <aside class="publishing-list-panel"><div class="publishing-list-head"><strong>Posts</strong><span id="post-count"></span></div><div class="publishing-list" id="post-list"></div></aside>
+            <form class="publishing-editor" id="post-form">
+              <input type="hidden" id="post-id">
+              <div class="publishing-editor-head"><div><p class="portal-kicker" id="editor-kicker">New post</p><h3 id="editor-title">Create a story</h3></div><span class="publishing-save-status" id="save-status"></span></div>
+              <div class="publishing-fields two"><label><span>Post type</span><select id="post-type"><option value="update">Update</option><option value="new_piece">New piece</option><option value="farm_story">Farm story</option><option value="customer_story">Customer story</option><option value="event">Event</option></select></label><label><span>Visibility</span><select id="post-status"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label></div>
+              <div class="publishing-fields"><label><span>Title</span><input id="post-title" maxlength="180" required placeholder="A new find from the greenhouse"></label><label><span>Short introduction</span><textarea id="post-excerpt" maxlength="500" rows="3" placeholder="A short sentence shown on the journal page."></textarea></label><label><span>Story</span><textarea id="post-body" maxlength="20000" rows="10" placeholder="Tell the story behind this piece, day, or gathering."></textarea></label></div>
+              <section class="publishing-media"><div class="publishing-media-head"><div><strong>Photos</strong><p>Use an existing N3XRA file or upload a new image directly to the CDN.</p></div><button type="button" id="open-media">Add photos</button></div><div class="publishing-selected-media" id="selected-media"><p>No photos selected yet.</p></div></section>
+              <label class="publishing-check"><input type="checkbox" id="post-featured"><span><strong>Feature this post</strong><small>Show it first on the website journal.</small></span></label>
+              <div class="publishing-actions"><button type="button" id="delete-post" class="publishing-danger" hidden>Delete</button><span></span><button type="button" id="save-draft">Save draft</button><button type="submit" class="publishing-primary">Save changes</button></div>
+            </form>
+          </div>
+          <section class="publishing-submissions" id="publishing-submissions" hidden><header><div><p class="portal-kicker">Community inbox</p><h3>Share Your Find</h3><p>Visitor photos stay private until you choose to turn one into a post.</p></div><span id="submission-count"></span></header><div id="submission-list" class="publishing-submission-list"></div></section>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="portal-status" role="status">Opening website publishing…</div>
+
+  <dialog class="publishing-modal" id="media-modal">
+    <div class="publishing-modal-card">
+      <header><div><p class="portal-kicker">Add a photo</p><h2>Choose your image</h2></div><button type="button" id="close-media" aria-label="Close">×</button></header>
+      <div class="publishing-tabs" role="tablist"><button type="button" class="is-active" data-media-tab="library">Choose from Files</button><button type="button" data-media-tab="upload">Upload New</button></div>
+      <section id="media-library" class="publishing-tab-panel"><label class="publishing-search"><span>Search files</span><input id="media-search" type="search" placeholder="Search image names"></label><div class="publishing-library" id="media-library-grid"></div></section>
+      <section id="media-upload" class="publishing-tab-panel" hidden><label class="publishing-drop"><input id="media-file" type="file" accept="image/jpeg,image/png,image/webp,image/gif"><strong>Choose an image</strong><span>JPG, PNG, WebP, or GIF up to 10 MB</span></label><label><span>Alternative text</span><input id="media-alt" maxlength="500" placeholder="Describe what is visible in the photo"></label><button class="publishing-primary publishing-upload" id="upload-media" type="button">Upload and publish</button><p class="publishing-upload-status" id="upload-status" role="status"></p></section>
+    </div>
+  </dialog>
+  <script type="module" src="/client-portal/client-shell.js?v=28"></script>
+  <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
+  <script type="module" src="/client-portal/publishing.js?v=1"></script>
+</body>
+</html>

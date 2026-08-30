@@ -83,6 +83,8 @@ function defaultWebsiteHref(features = {}) {
         return "/project-workspace/";
     if (features.files_assets !== false)
         return "/client-portal/#files-assets";
+    if (features.publishing === true)
+        return "/client-portal/publishing/";
     if (features.services !== false)
         return "/client-portal/services/";
     if (features.analytics === true)

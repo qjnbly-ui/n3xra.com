@@ -1,0 +1,69 @@
+import assert from "node:assert/strict";
+import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+const require = createRequire(import.meta.url);
+const projectFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
+
+test("website publishing is tenant-owned and protected by RLS", async () => {
+  const migration = await projectFile("supabase/migrations/20260830180514_website_publishing_foundation.sql");
+  for (const table of ["website_publishing_settings", "website_posts", "website_post_media", "website_story_submissions"]) {
+    assert.match(migration, new RegExp(`alter table public\\.${table} enable row level security`));
+    assert.match(migration, new RegExp(`revoke all on public\\.${table} from anon`));
+  }
+  assert.match(migration, /can_edit_client_website\(website_id\)/);
+  assert.match(migration, /public_submissions_auto_publish boolean not null default false/);
+  assert.match(migration, /'publishing'/);
+  assert.match(migration, /roots-and-relics-be7315/);
+});
+
+test("portal publishing offers the shared file library and direct CDN upload", async () => {
+  const [page, source, navigation] = await Promise.all([
+    projectFile("client-portal/publishing/index.html"),
+    projectFile("src/client-portal/publishing.ts"),
+    projectFile("client-portal/client-shell.js"),
+  ]);
+  assert.match(page, /Choose from Files/);
+  assert.match(page, /Upload New/);
+  assert.match(page, /Share Your Find/);
+  assert.match(source, /from\("website_assets"\)/);
+  assert.match(source, /website_asset_versions/);
+  assert.match(source, /\/api\/client-website-publishing/);
+  assert.match(source, /website_story_submissions/);
+  assert.match(navigation, /Website Publishing/);
+});
+
+test("automatic CDN publication is limited to authenticated website editors", async () => {
+  const endpoint = await projectFile("api/client-website-publishing.js");
+  assert.match(endpoint, /verifyAuthenticatedRequest/);
+  assert.match(endpoint, /role=in\.\(owner,editor\)/);
+  assert.match(endpoint, /feature_key=eq\.publishing/);
+  assert.match(endpoint, /client_auto_publish/);
+  assert.match(endpoint, /website-assets-private/);
+  assert.match(endpoint, /website-assets-public/);
+  assert.equal(require("../../api/client-website-publishing.js").safeFilename(" My Best Photo!!.JPG "), "my-best-photo-.jpg");
+});
+
+test("the public feed exposes published CDN media only", () => {
+  const { mediaItem } = require("../../api/website-content-feed.js");
+  const row = { id: "media", alt_text: "An antique chest", caption: "Found a home" };
+  assert.equal(mediaItem(row, { status: "pending_review", public_url: "https://example.com/private.jpg" }), null);
+  const item = mediaItem(row, { status: "published", public_url: "https://vdbjlgmbpykjblprqnak.supabase.co/storage/v1/object/public/website-assets-public/site/photo.jpg", mime_type: "image/jpeg" });
+  assert.equal(item.url.includes("website-assets-public"), true);
+  assert.equal(item.altText, "An antique chest");
+});
+
+test("visitor stories use private signed uploads and cannot auto-publish", async () => {
+  const [endpoint, page] = await Promise.all([
+    projectFile("api/website-story-submission.js"),
+    projectFile("../Roots and Relics/src/pages/from-the-greenhouse/index.astro").catch(() => ""),
+  ]);
+  assert.match(endpoint, /createSignedStorageUpload/);
+  assert.match(endpoint, /website-assets-private/);
+  assert.match(endpoint, /status: "pending_review"/);
+  assert.doesNotMatch(endpoint, /status: "published"/);
+  assert.match(endpoint, /permissionToPublish/);
+  assert.match(endpoint, /rateLimit/);
+  if (page) assert.match(page, /Your photo stays private until reviewed/);
+});
