@@ -15,7 +15,7 @@
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
   <link rel="stylesheet" href="/client-portal/portal-apps.css?v=2">
   <link rel="stylesheet" href="/client-portal/support-workspace.css?v=6">
-  <link rel="stylesheet" href="/client-portal/assets-manager.css?v=12">
+  <link rel="stylesheet" href="/client-portal/assets-manager.css?v=19">
   <link rel="stylesheet" href="/website-request/request.css?v=9">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -108,7 +108,7 @@
               <div class="website-assets-folder-list" id="client-asset-folders"></div>
             </aside>
             <section class="website-assets-content">
-              <header class="website-assets-content-head" id="asset-toolbar" hidden><div><p class="portal-kicker">Folder contents</p><h1 id="client-selected-asset-name">Select a folder</h1><p id="client-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions"><button class="portal-button" id="open-upload" type="button">Upload files</button></div></header>
+              <header class="website-assets-content-head" id="asset-toolbar" hidden><div><p class="portal-kicker">Folder contents</p><h1 id="client-selected-asset-name">Select a folder</h1><p id="client-selected-asset-meta">Choose a folder from the left.</p></div><div class="website-assets-head-actions"><div class="website-assets-view-toggle" role="group" aria-label="File view"><button type="button" data-client-asset-view="list" aria-pressed="true">List</button><button type="button" data-client-asset-view="gallery" aria-pressed="false">Gallery</button></div><button class="portal-button" id="open-upload" type="button">Upload files</button></div></header>
               <div class="website-assets-batch" id="client-selection-toolbar" hidden><p class="portal-inline-status" id="client-selection-status" role="status"></p><div><button class="portal-button portal-button-secondary" id="client-clear-selection" type="button">Clear selection</button><button class="portal-button portal-button-secondary" id="client-download-selected" type="button">Download selected</button><button class="portal-button portal-button-secondary" id="client-copy-links" type="button" hidden>Copy published links</button><button class="portal-button portal-button-danger" id="client-delete-selected" type="button" hidden>Delete selected</button></div></div>
               <div class="website-assets-table" id="asset-grid"></div>
               <div class="website-assets-empty" id="portal-empty"><p>No files or assets have been added to this website yet.</p></div>
@@ -323,7 +323,7 @@
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
   <script type="module" src="/client-portal/portal-apps.js?v=10"></script>
   <script type="module" src="/client-portal/support-workspace.js?v=6"></script>
-  <script type="module" src="/client-portal/portal.js?v=21"></script>
+  <script type="module" src="/client-portal/portal.js?v=22"></script>
   <script type="module" src="/website-request/request.js?v=14"></script>
 </body>
 </html>

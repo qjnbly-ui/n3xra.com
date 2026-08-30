@@ -5,6 +5,8 @@ import test from "node:test";
 const filesSource = await readFile(new URL("../../account/admin/files/files.js", import.meta.url), "utf8");
 const workspaceFilesSource = await readFile(new URL("../../n3xra-admin/websites/websites-admin.js", import.meta.url), "utf8");
 const workspaceFilesPage = await readFile(new URL("../../n3xra-admin/assets/index.html", import.meta.url), "utf8");
+const clientFilesSource = await readFile(new URL("../../client-portal/portal.js", import.meta.url), "utf8");
+const clientFilesPage = await readFile(new URL("../../client-portal/index.html", import.meta.url), "utf8");
 const internalFilesPage = await readFile(new URL("../../account/admin/files/index.html", import.meta.url), "utf8");
 const previewSource = await readFile(new URL("../../client-portal/asset-preview-modal.js", import.meta.url), "utf8");
 const internalFilesStyles = await readFile(new URL("../../account/admin/files/files.css", import.meta.url), "utf8");
@@ -63,13 +65,16 @@ test("organization workspace files show and filter live usage states", () => {
   assert.match(workspaceFilesSource, /label: "Ready to publish"/);
 });
 
-test("both file areas offer persistent list and gallery views", () => {
+test("all file areas offer persistent list and gallery views", () => {
   assert.match(internalFilesPage, /data-file-view="list"/);
   assert.match(internalFilesPage, /data-file-view="gallery"/);
   assert.match(filesSource, /n3xra-internal-files-view/);
   assert.match(workspaceFilesPage, /data-asset-view="list"/);
   assert.match(workspaceFilesPage, /data-asset-view="gallery"/);
   assert.match(workspaceFilesSource, /n3xra-website-assets-view/);
+  assert.match(clientFilesPage, /data-client-asset-view="list"/);
+  assert.match(clientFilesPage, /data-client-asset-view="gallery"/);
+  assert.match(clientFilesSource, /n3xra-client-files-view/);
 });
 
 test("full-quality previews navigate previous and next on desktop and mobile", () => {
@@ -82,6 +87,9 @@ test("full-quality previews navigate previous and next on desktop and mobile", (
   assert.match(previewSource, /event\.key === "ArrowRight"/);
   assert.match(workspaceFilesSource, /Full quality/);
   assert.match(workspaceFilesSource, /onNext: nextVersion/);
+  assert.match(clientFilesSource, /onPrevious: previousVersion/);
+  assert.match(clientFilesSource, /onNext: nextVersion/);
+  assert.match(clientFilesSource, /clientPreviewVersionIds/);
 });
 
 test("gallery cards keep natural filename order without overlapping", () => {
@@ -89,6 +97,7 @@ test("gallery cards keep natural filename order without overlapping", () => {
   assert.match(filesSource, /naturalFilenameCollator\.compare\(left\.name, right\.name\)/);
   assert.match(workspaceFilesSource, /Intl\.Collator\(undefined, \{ numeric: true/);
   assert.match(workspaceFilesSource, /naturalFilenameCollator\.compare\(assetSortName\(left\), assetSortName\(right\)\)/);
+  assert.match(clientFilesSource, /naturalFilenameCollator\.compare\(assetSortName\(left\), assetSortName\(right\)\)/);
   assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \.n3xra-file-row \{[^}]*min-height:280px;[^}]*height:max-content;/);
   assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \.website-asset-version \{[^}]*min-height:280px;[^}]*height:max-content;/);
 });
@@ -99,8 +108,13 @@ test("mobile galleries load quickly and keep navigation reachable", () => {
   assert.match(filesSource, /fullQualityFilePreviewCache/);
   assert.match(workspaceFilesSource, /new IntersectionObserver/);
   assert.match(workspaceFilesSource, /fullQualityPreviewCache/);
+  assert.match(clientFilesSource, /new IntersectionObserver/);
+  assert.match(clientFilesSource, /rootMargin: "500px 0px"/);
+  assert.match(clientFilesSource, /clientFullQualityPreviewCache/);
   assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
   assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
   assert.match(internalFilesStyles, /\.n3xra-preview-navigation button \{ flex:1; min-height:48px;/);
   assert.match(workspaceFilesStyles, /\.website-asset-preview-navigation button \{ flex:1; min-height:48px;/);
+  assert.match(workspaceFilesStyles, /grid-template-rows:auto minmax\(0,1fr\) auto/);
+  assert.match(workspaceFilesStyles, /height:calc\(100dvh - 1rem\)/);
 });

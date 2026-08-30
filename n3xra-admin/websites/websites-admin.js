@@ -3,7 +3,7 @@ import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { confirmAdminAction, promptAdminText } from "/account/admin/admin-dialogs.js";
-import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=2";
+import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=3";
 import { resolveWebsiteRepository, resolveWebsiteUrl } from "/client-portal/website-url.js";
 import {
   humanizeWebsiteAssetFilename,

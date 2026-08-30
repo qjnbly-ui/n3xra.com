@@ -1,7 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
-import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=1";
+import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=3";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
 import {
   portalLoginUrl,
@@ -59,11 +59,16 @@ let canEditSelectedWebsite = false;
 let assets = [];
 let versions = [];
 let selectedAssetCategory = "";
+let clientAssetViewMode = window.localStorage.getItem("n3xra-client-files-view") === "gallery" ? "gallery" : "list";
+let clientPreviewVersionIds = [];
 const selectedClientVersionIds = new Set();
 let batchItems = [];
 let batchReviewIndex = 0;
 let activePortalView = "dashboard";
 let toastTimer;
+let clientVersionPreviewObserver = null;
+const clientFullQualityPreviewCache = new Map();
+const naturalFilenameCollator = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" });
 const isAssetsRoute = document.body.classList.contains("client-assets-view")
   || document.body.dataset.portalView === "assets"
   || window.location.pathname.startsWith("/client-portal/assets")
@@ -164,47 +169,62 @@ function assetFileType(version) {
 }
 
 function assetFilePreviewMarkup(version, type) {
-  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
-async function hydrateVersionPreviews() {
-  const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
-  await Promise.all(previews.map(async (preview) => {
-    const version = versions.find((row) => row.id === preview.dataset.versionPreview);
-    if (!version) return;
-    const type = assetFileType(version);
-    if (!['image', 'pdf'].includes(type.tone)) return;
-    let url = version.public_url;
-    if (!url) {
-      const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
-      if (error || !data?.signedUrl) return;
-      url = data.signedUrl;
-    }
-    const image = preview.querySelector("img");
-    const canvas = preview.querySelector("canvas");
-    const fallback = preview.querySelector(":scope > span");
-    if (!url || !preview.isConnected) return;
-    if (type.tone === "pdf" && canvas) {
-      try {
-        await renderPdfFirstPage(url, canvas);
-        if (!preview.isConnected) return;
-        canvas.hidden = false;
-        if (fallback) fallback.hidden = true;
-        preview.classList.add("has-preview");
-      } catch {
-        // Keep the PDF badge when the first page cannot be rendered.
-      }
-      return;
-    }
-    if (!image) return;
-    image.addEventListener("load", () => {
+async function hydrateVersionPreview(preview) {
+  const version = versions.find((row) => row.id === preview.dataset.versionPreview);
+  if (!version || preview.dataset.previewHydrated === "true") return;
+  preview.dataset.previewHydrated = "true";
+  const type = assetFileType(version);
+  if (!["image", "pdf"].includes(type.tone)) return;
+  let url = version.public_url;
+  if (!url) {
+    const { data, error } = await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
+    if (error || !data?.signedUrl) return;
+    url = data.signedUrl;
+  }
+  const image = preview.querySelector("img");
+  const canvas = preview.querySelector("canvas");
+  const fallback = preview.querySelector(":scope > span");
+  if (!url || !preview.isConnected) return;
+  if (type.tone === "pdf" && canvas) {
+    try {
+      await renderPdfFirstPage(url, canvas);
       if (!preview.isConnected) return;
-      image.hidden = false;
+      canvas.hidden = false;
       if (fallback) fallback.hidden = true;
       preview.classList.add("has-preview");
-    }, { once: true });
-    image.src = url;
-  }));
+    } catch {
+      // Keep the PDF badge when the first page cannot be rendered.
+    }
+    return;
+  }
+  if (!image) return;
+  image.addEventListener("load", () => {
+    if (!preview.isConnected) return;
+    image.hidden = false;
+    if (fallback) fallback.hidden = true;
+    preview.classList.add("has-preview");
+  }, { once: true });
+  image.src = url;
+}
+
+function hydrateVersionPreviews() {
+  clientVersionPreviewObserver?.disconnect();
+  const previews = Array.from(assetGrid?.querySelectorAll("[data-version-preview]") || []);
+  if (!("IntersectionObserver" in window)) {
+    previews.slice(0, 24).forEach((preview) => void hydrateVersionPreview(preview));
+    return;
+  }
+  clientVersionPreviewObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (!entry.isIntersecting) return;
+      clientVersionPreviewObserver?.unobserve(entry.target);
+      void hydrateVersionPreview(entry.target);
+    });
+  }, { root: assetGrid, rootMargin: "500px 0px" });
+  previews.forEach((preview) => clientVersionPreviewObserver.observe(preview));
 }
 
 function assetTableHeader(versionIds = []) {
@@ -214,6 +234,12 @@ function assetTableHeader(versionIds = []) {
 
 function assetCategory(asset) {
   return String(asset?.category || "Uncategorized").trim() || "Uncategorized";
+}
+
+function assetSortName(asset) {
+  const current = versions.find((version) => version.id === asset.current_version_id)
+    || versions.find((version) => version.asset_id === asset.id);
+  return current?.original_filename || asset.label || asset.asset_key || "";
 }
 
 function folderLabel(value) {
@@ -482,10 +508,13 @@ async function loadAssets() {
 }
 
 function renderAssets() {
+  assetGrid?.classList.toggle("is-gallery", clientAssetViewMode === "gallery");
+  document.querySelectorAll("[data-client-asset-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.clientAssetView === clientAssetViewMode)));
   if (!assets.length) {
     assetGrid.innerHTML = "";
     if (assetFolderList) assetFolderList.innerHTML = "";
     selectedAssetCategory = "";
+    clientPreviewVersionIds = [];
     selectedClientVersionIds.clear();
     if (clientSelectionToolbar) clientSelectionToolbar.hidden = true;
     if (selectedAssetName) selectedAssetName.textContent = "Select a folder";
@@ -497,7 +526,9 @@ function renderAssets() {
 
   const categories = [...new Set(assets.map(assetCategory))].sort((left, right) => left.localeCompare(right));
   if (!categories.includes(selectedAssetCategory)) selectedAssetCategory = categories[0];
-  const folderAssets = assets.filter((asset) => assetCategory(asset) === selectedAssetCategory);
+  const folderAssets = assets
+    .filter((asset) => assetCategory(asset) === selectedAssetCategory)
+    .sort((left, right) => naturalFilenameCollator.compare(assetSortName(left), assetSortName(right)));
   const query = String(assetSearch?.value || "").trim().toLowerCase();
   const visibleAssets = folderAssets.filter((asset) => [asset.label, asset.asset_key, asset.category].some((value) => String(value || "").toLowerCase().includes(query)));
   const folderVersions = versions.filter((version) => folderAssets.some((asset) => asset.id === version.asset_id));
@@ -523,8 +554,9 @@ function renderAssets() {
     });
   });
   const visibleVersionIds = visibleAssets.flatMap((asset) => versions.filter((version) => version.asset_id === asset.id).map((version) => version.id));
+  clientPreviewVersionIds = visibleVersionIds;
   assetGrid.innerHTML = assetTableHeader(visibleVersionIds) + (rows.length ? rows.join("") : '<div class="website-assets-empty"><p>No files match this search.</p></div>');
-  void hydrateVersionPreviews();
+  hydrateVersionPreviews();
   renderClientSelectionActions();
 }
 
@@ -732,15 +764,37 @@ async function downloadVersion(versionId) {
   if (url) window.open(url, "_blank", "noopener");
 }
 
+async function clientFullQualityPreviewUrl(version) {
+  const cached = clientFullQualityPreviewCache.get(version.id);
+  if (cached?.expiresAt > Date.now()) return cached.url;
+  const previewResult = version.storage_bucket && version.storage_path
+    ? await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600)
+    : { data: { signedUrl: version.public_url }, error: null };
+  if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
+  clientFullQualityPreviewCache.set(version.id, { url: previewResult.data.signedUrl, expiresAt: Date.now() + 8 * 60 * 1000 });
+  return previewResult.data.signedUrl;
+}
+
 async function openClientVersion(versionId) {
   const version = versions.find((row) => row.id === versionId);
   if (!version) return;
-  const previewResult = version.public_url
-    ? { data: { signedUrl: version.public_url }, error: null }
-    : await supabase.storage.from(version.storage_bucket).createSignedUrl(version.storage_path, 600);
-  if (previewResult.error || !previewResult.data?.signedUrl) throw previewResult.error || new Error("A preview link could not be created.");
+  const previewUrl = await clientFullQualityPreviewUrl(version);
   const downloadUrl = version.public_url || await clientDownloadUrl(version);
-  await openAssetPreview({ name: version.original_filename, mimeType: version.mime_type, url: previewResult.data.signedUrl, downloadUrl, kicker: "Client Files & Assets" });
+  const index = clientPreviewVersionIds.indexOf(version.id);
+  const previousVersion = index > 0 ? versions.find((item) => item.id === clientPreviewVersionIds[index - 1]) : null;
+  const nextVersion = index >= 0 && index < clientPreviewVersionIds.length - 1 ? versions.find((item) => item.id === clientPreviewVersionIds[index + 1]) : null;
+  await openAssetPreview({
+    name: version.original_filename,
+    mimeType: version.mime_type,
+    url: previewUrl,
+    downloadUrl,
+    kicker: "Client Files & Assets · Full quality",
+    onPrevious: previousVersion ? () => openClientVersion(previousVersion.id) : null,
+    onNext: nextVersion ? () => openClientVersion(nextVersion.id) : null,
+    position: index + 1,
+    total: clientPreviewVersionIds.length,
+  });
+  [previousVersion, nextVersion].filter(Boolean).forEach((item) => void clientFullQualityPreviewUrl(item).catch(() => {}));
 }
 
 async function clientDownloadUrl(version) {
@@ -1014,6 +1068,11 @@ async function initPortal() {
     clientDownloadSelectedButton?.addEventListener("click", downloadSelectedClientFiles);
     clientCopyLinksButton?.addEventListener("click", copySelectedClientLinks);
     clientDeleteSelectedButton?.addEventListener("click", deleteSelectedClientFiles);
+    document.querySelectorAll("[data-client-asset-view]").forEach((button) => button.addEventListener("click", () => {
+      clientAssetViewMode = button.dataset.clientAssetView === "gallery" ? "gallery" : "list";
+      window.localStorage.setItem("n3xra-client-files-view", clientAssetViewMode);
+      renderAssets();
+    }));
     assetFolderList?.addEventListener("click", (event) => {
       const folder = event.target.closest("[data-select-category]");
       if (!folder) return;
