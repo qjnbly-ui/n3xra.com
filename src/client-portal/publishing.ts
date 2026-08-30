@@ -95,7 +95,7 @@ function renderSubmissions(): void {
   element("submission-list").innerHTML = submissions.length ? submissions.map((submission) => {
     const version = versions.find((item) => item.id === submission.asset_version_id);
     const preview = version?.public_url ? `<img src="${escapeHtml(version.public_url)}" alt="">` : '<span aria-hidden="true"></span>';
-    return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><button type="button" data-use-submission="${submission.id}">Review submission</button></article>`;
+    return `<article class="publishing-submission">${preview}<div><strong>${escapeHtml(submission.story_title || `A find from ${submission.submitter_name}`)}</strong><small>${escapeHtml(submission.submitter_name)} · ${new Date(submission.created_at).toLocaleDateString()}</small></div><div class="publishing-submission-actions"><button type="button" data-use-submission="${submission.id}">Review submission</button><button type="button" class="publishing-danger" data-delete-submission="${submission.id}">Delete submission</button></div></article>`;
   }).join("") : '<p class="publishing-list-empty">No community stories are waiting for review.</p>';
 }
 
@@ -225,7 +225,7 @@ async function uploadNewImage(): Promise<void> {
   const label = file.name.replace(/\.[^.]+$/, "").replaceAll(/[-_]+/g, " ");
   uploadStatus.classList.remove("is-error");
   uploadStatus.textContent = "Uploading the full-quality image…";
-  const { error: assetError } = await supabase.from("website_assets").insert({ id: assetId, website_id: website.id, asset_key: fileKey(file.name), label, category: "image", replacement_type: "html_src", alt_text: altText || null, created_by_user_id: session.user.id });
+  const { error: assetError } = await supabase.from("website_assets").insert({ id: assetId, website_id: website.id, asset_key: fileKey(file.name), label, category: "journal", replacement_type: "html_src", alt_text: altText || null, created_by_user_id: session.user.id });
   if (assetError) throw assetError;
   const storagePath = `${website.id}/${assetId}/v1-${versionId}-${safeFilename(file.name)}`;
   try {
@@ -287,7 +287,24 @@ function bindEvents(): void {
   element("media-search").addEventListener("input", renderLibrary);
   element("post-list").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-edit-post]"); if (button) void editPost(button.dataset.editPost || ""); });
   element("selected-media").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-remove-media]"); if (!button) return; selectedMedia.splice(Number(button.dataset.removeMedia), 1); renderSelectedMedia(); });
-  element("submission-list").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-use-submission]"); if (button) void useSubmission(button.dataset.useSubmission || "").catch((error: unknown) => { showStatus(error instanceof Error ? error.message : "The submission could not be opened.", true); }); });
+  element("submission-list").addEventListener("click", (event) => {
+    const target = event.target as HTMLElement;
+    const deleteButton = target.closest<HTMLButtonElement>("[data-delete-submission]");
+    if (deleteButton) {
+      const submissionId = deleteButton.dataset.deleteSubmission || "";
+      if (!submissionId || !window.confirm("Delete this submission and its photograph permanently?")) return;
+      void (async () => {
+        deleteButton.disabled = true;
+        const response = await fetch("/api/client-website-publishing", { method: "POST", headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json" }, body: JSON.stringify({ action: "delete_story_submission", websiteId: website.id, submissionId }) });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(String(result.error || "The submission could not be deleted."));
+        await loadData();
+      })().catch((error: unknown) => { deleteButton.disabled = false; showStatus(error instanceof Error ? error.message : "The submission could not be deleted.", true); });
+      return;
+    }
+    const reviewButton = target.closest<HTMLButtonElement>("[data-use-submission]");
+    if (reviewButton) void useSubmission(reviewButton.dataset.useSubmission || "").catch((error: unknown) => { showStatus(error instanceof Error ? error.message : "The submission could not be opened.", true); });
+  });
   element("media-library-grid").addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-library-version]"); const version = versions.find((row) => row.id === button?.dataset.libraryVersion); const asset = assets.find((row) => row.id === version?.asset_id); if (!version?.public_url || !asset || selectedMedia.some((row) => row.versionId === version.id)) return; selectedMedia.push({ assetId: asset.id, versionId: version.id, url: version.public_url, label: asset.label, altText: asset.alt_text || "" }); renderSelectedMedia(); mediaModal?.close(); });
   document.querySelectorAll<HTMLButtonElement>("[data-media-tab]").forEach((button) => button.addEventListener("click", () => { document.querySelectorAll("[data-media-tab]").forEach((tab) => tab.classList.toggle("is-active", tab === button)); element("media-library").hidden = button.dataset.mediaTab !== "library"; element("media-upload").hidden = button.dataset.mediaTab !== "upload"; }));
   element("upload-media").addEventListener("click", () => void uploadNewImage().catch((error: unknown) => { const target = element("upload-status"); target.textContent = error instanceof Error ? error.message : "Upload failed."; target.classList.add("is-error"); }));

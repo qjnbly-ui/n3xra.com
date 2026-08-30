@@ -72,7 +72,7 @@ async function finalize(body) {
   if (!await storageObjectExists(PRIVATE_BUCKET, submission.upload_path)) throw apiError("Finish uploading the photograph before submitting.", 409);
   const assetId = crypto.randomUUID(), versionId = crypto.randomUUID();
   const filename = submission.upload_path.split("/").pop() || "customer-photo.jpg";
-  await serviceRequest("website_assets", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: assetId, website_id: submission.website_id, asset_key: `customer_story_${submission.id.replaceAll("-", "")}`, label: submission.story_title || "Customer story photograph", category: "social", replacement_type: "html_src", status: "active" }) });
+  await serviceRequest("website_assets", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: assetId, website_id: submission.website_id, asset_key: `customer_story_${submission.id.replaceAll("-", "")}`, label: submission.story_title || "Customer story photograph", category: "visitor_submission", replacement_type: "html_src", status: "active" }) });
   await serviceRequest("website_asset_versions", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: versionId, asset_id: assetId, version_number: 1, status: "pending_review", storage_bucket: PRIVATE_BUCKET, storage_path: submission.upload_path, original_filename: filename, change_note: "Submitted through Share Your Find" }) });
   await serviceRequest(`website_story_submissions?id=eq.${encodeURIComponent(submission.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ asset_id: assetId, asset_version_id: versionId, upload_secret_hash: null }) });
   return { accepted: true, submissionId };

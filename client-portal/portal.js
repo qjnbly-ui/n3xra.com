@@ -245,7 +245,7 @@ function assetSortName(asset) {
 
 function folderLabel(value) {
   const normalized = String(value || "Uncategorized").trim().toLowerCase().replaceAll("_", " ");
-  const labels = { image: "Images", images: "Images", brand: "Brand assets", document: "Documents", documents: "Documents", video: "Videos", font: "Fonts", other: "Other files", uncategorized: "Uncategorized" };
+  const labels = { image: "Images", images: "Images", journal: "Journal", "visitor submission": "Visitor submissions", brand: "Brand assets", document: "Documents", documents: "Documents", video: "Videos", font: "Fonts", other: "Other files", uncategorized: "Uncategorized" };
   return labels[normalized] || normalized.replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 

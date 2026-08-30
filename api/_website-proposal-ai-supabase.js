@@ -133,6 +133,20 @@ async function downloadStorageObject(bucket, path) {
   return Buffer.from(await response.arrayBuffer());
 }
 
+async function deleteStorageObject(bucket, path) {
+  if (!bucket || !path) return false;
+  const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
+    method: "DELETE",
+    headers: serviceHeaders(),
+  });
+  if (response.status === 404) return false;
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw apiError(text || `Unable to delete ${path}.`, response.status);
+  }
+  return true;
+}
+
 async function uploadStorageObject(bucket, path, bytes, { contentType = "application/octet-stream", cacheControl = "31536000", upsert = false } = {}) {
   const response = await fetch(`${SUPABASE_URL}/storage/v1/object/${encodeStoragePath(bucket, path)}`, {
     method: "POST",
@@ -176,6 +190,7 @@ module.exports = {
   apiError,
   callerRpc,
   createSignedStorageUpload,
+  deleteStorageObject,
   downloadStorageObject,
   parseJson,
   serviceRequest,

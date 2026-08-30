@@ -1,6 +1,7 @@
 const {
   SUPABASE_URL,
   apiError,
+  deleteStorageObject,
   downloadStorageObject,
   parseJson,
   serviceRequest,
@@ -102,6 +103,59 @@ async function publishAssetVersion(websiteId, versionId, userId) {
   return { assetId: asset.id, versionId: version.id, publicUrl };
 }
 
+function publicStorageLocation(publicUrl) {
+  if (!publicUrl) return null;
+  try {
+    const path = new URL(publicUrl).pathname;
+    const prefix = "/storage/v1/object/public/";
+    const offset = path.indexOf(prefix);
+    if (offset < 0) return null;
+    const remainder = path.slice(offset + prefix.length);
+    const separator = remainder.indexOf("/");
+    if (separator < 1 || separator === remainder.length - 1) return null;
+    return { bucket: decodeURIComponent(remainder.slice(0, separator)), path: remainder.slice(separator + 1).split("/").map(decodeURIComponent).join("/") };
+  } catch {
+    return null;
+  }
+}
+
+async function deleteStorySubmission(websiteId, submissionId, userId) {
+  await authorizeEditor(userId, websiteId);
+  const submissions = await serviceRequest(
+    `website_story_submissions?select=id,website_id,status,upload_path,asset_id,post_id&` +
+    `id=eq.${encodeURIComponent(submissionId)}&website_id=eq.${encodeURIComponent(websiteId)}&limit=1`,
+  );
+  const submission = one(submissions);
+  if (!submission) throw apiError("The visitor submission no longer exists.", 404);
+  if (submission.post_id || submission.status === "published") {
+    throw apiError("Delete the published post before deleting its original submission.", 409);
+  }
+
+  const versions = submission.asset_id
+    ? await serviceRequest(`website_asset_versions?select=storage_bucket,storage_path,public_url&asset_id=eq.${encodeURIComponent(submission.asset_id)}`)
+    : [];
+  const locations = new Map();
+  if (submission.upload_path) locations.set(`${PRIVATE_BUCKET}:${submission.upload_path}`, { bucket: PRIVATE_BUCKET, path: submission.upload_path });
+  for (const version of Array.isArray(versions) ? versions : []) {
+    if (version.storage_bucket && version.storage_path) locations.set(`${version.storage_bucket}:${version.storage_path}`, { bucket: version.storage_bucket, path: version.storage_path });
+    const published = publicStorageLocation(version.public_url);
+    if (published) locations.set(`${published.bucket}:${published.path}`, published);
+  }
+  for (const location of locations.values()) await deleteStorageObject(location.bucket, location.path);
+
+  await serviceRequest(`website_story_submissions?id=eq.${encodeURIComponent(submission.id)}&website_id=eq.${encodeURIComponent(websiteId)}`, {
+    method: "DELETE",
+    headers: { Prefer: "return=minimal" },
+  });
+  if (submission.asset_id) {
+    await serviceRequest(`website_assets?id=eq.${encodeURIComponent(submission.asset_id)}&website_id=eq.${encodeURIComponent(websiteId)}`, {
+      method: "DELETE",
+      headers: { Prefer: "return=minimal" },
+    });
+  }
+  return { deleted: true, submissionId: submission.id };
+}
+
 module.exports = async function handler(req, res) {
   res.setHeader("Cache-Control", "private, no-store");
   if (req.method !== "POST") {
@@ -114,15 +168,24 @@ module.exports = async function handler(req, res) {
     const action = String(body?.action || "");
     const websiteId = String(body?.websiteId || "");
     if (!UUID_PATTERN.test(websiteId)) throw apiError("Choose a valid website.", 400);
-    if (action !== "publish_asset_version") throw apiError("Choose a valid publishing action.", 400);
-    const versionId = String(body?.versionId || "");
-    if (!UUID_PATTERN.test(versionId)) throw apiError("Choose a valid uploaded image.", 400);
-    return res.status(200).json(await publishAssetVersion(websiteId, versionId, user.id));
+    if (action === "publish_asset_version") {
+      const versionId = String(body?.versionId || "");
+      if (!UUID_PATTERN.test(versionId)) throw apiError("Choose a valid uploaded image.", 400);
+      return res.status(200).json(await publishAssetVersion(websiteId, versionId, user.id));
+    }
+    if (action === "delete_story_submission") {
+      const submissionId = String(body?.submissionId || "");
+      if (!UUID_PATTERN.test(submissionId)) throw apiError("Choose a valid visitor submission.", 400);
+      return res.status(200).json(await deleteStorySubmission(websiteId, submissionId, user.id));
+    }
+    throw apiError("Choose a valid publishing action.", 400);
   } catch (error) {
     return res.status(Number(error?.status || 500)).json({ error: error?.message || "Website publishing could not be completed." });
   }
 };
 
 module.exports.authorizeEditor = authorizeEditor;
+module.exports.deleteStorySubmission = deleteStorySubmission;
 module.exports.publishAssetVersion = publishAssetVersion;
+module.exports.publicStorageLocation = publicStorageLocation;
 module.exports.safeFilename = safeFilename;
