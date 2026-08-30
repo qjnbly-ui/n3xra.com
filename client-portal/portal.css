@@ -719,10 +719,29 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
 
 .portal-access-form {
   display: grid;
-  grid-template-columns: minmax(12rem, 1fr) minmax(9rem, 0.35fr) auto;
+  grid-template-columns: minmax(10rem, .8fr) minmax(14rem, 1.2fr) minmax(9rem, .35fr) auto;
   gap: 0.75rem;
   align-items: end;
 }
+
+.portal-access-limit-form {
+  display: grid;
+  grid-template-columns: minmax(16rem, 1fr) minmax(10rem, .35fr) minmax(10rem, .35fr) auto;
+  gap: .75rem;
+  align-items: end;
+  margin-top: 1rem;
+  padding: .9rem;
+  border: 1px solid var(--portal-border);
+  border-radius: .75rem;
+  background: var(--portal-surface);
+}
+
+.portal-access-limit-form > div { align-self: center; }
+.portal-access-limit-form > div strong { display: block; }
+.portal-access-limit-form > div p { margin: .2rem 0 0; color: var(--portal-muted); font-size: .76rem; }
+.portal-access-limit-form label { display: grid; gap: .4rem; color: var(--portal-muted); font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; }
+.portal-access-limit-form input,
+.portal-access-limit-form select { width: 100%; min-height: 2.75rem; padding: .65rem .75rem; border: 1px solid var(--portal-border); border-radius: .65rem; background: #fff; color: var(--portal-ink); font: inherit; }
 
 .portal-access-form label {
   display: grid;
@@ -2647,7 +2666,8 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
     grid-template-columns: 1fr;
   }
 
-  .portal-access-form {
+  .portal-access-form,
+  .portal-access-limit-form {
     grid-template-columns: 1fr;
   }
 

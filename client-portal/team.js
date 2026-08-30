@@ -7,6 +7,10 @@ const memberList = document.querySelector("#team-member-list");
 const inviteList = document.querySelector("#team-invite-list");
 const inviteForm = document.querySelector("#team-invite-form");
 const inviteProductAccess = document.querySelector("#team-invite-product-access");
+const limitForm = document.querySelector("#team-limit-form");
+const limitMode = limitForm?.querySelector('[name="limit-mode"]') || null;
+const limitValue = limitForm?.querySelector('[name="limit-value"]') || null;
+const limitValueWrap = limitForm?.querySelector("[data-limit-value]") || null;
 const supabase = createBrowserSupabase();
 let organizationId = "";
 let snapshot = null;
@@ -63,6 +67,17 @@ function renderMembers() {
         return `<article class="client-team-row"><div class="client-team-person"><span class="client-team-avatar" aria-hidden="true">${escapeHtml(initials(member.full_name, member.email))}</span><div class="client-team-person-copy"><strong>${escapeHtml(member.full_name || member.email)}</strong><span>${escapeHtml(member.email)}</span></div></div><div class="client-team-access"><strong>${escapeHtml(access)}</strong><span class="client-team-meta">Added ${escapeHtml(formatDate(member.created_at))}</span></div>${controls}</article>`;
     }).join("");
 }
+function renderTeamLimit() {
+    if (!snapshot || !limitForm || !limitMode || !limitValue || !limitValueWrap)
+        return;
+    const userLimit = Number(snapshot.organization.user_limit || 0);
+    const isUnlimited = userLimit <= 0;
+    limitMode.value = isUnlimited ? "unlimited" : "custom";
+    limitValueWrap.hidden = isUnlimited;
+    limitValue.value = String(isUnlimited ? Math.max(snapshot.members.length, 1) : userLimit);
+    limitForm.querySelectorAll("input,select,button")
+        .forEach((control) => { control.disabled = !snapshot?.can_manage; });
+}
 function renderInvites() {
     if (!snapshot || !inviteList)
         return;
@@ -116,6 +131,7 @@ async function loadSnapshot() {
     if (invitePanel)
         invitePanel.hidden = !snapshot.can_manage;
     renderMembers();
+    renderTeamLimit();
     renderInvites();
     renderProductAccess();
     renderInviteProductAccess();
@@ -164,27 +180,56 @@ inviteForm?.addEventListener("submit", (event) => {
         const values = new FormData(inviteForm);
         if (button) {
             button.disabled = true;
-            button.textContent = "Sending…";
+            button.textContent = "Adding…";
         }
-        showMessage("Creating the secure invitation…");
+        showMessage("Checking for an existing portal account…");
         try {
             const productAccess = Object.fromEntries([...inviteForm.querySelectorAll("[data-invite-product-access]")]
                 .filter((select) => Boolean(select.value))
                 .map((select) => [String(select.dataset.inviteProductAccess || ""), select.value]));
-            const invite = await rpc("client_portal_create_team_invite", { input_organization_id: organizationId, input_recipient_email: String(values.get("email") || ""), input_recipient_name: String(values.get("name") || ""), input_role: String(values.get("role") || "viewer"), input_product_access: productAccess });
-            await sendInviteEmail(invite);
+            const result = await rpc("client_portal_add_or_invite_team_member", { input_organization_id: organizationId, input_recipient_email: String(values.get("email") || ""), input_recipient_name: String(values.get("name") || ""), input_role: String(values.get("role") || "viewer"), input_product_access: productAccess });
+            if (result.mode === "invited" && result.id)
+                await sendInviteEmail({ id: result.id });
             inviteForm.reset();
             await loadSnapshot();
-            showMessage("Invitation sent.");
+            showMessage(result.mode === "added" ? "Existing portal account added immediately." : result.mode === "already_member" ? "That account already has access." : "No confirmed account was found, so an invitation was sent.");
         }
         catch (error) {
-            showMessage(error instanceof Error ? error.message : "The invitation could not be sent.", true);
+            showMessage(error instanceof Error ? error.message : "This person could not be added.", true);
         }
         finally {
             if (button) {
                 button.disabled = false;
-                button.textContent = "Send invitation";
+                button.textContent = "Add person";
             }
+        }
+    })();
+});
+limitMode?.addEventListener("change", () => {
+    if (limitValueWrap)
+        limitValueWrap.hidden = limitMode.value !== "custom";
+});
+limitForm?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    void (async () => {
+        const button = limitForm.querySelector('button[type="submit"]');
+        if (button)
+            button.disabled = true;
+        showMessage("Saving the team limit…");
+        try {
+            const requestedLimit = limitMode?.value === "custom" ? Number(limitValue?.value || 0) : 0;
+            if (limitMode?.value === "custom" && requestedLimit < 1)
+                throw new Error("Enter a team limit of at least one person.");
+            await rpc("client_portal_update_team_limit", { input_organization_id: organizationId, input_user_limit: requestedLimit });
+            await loadSnapshot();
+            showMessage(requestedLimit > 0 ? `Team limit set to ${requestedLimit}.` : "Team access is unlimited.");
+        }
+        catch (error) {
+            showMessage(error instanceof Error ? error.message : "The team limit could not be saved.", true);
+        }
+        finally {
+            if (button)
+                button.disabled = false;
         }
     })();
 });

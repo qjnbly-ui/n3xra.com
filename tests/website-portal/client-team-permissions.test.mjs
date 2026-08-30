@@ -18,11 +18,14 @@ test("the client portal provides one shared Organization Admin workspace", async
   assert.match(html, /id="organization-access-body"/);
   assert.match(html, /id="team-invite-form"/);
   assert.match(html, /id="team-invite-product-access"/);
+  assert.match(html, /id="team-limit-form"/);
+  assert.match(html, /Unlimited by default/);
   assert.match(html, /Administrator/);
   assert.match(html, /Editor/);
   assert.match(html, /View only/);
   assert.match(script, /client_portal_team_snapshot/);
-  assert.match(script, /client_portal_create_team_invite/);
+  assert.match(script, /client_portal_add_or_invite_team_member/);
+  assert.match(script, /client_portal_update_team_limit/);
   assert.match(script, /send-client-team-invite/);
   assert.match(script, /client_portal_update_team_member/);
   assert.match(script, /client_portal_update_product_member_access/);
@@ -84,19 +87,20 @@ test("organization owners receive the same admin entry point in branded and mast
   assert.match(accountScript, /organizationAdminLink\.href = `\/client-portal\/team\/\?organization=/);
 });
 
-test("N3XRA website administration uses the same client invitation workflow", async () => {
+test("N3XRA website administration uses the same direct-add and invitation workflow", async () => {
   const [html, admin, edge] = await Promise.all([
     projectFile("n3xra-admin/websites/index.html"),
     projectFile("n3xra-admin/websites/websites-admin.js"),
     projectFile("supabase/functions/send-client-team-invite/index.ts"),
   ]);
 
-  assert.match(html, /Existing users sign in; new users create their account/);
-  assert.match(html, /Send invitation/);
+  assert.match(html, /Add a confirmed N3XRA account immediately/);
+  assert.match(html, /Add person/);
+  assert.match(html, /id="member-limit-form"/);
   assert.match(html, /value="account_admin">Administrator/);
-  assert.doesNotMatch(html, /Assign an existing N3XRA account/);
   assert.match(admin, /client_portal_team_snapshot/);
-  assert.match(admin, /client_portal_create_team_invite/);
+  assert.match(admin, /client_portal_add_or_invite_team_member/);
+  assert.match(admin, /client_portal_update_team_limit/);
   assert.match(admin, /send-client-team-invite/);
   assert.match(admin, /client_portal_update_team_member/);
   assert.match(admin, /client_portal_remove_team_member/);
@@ -104,6 +108,22 @@ test("N3XRA website administration uses the same client invitation workflow", as
   assert.match(admin, /client_portal_revoke_team_invite/);
   assert.match(edge, /platform_admins/);
   assert.match(edge, /\["owner", "admin"\]/);
+});
+
+test("confirmed accounts are attached immediately and organization teams default to unlimited", async () => {
+  const migration = await projectFile("supabase/migrations/20260830015340_direct_existing_member_access_and_unlimited_teams.sql");
+
+  assert.match(migration, /alter column user_limit set default 0/);
+  assert.match(migration, /Zero means unlimited/);
+  assert.match(migration, /auth_user\.email_confirmed_at is not null/);
+  assert.match(migration, /client_portal_add_or_invite_team_member/);
+  assert.match(migration, /client_portal_apply_member_access/);
+  assert.match(migration, /target_user_limit > 0 and current_member_count >= target_user_limit/);
+  assert.match(migration, /client_portal_update_team_limit/);
+  assert.match(migration, /Only an account administrator can add team members/);
+  assert.match(migration, /revoke all on function public\.client_portal_apply_member_access[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.client_portal_add_or_invite_team_member[\s\S]*to authenticated/);
+  assert.match(migration, /join auth\.users auth_user[\s\S]*invite\.redeemed_uses < invite\.max_uses/);
 });
 
 test("legacy websites expose a platform-admin-only organization connection without activating other products", async () => {

@@ -56,6 +56,10 @@ const memberRole = document.getElementById("member-role");
 const memberFormStatus = document.getElementById("member-form-status");
 const memberList = document.getElementById("member-list");
 const memberInviteList = document.getElementById("member-invite-list");
+const memberLimitForm = document.getElementById("member-limit-form");
+const memberLimitMode = document.getElementById("member-limit-mode");
+const memberLimitValueWrap = document.getElementById("member-limit-value-wrap");
+const memberLimitValue = document.getElementById("member-limit-value");
 const websiteOrganizationSetup = document.getElementById("website-organization-setup");
 const websiteOrganizationSetupTitle = document.getElementById("website-organization-setup-title");
 const websiteOrganizationSetupCopy = document.getElementById("website-organization-setup-copy");
@@ -114,6 +118,8 @@ let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
 let members = [];
 let memberInvites = [];
+let memberUserLimit = 0;
+let canManageMembers = false;
 let serviceRequests = [];
 let selectedProject;
 let projectProposals = [];
@@ -293,6 +299,20 @@ function setMemberStatus(message = "", isError = false) {
   memberFormStatus.classList.toggle("is-error", isError);
 }
 
+function renderMemberLimit() {
+  if (!memberLimitForm || !memberLimitMode || !memberLimitValue || !memberLimitValueWrap) return;
+  const isUnlimited = Number(memberUserLimit || 0) <= 0;
+  memberLimitMode.value = isUnlimited ? "unlimited" : "custom";
+  memberLimitValueWrap.hidden = isUnlimited;
+  memberLimitValue.value = String(isUnlimited ? Math.max(members.length, 1) : memberUserLimit);
+  memberLimitForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = !canManageMembers; });
+}
+
+function updateMemberLimitMode() {
+  if (!memberLimitMode || !memberLimitValueWrap) return;
+  memberLimitValueWrap.hidden = memberLimitMode.value !== "custom";
+}
+
 function setProjectStatus(message = "", isError = false) {
   if (!projectLinkStatus) return;
   projectLinkStatus.textContent = message;
@@ -454,6 +474,7 @@ function renderMembers() {
       </div>
     </div>
   `).join("");
+  renderMemberLimit();
   renderMemberInvites();
   renderProjectClientOptions();
 }
@@ -581,6 +602,8 @@ async function loadMembers() {
   if (!selectedWebsite) {
     members = [];
     memberInvites = [];
+    memberUserLimit = 0;
+    canManageMembers = false;
     renderMembers();
     return;
   }
@@ -589,6 +612,8 @@ async function loadMembers() {
     if (error) throw error;
     members = (data?.members || []).map((member) => ({ ...member, name: member.full_name, status: "active", is_current: member.user_id === data.current_user_id }));
     memberInvites = data?.invites || [];
+    memberUserLimit = Number(data?.organization?.user_limit || 0);
+    canManageMembers = Boolean(data?.can_manage);
     memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = !data?.can_manage; });
     setMemberStatus(data?.can_manage ? "" : "Only an account administrator can change team access.");
     renderMembers();
@@ -598,6 +623,8 @@ async function loadMembers() {
   const data = await invokeAdmin({ action: "list-website-members", websiteId: selectedWebsite.id });
   members = (data.members || []).map((member) => ({ ...member, role: member.role === "owner" ? "account_admin" : member.role }));
   memberInvites = [];
+  memberUserLimit = 0;
+  canManageMembers = false;
   memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = true; });
   setMemberStatus("");
   renderMembers();
@@ -990,24 +1017,55 @@ async function assignMember(event) {
     submitButton.disabled = false;
     return;
   }
-  setMemberStatus("Sending invitation…");
+  setMemberStatus("Checking for an existing N3XRA account…");
   try {
-    const { data: invite, error: inviteError } = await supabase.rpc("client_portal_create_team_invite", {
+    const { data: result, error: memberError } = await supabase.rpc("client_portal_add_or_invite_team_member", {
       input_organization_id: selectedWebsite.organization_id,
       input_recipient_email: memberEmail.value.trim(),
       input_recipient_name: memberName.value.trim(),
       input_role: memberRole.value,
+      input_product_access: null,
     });
-    if (inviteError) throw inviteError;
-    const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-client-team-invite", { body: { inviteId: invite.id, portalOrigin: portalOriginForWebsite(selectedWebsite) } });
-    if (emailError || emailResult?.error) throw new Error(emailResult?.error || emailError?.message || "Unable to send this invitation.");
+    if (memberError) throw memberError;
+    if (result?.mode === "invited") {
+      const { data: emailResult, error: emailError } = await supabase.functions.invoke("send-client-team-invite", { body: { inviteId: result.id, portalOrigin: portalOriginForWebsite(selectedWebsite) } });
+      if (emailError || emailResult?.error) throw new Error(emailResult?.error || emailError?.message || "Unable to send this invitation.");
+    }
     memberForm.reset();
-    setMemberStatus("Invitation sent.");
     await loadMembers();
+    setMemberStatus(result?.mode === "added"
+      ? "Existing N3XRA account added immediately."
+      : result?.mode === "already_member"
+        ? "That account already has access."
+        : "No confirmed account was found, so an invitation was sent.");
   } catch (error) {
-    setMemberStatus(error?.message || "Unable to send this invitation.", true);
+    setMemberStatus(error?.message || "Unable to add this person.", true);
   } finally {
     submitButton.disabled = false;
+  }
+}
+
+async function saveMemberLimit(event) {
+  event.preventDefault();
+  if (!selectedWebsite?.organization_id || !memberLimitMode || !memberLimitValue) return;
+  const button = memberLimitForm?.querySelector('[type="submit"]');
+  if (button) button.disabled = true;
+  setMemberStatus("Saving the team limit…");
+  try {
+    const requestedLimit = memberLimitMode.value === "unlimited" ? 0 : Number(memberLimitValue.value || 0);
+    if (memberLimitMode.value === "custom" && requestedLimit < 1) throw new Error("Enter a team limit of at least one person.");
+    const { data, error } = await supabase.rpc("client_portal_update_team_limit", {
+      input_organization_id: selectedWebsite.organization_id,
+      input_user_limit: requestedLimit,
+    });
+    if (error) throw error;
+    memberUserLimit = Number(data?.user_limit || 0);
+    renderMemberLimit();
+    setMemberStatus(memberUserLimit > 0 ? `Team limit set to ${memberUserLimit}.` : "Team access is unlimited.");
+  } catch (error) {
+    setMemberStatus(error?.message || "Unable to save the team limit.", true);
+  } finally {
+    if (button) button.disabled = false;
   }
 }
 
@@ -1827,6 +1885,8 @@ async function initWebsiteAdmin() {
         .finally(() => { button.disabled = false; });
     });
     memberForm?.addEventListener("submit", assignMember);
+    memberLimitForm?.addEventListener("submit", saveMemberLimit);
+    memberLimitMode?.addEventListener("change", updateMemberLimitMode);
     memberList?.addEventListener("click", handleMemberAction);
     memberList?.addEventListener("change", handleMemberRoleChange);
     memberInviteList?.addEventListener("click", handleInviteAction);

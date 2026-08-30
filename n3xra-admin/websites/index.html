@@ -12,7 +12,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
-  <link rel="stylesheet" href="/client-portal/portal.css?v=18">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
 
   <script>
@@ -90,7 +90,7 @@
           <div class="portal-toolbar">
             <div>
               <h3 id="access-title">Client access</h3>
-              <p>Invite someone to this client account. Existing users sign in; new users create their account from the same secure invitation.</p>
+              <p>Add a confirmed N3XRA account immediately by email. If the email is new, N3XRA will send a secure invitation instead.</p>
             </div>
           </div>
           <div class="website-organization-setup" id="website-organization-setup" hidden>
@@ -127,9 +127,27 @@
                 <option value="viewer">View only</option>
               </select>
             </label>
-            <button class="portal-button" type="submit">Send invitation</button>
+            <button class="portal-button" type="submit">Add person</button>
           </form>
           <p class="portal-inline-status" id="member-form-status" role="status"></p>
+          <form class="portal-access-limit-form" id="member-limit-form">
+            <div>
+              <strong>Team size</strong>
+              <p>Unlimited by default. Set a cap only when this client account needs one.</p>
+            </div>
+            <label>
+              Access limit
+              <select id="member-limit-mode">
+                <option value="unlimited">Unlimited</option>
+                <option value="custom">Custom limit</option>
+              </select>
+            </label>
+            <label id="member-limit-value-wrap" hidden>
+              Maximum people
+              <input id="member-limit-value" type="number" min="1" step="1" inputmode="numeric" value="1">
+            </label>
+            <button class="portal-button portal-button-secondary" type="submit">Save limit</button>
+          </form>
           <div class="portal-member-list" id="member-list"></div>
           <div class="portal-member-list portal-pending-invites" id="member-invite-list"></div>
         </section>
@@ -207,6 +225,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=6"></script>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=7"></script>
 </body>
 </html>
