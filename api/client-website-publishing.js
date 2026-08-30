@@ -25,6 +25,13 @@ function safeFilename(value) {
   return clean || "image.jpg";
 }
 
+function imageMimeType(filename, suppliedType) {
+  const supplied = String(suppliedType || "").trim().toLowerCase();
+  if (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(supplied)) return supplied;
+  const extension = String(filename || "").trim().toLowerCase().split(".").pop();
+  return ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" })[extension] || "";
+}
+
 async function authorizeEditor(userId, websiteId) {
   const website = encodeURIComponent(websiteId);
   const user = encodeURIComponent(userId);
@@ -60,7 +67,8 @@ async function publishAssetVersion(websiteId, versionId, userId) {
   if (version.status === "published" && version.public_url) {
     return { assetId: asset.id, versionId: version.id, publicUrl: version.public_url };
   }
-  if (version.storage_bucket !== PRIVATE_BUCKET || !String(version.mime_type || "").startsWith("image/")) {
+  const contentType = imageMimeType(version.original_filename, version.mime_type);
+  if (version.storage_bucket !== PRIVATE_BUCKET || !contentType) {
     throw apiError("Only private website images can be published automatically.", 400);
   }
   if (Number(version.size_bytes || 0) > MAX_PUBLIC_IMAGE_BYTES) {
@@ -70,8 +78,11 @@ async function publishAssetVersion(websiteId, versionId, userId) {
   const filename = safeFilename(version.original_filename);
   const publicPath = `${website.id}/${asset.id}/v${version.version_number}-${version.id}-${filename}`;
   const bytes = await downloadStorageObject(version.storage_bucket, version.storage_path);
+  if (bytes.length > MAX_PUBLIC_IMAGE_BYTES) {
+    throw apiError("This image is larger than the 10 MB public CDN limit. Choose a smaller export.", 413);
+  }
   await uploadStorageObject(PUBLIC_BUCKET, publicPath, bytes, {
-    contentType: version.mime_type || "application/octet-stream",
+    contentType,
     cacheControl: "31536000",
     upsert: true,
   });
@@ -84,12 +95,14 @@ async function publishAssetVersion(websiteId, versionId, userId) {
     body: JSON.stringify({
       status: "published",
       public_url: publicUrl,
+      mime_type: contentType,
+      size_bytes: Number(version.size_bytes || bytes.length),
       approved_by_user_id: userId,
       approved_at: now,
       published_by_user_id: userId,
       published_at: now,
       cdn_size_bytes: bytes.length,
-      cdn_mime_type: version.mime_type || null,
+      cdn_mime_type: contentType,
       cdn_optimized: false,
       cdn_processed_at: now,
     }),
@@ -186,6 +199,7 @@ module.exports = async function handler(req, res) {
 
 module.exports.authorizeEditor = authorizeEditor;
 module.exports.deleteStorySubmission = deleteStorySubmission;
+module.exports.imageMimeType = imageMimeType;
 module.exports.publishAssetVersion = publishAssetVersion;
 module.exports.publicStorageLocation = publicStorageLocation;
 module.exports.safeFilename = safeFilename;

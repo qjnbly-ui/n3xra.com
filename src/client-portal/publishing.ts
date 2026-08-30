@@ -28,6 +28,7 @@ let selectedMedia: Media[] = [];
 let submissions: Submission[] = [];
 let selectedSubmissionId = "";
 let pageSettings: PageSettings | null = null;
+let publishingView: "posts" | "inbox" = "posts";
 
 function element<T extends HTMLElement>(id: string): T {
   const found = document.getElementById(id);
@@ -66,6 +67,7 @@ function showStatus(copy: string, error = false): void {
 
 function renderPosts(activeId = element<HTMLInputElement>("post-id").value): void {
   element("post-count").textContent = `${posts.length}`;
+  element("posts-view-count").textContent = `${posts.length}`;
   element("post-list").innerHTML = posts.length ? posts.map((post) => `<button type="button" class="${post.id === activeId ? "is-active" : ""}" data-edit-post="${post.id}"><strong>${escapeHtml(post.title)}</strong><small>${escapeHtml(postLabel(post.post_type))} · ${escapeHtml(post.status)}</small></button>`).join("") : '<p class="publishing-list-empty">No posts yet. Create the first update.</p>';
 }
 
@@ -74,8 +76,23 @@ function renderSelectedMedia(): void {
   container.innerHTML = selectedMedia.length ? selectedMedia.map((item, index) => `<article class="publishing-media-card"><img src="${escapeHtml(item.url)}" alt="${escapeHtml(item.altText)}" loading="lazy"><button type="button" data-remove-media="${index}" aria-label="Remove ${escapeHtml(item.label)}">×</button><small>${escapeHtml(item.label)}</small></article>`).join("") : "<p>No photos selected yet.</p>";
 }
 
-function resetEditor(): void {
+function setPublishingView(view: "posts" | "inbox"): void {
+  publishingView = view;
+  document.querySelectorAll<HTMLButtonElement>("[data-publishing-view]").forEach((button) => {
+    const selected = button.dataset.publishingView === view;
+    button.classList.toggle("is-active", selected);
+    button.setAttribute("aria-selected", String(selected));
+  });
+  if (layout) layout.hidden = view !== "posts";
+  element("publishing-submissions").hidden = view !== "inbox";
+  element("page-settings").hidden = view !== "posts";
+  element<HTMLButtonElement>("new-post").hidden = view !== "posts";
+}
+
+function resetEditor(open = false): void {
   form?.reset();
+  if (form) form.hidden = !open;
+  layout?.classList.toggle("is-editing", open);
   element<HTMLInputElement>("post-id").value = "";
   element<HTMLSelectElement>("post-status").value = "published";
   element("editor-kicker").textContent = "New post";
@@ -86,12 +103,12 @@ function resetEditor(): void {
   selectedSubmissionId = "";
   renderSelectedMedia();
   renderPosts("");
+  if (open) setPublishingView("posts");
 }
 
 function renderSubmissions(): void {
-  const section = element("publishing-submissions");
-  section.hidden = false;
   element("submission-count").textContent = `${submissions.length} pending`;
+  element("inbox-view-count").textContent = `${submissions.length}`;
   element("submission-list").innerHTML = submissions.length ? submissions.map((submission) => {
     const version = versions.find((item) => item.id === submission.asset_version_id);
     const preview = version?.public_url ? `<img src="${escapeHtml(version.public_url)}" alt="">` : '<span aria-hidden="true"></span>';
@@ -115,6 +132,9 @@ function renderPageSettings(): void {
 async function editPost(id: string): Promise<void> {
   const post = posts.find((row) => row.id === id);
   if (!post) return;
+  setPublishingView("posts");
+  if (form) form.hidden = false;
+  layout?.classList.add("is-editing");
   element<HTMLInputElement>("post-id").value = post.id;
   element<HTMLSelectElement>("post-type").value = post.post_type;
   element<HTMLSelectElement>("post-status").value = post.status;
@@ -134,6 +154,7 @@ async function editPost(id: string): Promise<void> {
   });
   renderSelectedMedia();
   renderPosts(post.id);
+  form?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderLibrary(): void {
@@ -166,13 +187,14 @@ async function loadData(): Promise<void> {
     if (error) throw error;
     versions = (data || []) as Version[];
   } else versions = [];
-  resetEditor();
+  resetEditor(false);
   renderPosts();
   renderLibrary();
   renderSubmissions();
   renderPageSettings();
   if (statusElement) statusElement.hidden = true;
-  if (layout) layout.hidden = false;
+  element("publishing-app").querySelector<HTMLElement>(".publishing-view-tabs")!.hidden = false;
+  setPublishingView(publishingView);
   document.querySelector("#publishing-app")?.setAttribute("aria-busy", "false");
 }
 
@@ -187,7 +209,7 @@ async function savePageSettings(): Promise<void> {
 async function useSubmission(id: string): Promise<void> {
   const submission = submissions.find((row) => row.id === id);
   if (!submission) return;
-  resetEditor();
+  resetEditor(true);
   selectedSubmissionId = submission.id;
   element<HTMLSelectElement>("post-type").value = "customer_story";
   element<HTMLInputElement>("post-title").value = submission.story_title || `A find from ${submission.submitter_name}`;
@@ -280,7 +302,8 @@ async function savePost(forceDraft = false): Promise<void> {
 }
 
 function bindEvents(): void {
-  element("new-post").addEventListener("click", resetEditor);
+  element("new-post").addEventListener("click", () => { resetEditor(true); form?.scrollIntoView({ behavior: "smooth", block: "start" }); });
+  document.querySelectorAll<HTMLButtonElement>("[data-publishing-view]").forEach((button) => button.addEventListener("click", () => setPublishingView(button.dataset.publishingView === "inbox" ? "inbox" : "posts")));
   element("page-settings-form").addEventListener("submit", (event) => { event.preventDefault(); void savePageSettings().catch((error: unknown) => { element("page-settings-status").textContent = error instanceof Error ? error.message : "Settings could not be saved."; }); });
   element("open-media").addEventListener("click", () => mediaModal?.showModal());
   element("close-media").addEventListener("click", () => mediaModal?.close());

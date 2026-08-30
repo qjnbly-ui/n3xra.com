@@ -20,6 +20,10 @@ function hash(value) {
   return crypto.createHmac("sha256", secret).update(String(value)).digest("hex");
 }
 function safeFilename(value) { return clean(value, 180).toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "customer-photo.jpg"; }
+function imageMimeType(filename) {
+  const extension = String(filename || "").toLowerCase().split(".").pop();
+  return ({ jpg: "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp", gif: "image/gif" })[extension] || "application/octet-stream";
+}
 function allowedOrigin(req) {
   const origin = clean(req.headers?.origin, 300);
   if (!origin) return "*";
@@ -73,7 +77,7 @@ async function finalize(body) {
   const assetId = crypto.randomUUID(), versionId = crypto.randomUUID();
   const filename = submission.upload_path.split("/").pop() || "customer-photo.jpg";
   await serviceRequest("website_assets", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: assetId, website_id: submission.website_id, asset_key: `customer_story_${submission.id.replaceAll("-", "")}`, label: submission.story_title || "Customer story photograph", category: "visitor_submission", replacement_type: "html_src", status: "active" }) });
-  await serviceRequest("website_asset_versions", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: versionId, asset_id: assetId, version_number: 1, status: "pending_review", storage_bucket: PRIVATE_BUCKET, storage_path: submission.upload_path, original_filename: filename, change_note: "Submitted through Share Your Find" }) });
+  await serviceRequest("website_asset_versions", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ id: versionId, asset_id: assetId, version_number: 1, status: "pending_review", storage_bucket: PRIVATE_BUCKET, storage_path: submission.upload_path, original_filename: filename, mime_type: imageMimeType(filename), change_note: "Submitted through Share Your Find" }) });
   await serviceRequest(`website_story_submissions?id=eq.${encodeURIComponent(submission.id)}`, { method: "PATCH", headers: { Prefer: "return=minimal" }, body: JSON.stringify({ asset_id: assetId, asset_version_id: versionId, upload_secret_hash: null }) });
   return { accepted: true, submissionId };
 }
@@ -93,4 +97,5 @@ module.exports = async function handler(req, res) {
 };
 
 module.exports.allowedOrigin = allowedOrigin;
+module.exports.imageMimeType = imageMimeType;
 module.exports.safeFilename = safeFilename;

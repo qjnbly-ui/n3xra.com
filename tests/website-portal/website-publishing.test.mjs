@@ -38,6 +38,10 @@ test("portal publishing offers the shared file library and direct CDN upload", a
   assert.match(source, /website_story_submissions/);
   assert.match(source, /category: "journal"/);
   assert.match(source, /delete_story_submission/);
+  assert.match(source, /data-publishing-view/);
+  assert.match(page, /Community inbox/);
+  assert.match(page, /Add new post/);
+  assert.match(page, /id="post-form" hidden/);
   assert.match(navigation, /Website Publishing/);
   assert.match(clientContext, /Website Publishing/);
   assert.match(adminContext, /Website Publishing/);
@@ -54,6 +58,7 @@ test("automatic CDN publication is limited to authenticated website editors", as
   assert.match(endpoint, /deleteStorageObject/);
   assert.match(endpoint, /Delete the published post before deleting its original submission/);
   assert.equal(require("../../api/client-website-publishing.js").safeFilename(" My Best Photo!!.JPG "), "my-best-photo-.jpg");
+  assert.equal(require("../../api/client-website-publishing.js").imageMimeType("visitor-photo.JPG", null), "image/jpeg");
   assert.deepEqual(
     require("../../api/client-website-publishing.js").publicStorageLocation("https://example.supabase.co/storage/v1/object/public/website-assets-public/site/photo.jpg"),
     { bucket: "website-assets-public", path: "site/photo.jpg" },
@@ -79,10 +84,11 @@ test("visitor stories use private signed uploads and cannot auto-publish", async
   assert.match(endpoint, /website-assets-private/);
   assert.match(endpoint, /status: "pending_review"/);
   assert.match(endpoint, /category: "visitor_submission"/);
+  assert.equal(require("../../api/website-story-submission.js").imageMimeType("visitor-photo.webp"), "image/webp");
   assert.doesNotMatch(endpoint, /status: "published"/);
   assert.match(endpoint, /permissionToPublish/);
   assert.match(endpoint, /rateLimit/);
-  if (page) assert.match(page, /Your photo stays private until reviewed/);
+  if (page) assert.match(page, /Large photographs are resized automatically before uploading/);
   if (siteScript) {
     assert.match(siteScript, /https:\/\/www\.n3xra\.com/);
     assert.doesNotMatch(siteScript, /https:\/\/n3xra\.com\/api/);

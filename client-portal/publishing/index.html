@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
-  <link rel="stylesheet" href="/client-portal/publishing/publishing.css?v=1">
+  <link rel="stylesheet" href="/client-portal/publishing/publishing.css?v=3">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
 </head>
@@ -24,12 +24,16 @@
       <nav class="portal-nav" aria-label="Website client portal"></nav>
       <section class="portal-workspace">
         <div class="publishing-app" id="publishing-app" aria-busy="true">
-          <header class="publishing-head"><div><p class="portal-kicker">Website journal</p><h2>From the Greenhouse</h2><p>Publish new pieces, farm stories, updates, and customer moments.</p></div><button class="publishing-primary" id="new-post" type="button">New post</button></header>
+          <header class="publishing-head"><div><p class="portal-kicker">Website journal</p><h2>From the Greenhouse</h2><p>Publish new pieces, farm stories, updates, and customer moments.</p></div><button class="publishing-primary" id="new-post" type="button">Add new post</button></header>
           <div class="publishing-status" id="publishing-status" role="status" aria-live="polite">Opening publishing…</div>
+          <div class="publishing-view-tabs" role="tablist" aria-label="Publishing views" hidden>
+            <button type="button" class="is-active" role="tab" aria-selected="true" aria-controls="publishing-layout" data-publishing-view="posts">Posts <span id="posts-view-count">0</span></button>
+            <button type="button" role="tab" aria-selected="false" aria-controls="publishing-submissions" data-publishing-view="inbox">Community inbox <span id="inbox-view-count">0</span></button>
+          </div>
           <details class="publishing-page-settings" id="page-settings" hidden><summary>Page settings</summary><form id="page-settings-form"><div class="publishing-fields two"><label><span>Page title</span><input id="page-title" maxlength="180" required></label><label><span>Small heading</span><input id="page-kicker" maxlength="240" required></label></div><div class="publishing-fields"><label><span>Introduction</span><textarea id="page-intro" maxlength="1000" rows="3"></textarea></label><label><span>Hero image</span><select id="page-hero"><option value="">Use the website default</option></select></label></div><div class="publishing-actions"><span></span><button class="publishing-primary" type="submit">Save page settings</button></div><p id="page-settings-status" class="publishing-save-status" role="status"></p></form></details>
-          <div class="publishing-layout" id="publishing-layout" hidden>
+          <div class="publishing-layout" id="publishing-layout" role="tabpanel" hidden>
             <aside class="publishing-list-panel"><div class="publishing-list-head"><strong>Posts</strong><span id="post-count"></span></div><div class="publishing-list" id="post-list"></div></aside>
-            <form class="publishing-editor" id="post-form">
+            <form class="publishing-editor" id="post-form" hidden>
               <input type="hidden" id="post-id">
               <div class="publishing-editor-head"><div><p class="portal-kicker" id="editor-kicker">New post</p><h3 id="editor-title">Create a story</h3></div><span class="publishing-save-status" id="save-status"></span></div>
               <div class="publishing-fields two"><label><span>Post type</span><select id="post-type"><option value="update">Update</option><option value="new_piece">New piece</option><option value="farm_story">Farm story</option><option value="customer_story">Customer story</option><option value="event">Event</option></select></label><label><span>Visibility</span><select id="post-status"><option value="draft">Draft</option><option value="published">Published</option><option value="archived">Archived</option></select></label></div>
@@ -39,7 +43,7 @@
               <div class="publishing-actions"><button type="button" id="delete-post" class="publishing-danger" hidden>Delete post</button><span></span><button type="button" id="save-draft">Save draft</button><button type="submit" class="publishing-primary" id="save-post">Save changes</button></div>
             </form>
           </div>
-          <section class="publishing-submissions" id="publishing-submissions" hidden><header><div><p class="portal-kicker">Community inbox</p><h3>Share Your Find</h3><p>Visitor photos stay private until you choose to turn one into a post.</p></div><span id="submission-count"></span></header><div id="submission-list" class="publishing-submission-list"></div></section>
+          <section class="publishing-submissions" id="publishing-submissions" role="tabpanel" hidden><header><div><p class="portal-kicker">Community inbox</p><h3>Share Your Find</h3><p>Visitor photos stay private until you choose to turn one into a post.</p></div><span id="submission-count"></span></header><div id="submission-list" class="publishing-submission-list"></div></section>
         </div>
       </section>
     </div>
@@ -56,6 +60,6 @@
   </dialog>
   <script type="module" src="/client-portal/client-shell.js?v=28"></script>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/client-portal/publishing.js?v=2"></script>
+  <script type="module" src="/client-portal/publishing.js?v=3"></script>
 </body>
 </html>
