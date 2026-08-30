@@ -3,6 +3,7 @@ import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/work
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=3";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
+import { websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=2";
 import {
   portalLoginUrl,
   portalTenantEmptyMessage,
@@ -169,7 +170,7 @@ function assetFileType(version) {
 }
 
 function assetFilePreviewMarkup(version, type) {
-  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
 async function hydrateVersionPreview(preview) {
@@ -207,7 +208,7 @@ async function hydrateVersionPreview(preview) {
     if (fallback) fallback.hidden = true;
     preview.classList.add("has-preview");
   }, { once: true });
-  image.src = url;
+  image.src = websiteAssetThumbnailUrl(url);
 }
 
 function hydrateVersionPreviews() {

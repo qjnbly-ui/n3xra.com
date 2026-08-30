@@ -1,6 +1,6 @@
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { promptAdminText } from "/account/admin/admin-dialogs.js";
-import { safeWebsiteAssetFilename, validateWebsiteAssetRename } from "/shared/lib/website-asset-utils.js";
+import { safeWebsiteAssetFilename, validateWebsiteAssetRename, websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=2";
 import { CDN_BROWSER_CACHE_SECONDS, canOptimizeCdnImage, prepareCdnImage } from "/shared/lib/cdn-image-optimizer.js";
 
 let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
@@ -68,7 +68,7 @@ function fileType(file) {
 
 function filePreviewMarkup(file, type) {
   const key = fileSelectionKey(file);
-  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="n3xra-file-type is-${type.tone}" data-file-preview="${fileEscape(key)}" aria-hidden="true"><img alt="" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
 async function hydrateFilePreview(preview) {
@@ -97,7 +97,7 @@ async function hydrateFilePreview(preview) {
       if (fallback) fallback.hidden = true;
       preview.classList.add("has-preview");
     }, { once: true });
-    image.src = data.url;
+    image.src = websiteAssetThumbnailUrl(data.url);
   } catch {
     // Keep the file-type badge when a preview URL is unavailable.
   }

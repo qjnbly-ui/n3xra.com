@@ -10,8 +10,9 @@ import {
   safeWebsiteAssetFilename as safeFilename,
   uniqueWebsiteAssetKey,
   validateWebsiteAssetRename,
+  websiteAssetThumbnailUrl,
   websiteAssetKeyFromLabel,
-} from "/shared/lib/website-asset-utils.js";
+} from "/shared/lib/website-asset-utils.js?v=2";
 import {
   CDN_BROWSER_CACHE_SECONDS,
   canOptimizeCdnImage,
@@ -182,7 +183,7 @@ function assetFileType(version) {
 }
 
 function assetFilePreviewMarkup(version, type) {
-  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" loading="lazy" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
+  return `<span class="website-asset-file-type is-${type.tone}" data-version-preview="${version.id}" aria-hidden="true"><img alt="" decoding="async" hidden><canvas hidden></canvas><span>${type.label}</span></span>`;
 }
 
 async function hydrateVersionPreview(preview) {
@@ -219,7 +220,7 @@ async function hydrateVersionPreview(preview) {
     if (fallback) fallback.hidden = true;
     preview.classList.add("has-preview");
   }, { once: true });
-  image.src = url;
+  image.src = websiteAssetThumbnailUrl(url);
 }
 
 function hydrateVersionPreviews() {

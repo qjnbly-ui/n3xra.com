@@ -112,6 +112,12 @@ test("mobile galleries load quickly and keep navigation reachable", () => {
   assert.match(clientFilesSource, /\{ root: null, rootMargin: "500px 0px" \}/);
   assert.match(clientFilesSource, /rootMargin: "500px 0px"/);
   assert.match(clientFilesSource, /clientFullQualityPreviewCache/);
+  assert.doesNotMatch(clientFilesSource, /loading="lazy"[^>]*hidden/);
+  assert.doesNotMatch(workspaceFilesSource, /loading="lazy"[^>]*hidden/);
+  assert.doesNotMatch(filesSource, /loading="lazy"[^>]*hidden/);
+  assert.match(clientFilesSource, /websiteAssetThumbnailUrl\(url\)/);
+  assert.match(workspaceFilesSource, /websiteAssetThumbnailUrl\(url\)/);
+  assert.match(filesSource, /websiteAssetThumbnailUrl\(data\.url\)/);
   assert.match(internalFilesStyles, /\.n3xra-file-list\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
   assert.match(workspaceFilesStyles, /\.website-assets-table\.is-gallery \{ grid-template-columns:minmax\(0,1fr\)/);
   assert.match(internalFilesStyles, /\.n3xra-preview-navigation button \{ flex:1; min-height:48px;/);
