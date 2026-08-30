@@ -217,7 +217,7 @@ function buildClientWorkspace() {
 
   window.addEventListener("hashchange", () => updatePageState(frame));
   layout.addEventListener("click", (event) => {
-    if (event.target.closest("[data-portal-view]")) window.requestAnimationFrame(() => updatePageState(frame));
+    if (event.target.closest("button[data-portal-view]")) window.requestAnimationFrame(() => updatePageState(frame));
   });
 }
 

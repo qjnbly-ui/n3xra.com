@@ -6,6 +6,7 @@ const filesSource = await readFile(new URL("../../account/admin/files/files.js",
 const workspaceFilesSource = await readFile(new URL("../../n3xra-admin/websites/websites-admin.js", import.meta.url), "utf8");
 const workspaceFilesPage = await readFile(new URL("../../n3xra-admin/assets/index.html", import.meta.url), "utf8");
 const clientFilesSource = await readFile(new URL("../../client-portal/portal.js", import.meta.url), "utf8");
+const clientShellSource = await readFile(new URL("../../client-portal/client-shell.js", import.meta.url), "utf8");
 const clientFilesPage = await readFile(new URL("../../client-portal/index.html", import.meta.url), "utf8");
 const internalFilesPage = await readFile(new URL("../../account/admin/files/index.html", import.meta.url), "utf8");
 const previewSource = await readFile(new URL("../../client-portal/asset-preview-modal.js", import.meta.url), "utf8");
@@ -76,6 +77,9 @@ test("all file areas offer persistent list and gallery views", () => {
   assert.match(clientFilesPage, /data-client-asset-view="gallery"/);
   assert.match(clientFilesSource, /n3xra-client-files-view/);
   assert.match(clientFilesSource, /renderAssets\(\);\s*showPortalView\("files"\);/);
+  assert.match(clientFilesSource, /querySelectorAll\("button\[data-portal-view\]"\)/);
+  assert.match(clientShellSource, /closest\("button\[data-portal-view\]"\)/);
+  assert.doesNotMatch(clientFilesSource, /querySelectorAll\("\[data-portal-view\]"\)/);
 });
 
 test("full-quality previews navigate previous and next on desktop and mobile", () => {
