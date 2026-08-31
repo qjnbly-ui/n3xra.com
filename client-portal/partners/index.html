@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
-  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=4">
+  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=5">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
   <script>
@@ -56,6 +56,7 @@
       </nav>
 
       <section class="portal-workspace partner-portal-workspace">
+        <aside class="partner-admin-preview" id="partner-admin-preview" hidden><div><strong>Administrator preview</strong><span>This is the partner’s current read-only portal view. You remain signed in as yourself.</span></div><a class="portal-button portal-button-secondary" href="/n3xra-admin/partners/">Return to Partner Admin</a></aside>
         <div class="client-workspace-banner">
           <p class="portal-kicker">Approved partner</p>
           <strong>Partner Portal</strong>
@@ -106,6 +107,14 @@
           </div>
         </section>
 
+        <section class="partner-terms-card" id="partner-terms-card" hidden>
+          <div class="partner-section-heading"><p class="portal-kicker">Your terms</p><h2 id="partner-contract-title">Partner agreement</h2><p id="partner-contract-meta"></p></div>
+          <div class="partner-terms-grid">
+            <div><span>Commission terms</span><strong id="partner-commission-rate"></strong><p id="partner-commission-description"></p></div>
+            <article><h3>Current agreement</h3><div id="partner-contract-body"></div></article>
+          </div>
+        </section>
+
         <section class="partner-activity" id="partner-activity">
           <div class="partner-section-heading"><p class="portal-kicker">Partner activity</p><h2>Referrals and earnings</h2><p>Review the opportunities and commissions connected to your referral code.</p></div>
           <div class="partner-activity-grid">
@@ -119,6 +128,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Opening your partner portal…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/client-portal/partners/partner-portal.js?v=4"></script>
+  <script type="module" src="/client-portal/partners/partner-portal.js?v=5"></script>
 </body>
 </html>

@@ -9,6 +9,8 @@ const codeCheck = document.getElementById("partner-code-check");
 const codeSave = document.getElementById("partner-code-save");
 let session;
 let availableCode = "";
+const previewId = new URLSearchParams(window.location.search).get("admin_preview") || "";
+let isAdminPreview = false;
 
 function showShareLink(code) {
   const wrapper = document.getElementById("partner-share-link");
@@ -35,13 +37,36 @@ function title(value = "") {
 }
 
 async function api(options = {}) {
-  const response = await fetch("/api/partner-portal", {
+  const method = String(options.method || "GET").toUpperCase();
+  const query = previewId && method === "GET" ? `?admin_preview=${encodeURIComponent(previewId)}` : "";
+  const response = await fetch(`/api/partner-portal${query}`, {
     ...options,
     headers: { Authorization: `Bearer ${session.access_token}`, "Content-Type": "application/json", ...(options.headers || {}) },
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw Object.assign(new Error(payload.error || "Unable to open partner portal."), { status: response.status });
   return payload;
+}
+
+function commissionLabel(terms) {
+  if (terms.commission_type === "percentage") return `${Number(terms.commission_rate_bps || 0) / 100}%`;
+  if (terms.commission_type === "fixed") return `${money(terms.commission_amount_cents, terms.currency)} per qualifying conversion`;
+  return "Custom commission arrangement";
+}
+
+function renderTerms(terms) {
+  const card = document.getElementById("partner-terms-card");
+  if (!card || !terms) return;
+  card.hidden = false;
+  document.getElementById("partner-contract-title").textContent = terms.contract_title || "Partner agreement";
+  document.getElementById("partner-contract-meta").textContent = [
+    terms.effective_at ? `Effective ${date(terms.effective_at)}` : "Current agreement",
+    terms.expires_at ? `Expires ${date(terms.expires_at)}` : "No expiration date",
+    `Revision ${terms.revision}`,
+  ].join(" · ");
+  document.getElementById("partner-commission-rate").textContent = commissionLabel(terms);
+  document.getElementById("partner-commission-description").textContent = terms.commission_description || "See the current agreement for qualification and payout details.";
+  document.getElementById("partner-contract-body").textContent = terms.contract_body || "";
 }
 
 function renderHistory(targetId, items, type) {
@@ -54,6 +79,8 @@ function renderHistory(targetId, items, type) {
 }
 
 function render(data) {
+  isAdminPreview = Boolean(data.preview);
+  if (isAdminPreview) document.getElementById("partner-admin-preview").hidden = false;
   document.getElementById("partner-welcome").textContent = `Welcome, ${data.partner.full_name}`;
   const approvedDate = document.getElementById("partner-approved-date");
   if (approvedDate && data.partner.approved_at) {
@@ -67,12 +94,12 @@ function render(data) {
     document.getElementById("partner-program-list").innerHTML = programs.map((program) => `<span>${escapeHtml(title(program))}</span>`).join("");
   }
   codeInput.value = data.partner.referral_code || "";
-  if (data.partner.referral_code) {
+  if (data.partner.referral_code || isAdminPreview) {
     codeInput.disabled = true;
     codeCheck.hidden = true;
     codeSave.hidden = true;
-    codeHelp.textContent = "This is your permanent referral code.";
-    codeStatus.textContent = "Your referral code is active and cannot be changed.";
+    codeHelp.textContent = isAdminPreview ? "Referral identity shown in read-only administrator preview." : "This is your permanent referral code.";
+    codeStatus.textContent = isAdminPreview ? "Administrator preview is read-only." : "Your referral code is active and cannot be changed.";
     showShareLink(data.partner.referral_code);
   }
   document.getElementById("balance-pending").textContent = money(data.balances.pending_cents, data.balances.currency);
@@ -80,6 +107,7 @@ function render(data) {
   document.getElementById("balance-paid").textContent = money(data.balances.paid_cents, data.balances.currency);
   renderHistory("partner-referral-history", data.referrals, "referral");
   renderHistory("partner-commission-history", data.commissions, "commission");
+  renderTerms(data.terms);
 }
 
 async function init() {
@@ -93,6 +121,11 @@ async function init() {
   } catch (error) {
     if (error.status === 403) return window.location.replace("/account/");
     throw error;
+  }
+  if (isAdminPreview) {
+    document.body.classList.remove("portal-loading");
+    statusScreen.hidden = true;
+    return;
   }
   codeInput.addEventListener("input", () => {
     availableCode = "";

@@ -35,6 +35,25 @@ async function approvedApplication(email) {
   return rows?.[0] || null;
 }
 
+async function approvedApplicationById(id) {
+  const rows = await rest(`founding_partner_applications?select=*&id=eq.${encodeURIComponent(id)}&status=eq.approved&limit=1`);
+  return rows?.[0] || null;
+}
+
+async function isFullAdmin(userId) {
+  const rows = await rest(`platform_admins?select=user_id&user_id=eq.${encodeURIComponent(userId)}&status=eq.active&role=in.(owner,admin)&access_scope=eq.full&limit=1`);
+  return Boolean(rows?.length);
+}
+
+async function activeTerms(applicationId) {
+  try {
+    return await rest(`partner_terms?select=status,commission_type,commission_rate_bps,commission_amount_cents,currency,commission_description,contract_title,contract_body,effective_at,expires_at,revision,updated_at&partner_application_id=eq.${encodeURIComponent(applicationId)}&status=eq.active&limit=1`);
+  } catch (error) {
+    if (/partner_terms|schema cache|does not exist/i.test(error.message)) return [];
+    throw error;
+  }
+}
+
 function cleanCode(value) {
   return String(value || "").trim().toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 24);
 }
@@ -49,7 +68,13 @@ export default async function handler(req, res) {
   try {
     const user = await getUser(req);
     if (!user?.email) return send(res, 401, { error: "Sign in to continue." });
-    const application = await approvedApplication(user.email);
+    const previewId = String(req.query?.admin_preview || "").trim();
+    if (previewId && req.method !== "GET") return send(res, 403, { error: "Administrator previews are read-only." });
+    if (previewId && !/^[0-9a-f-]{36}$/i.test(previewId)) return send(res, 400, { error: "A valid partner preview is required." });
+    const preview = Boolean(previewId);
+    const application = preview
+      ? await isFullAdmin(user.id) ? await approvedApplicationById(previewId) : null
+      : await approvedApplication(user.email);
     if (!application) return send(res, 403, { error: "An approved partner account is required." });
 
     if (req.method === "POST") {
@@ -81,9 +106,10 @@ export default async function handler(req, res) {
       return send(res, 200, { ok: true, referral_code: referralCode });
     }
 
-    const [referrals, commissions] = await Promise.all([
+    const [referrals, commissions, termsRows] = await Promise.all([
       rest(`partner_referrals?select=*&partner_application_id=eq.${encodeURIComponent(application.id)}&order=created_at.desc`),
       rest(`partner_commission_entries?select=*&partner_application_id=eq.${encodeURIComponent(application.id)}&order=created_at.desc`),
+      activeTerms(application.id),
     ]);
     const sum = (status) => (commissions || [])
       .filter((entry) => entry.status === status)
@@ -91,6 +117,7 @@ export default async function handler(req, res) {
 
     return send(res, 200, {
       ok: true,
+      preview,
       partner: {
         full_name: application.full_name,
         email: application.email,
@@ -106,6 +133,7 @@ export default async function handler(req, res) {
       },
       referrals: referrals || [],
       commissions: commissions || [],
+      terms: termsRows?.[0] || null,
     });
   } catch (error) {
     return send(res, 500, { error: error instanceof Error ? error.message : "Unable to open the partner portal." });

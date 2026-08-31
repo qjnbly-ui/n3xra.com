@@ -51,6 +51,8 @@
 .partner-admin-filters input,
 .partner-admin-filters select,
 .partner-admin-controls select,
+.partner-admin-controls input[type="text"],
+.partner-admin-controls input[data-partner-code],
 .partner-admin-controls textarea {
   width: 100%;
   min-height: 42px;
@@ -60,6 +62,184 @@
   color: var(--portal-ink);
   background: #fff;
   font: inherit;
+}
+
+.partner-admin-controls small {
+  color: var(--portal-muted);
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.partner-admin-programs {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding: 0.8rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+}
+
+.partner-admin-programs legend {
+  padding: 0 0.25rem;
+  color: var(--portal-muted);
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+.partner-admin-programs label {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  cursor: pointer;
+}
+
+.partner-admin-programs input {
+  width: 1rem;
+  height: 1rem;
+  margin-top: 0.15rem;
+  accent-color: #172333;
+}
+
+.partner-admin-activity {
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 12px;
+  background: #f7f9fb;
+}
+
+.partner-admin-activity h4,
+.partner-admin-activity h5 {
+  margin: 0;
+}
+
+.partner-admin-activity > div > p:not(.portal-kicker) {
+  margin-top: 0.25rem;
+  color: var(--portal-muted);
+}
+
+.partner-admin-activity > button {
+  justify-self: start;
+}
+
+.partner-admin-account-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
+
+.partner-admin-terms-form { display: grid; gap: .8rem; padding: 1rem; border: 1px solid var(--portal-line); border-radius: 10px; background: #fff; }
+.partner-admin-terms-heading { display: flex; align-items: start; justify-content: space-between; gap: 1rem; }
+.partner-admin-terms-heading h5,.partner-admin-terms-heading p { margin: 0; }
+.partner-admin-terms-heading p { margin-top: .22rem; color: var(--portal-muted); font-size: .72rem; }
+.partner-admin-terms-heading > span { color: var(--portal-muted); font-size: .7rem; font-weight: 800; white-space: nowrap; }
+.partner-admin-terms-fields { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .65rem; }
+.partner-admin-terms-fields label { display: grid; gap: .35rem; color: var(--portal-muted); font-size: .72rem; font-weight: 800; }
+.partner-admin-terms-fields label[hidden] { display: none; }
+.partner-admin-terms-fields input,.partner-admin-terms-fields select,.partner-admin-terms-fields textarea { width: 100%; min-height: 42px; padding: .65rem .7rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--portal-line); border-radius: 8px; font: inherit; }
+.partner-admin-terms-fields textarea { resize: vertical; line-height: 1.55; }
+.partner-admin-terms-wide { grid-column: 1 / -1; }
+.partner-admin-terms-footer { display: flex; align-items: center; justify-content: space-between; gap: .75rem; }
+.partner-admin-terms-footer p { margin: 0; color: var(--portal-muted); font-size: .72rem; }
+
+.partner-email-workflow { display: grid; gap: .85rem; padding: 1rem; border: 1px solid var(--portal-line); border-radius: 10px; background: #fff; }
+.partner-email-stage-strip { display: flex; flex-wrap: wrap; gap: .4rem; }
+.partner-email-stage-strip button { padding: .48rem .65rem; color: #475569; background: #f1f5f9; border: 1px solid var(--portal-line); border-radius: 999px; font: inherit; font-size: .7rem; font-weight: 800; cursor: pointer; }
+.partner-email-stage-strip button.is-current { color: #fff; background: #172333; border-color: #172333; }
+.partner-email-composer { display: grid; gap: .65rem; }
+.partner-email-composer label { display: grid; gap: .35rem; color: var(--portal-muted); font-size: .72rem; font-weight: 800; }
+.partner-email-composer input,.partner-email-composer textarea { width: 100%; padding: .7rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--portal-line); border-radius: 8px; font: inherit; }
+.partner-email-composer textarea { resize: vertical; line-height: 1.55; }
+.partner-email-recipient { display: flex; gap: .6rem; padding: .65rem .7rem; background: #f7f9fb; border-radius: 8px; font-size: .75rem; }
+.partner-email-recipient span { color: var(--portal-muted); font-weight: 800; }
+.partner-email-blocked { margin: 0; padding: .7rem; color: #854d0e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; font-size: .72rem; font-weight: 700; }
+.partner-email-composer-actions { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: .55rem; }
+.partner-email-composer-actions p { min-width: min(100%,260px); margin: 0 auto 0 0; color: var(--portal-muted); font-size: .72rem; }
+.partner-email-preview { overflow: hidden; border: 1px solid var(--portal-line); border-radius: 12px; box-shadow: 0 12px 30px rgba(12,18,28,.08); }
+.partner-email-preview[hidden] { display: none; }
+.partner-email-preview > div { padding: 1rem; color: #fff; background: linear-gradient(135deg,#07111d,#123047); }
+.partner-email-preview > div p { margin: 0 0 .25rem; color: #a9e9ff; font-size: .65rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.partner-email-preview h5 { margin: 0; font-size: 1rem; }
+.partner-email-preview article { padding: 1rem; color: #344154; background: #fff; font-size: .78rem; line-height: 1.65; }
+.partner-email-history h6 { margin: 0 0 .5rem; font-size: .78rem; }
+.partner-email-history-list { display: grid; gap: .4rem; }
+.partner-email-history-list article { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: .6rem; padding: .65rem; background: #f7f9fb; border-radius: 8px; }
+.partner-email-history-list strong,.partner-email-history-list small,.partner-email-history-list em { display: block; }
+.partner-email-history-list small { margin-top: .18rem; color: var(--portal-muted); font-size: .66rem; }
+.partner-email-history-list em { margin-top: .2rem; color: #b42318; font-size: .66rem; }
+.partner-email-history-list span { font-size: .68rem; font-weight: 800; text-transform: capitalize; }
+.partner-email-history-list span[data-email-status="sent"] { color: #075f37; }
+.partner-email-history-list span[data-email-status="failed"] { color: #b42318; }
+
+.partner-admin-balance-grid,
+.partner-admin-activity-columns {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.6rem;
+}
+
+.partner-admin-balance-grid > div {
+  padding: 0.7rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.partner-admin-balance-grid span,
+.partner-admin-balance-grid strong {
+  display: block;
+}
+
+.partner-admin-balance-grid span {
+  color: var(--portal-muted);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.partner-admin-balance-grid strong {
+  margin-top: 0.2rem;
+}
+
+.partner-admin-activity-columns {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.partner-admin-activity-columns > section {
+  min-width: 0;
+}
+
+.partner-admin-activity-list {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.45rem;
+}
+
+.partner-admin-activity-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  padding: 0.65rem;
+  border: 1px solid var(--portal-line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.partner-admin-activity-list strong,
+.partner-admin-activity-list small {
+  display: block;
+}
+
+.partner-admin-activity-list small,
+.partner-admin-activity-empty {
+  margin-top: 0.18rem;
+  color: var(--portal-muted);
+}
+
+.partner-admin-activity-list article > span {
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.partner-admin-activity-error {
+  color: #b42318;
+  font-weight: 700;
 }
 
 .partner-admin-list {
@@ -283,9 +463,16 @@
   }
 
   .partner-admin-filters,
-  .partner-admin-body {
+  .partner-admin-body,
+  .partner-admin-activity-columns,
+  .partner-admin-terms-fields {
     grid-template-columns: 1fr;
   }
+
+  .partner-admin-terms-wide { grid-column: auto; }
+  .partner-admin-terms-heading,.partner-admin-terms-footer { align-items: stretch; flex-direction: column; }
+  .partner-email-composer-actions { align-items: stretch; flex-direction: column; }
+  .partner-email-composer-actions .portal-button { width: 100%; }
 
   .partner-admin-card summary {
     grid-template-columns: 1fr;
