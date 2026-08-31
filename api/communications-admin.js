@@ -46,7 +46,7 @@ async function loadWorkspace(workspaceId) {
     throw error;
   }
   const rows = await supabaseJson(
-    `communications_workspaces?select=id,organization_id,slug,program_name,sender_name,website_url,privacy_policy_url,program_terms_url,support_email,support_phone,expected_message_frequency,status,included_sms_segments,sms_overage_cents,mms_unit_cents,created_at,updated_at&id=eq.${encodeURIComponent(workspaceId)}&limit=1`,
+    `communications_workspaces?select=id,organization_id,slug,program_name,sender_name,website_url,privacy_policy_url,program_terms_url,support_email,support_phone,expected_message_frequency,status,plan_key,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents,created_at,updated_at&id=eq.${encodeURIComponent(workspaceId)}&limit=1`,
   );
   const workspace = Array.isArray(rows) ? rows[0] || null : null;
   if (!workspace) {
@@ -84,7 +84,7 @@ async function loadWorkspace(workspaceId) {
     supabaseJson(`communications_keywords?select=id,workspace_id,number_id,keyword,topic_id,source_id,active,welcome_message,created_at,updated_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=keyword.asc`),
     supabaseJson(`communications_subscribers?select=id,workspace_id,full_name,phone_e164,email,sms_status,email_status,joined_at,last_interaction_at,created_at,updated_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=joined_at.desc&limit=500`),
     supabaseJson(`communications_topic_metrics?select=workspace_id,topic_id,subscriber_count&workspace_id=eq.${encodeURIComponent(workspace.id)}`),
-    supabaseJson(`communications_workspace_metrics?select=workspace_id,total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month&workspace_id=eq.${encodeURIComponent(workspace.id)}&limit=1`),
+    supabaseJson(`communications_workspace_metrics?select=workspace_id,total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month,email_deliveries_current_month,outbound_mms_current_month&workspace_id=eq.${encodeURIComponent(workspace.id)}&limit=1`),
     supabaseJson(`website_forms?select=id,public_id,organization_id,website_id,communications_workspace_id,name,form_type,status,success_message,allowed_origins,active_consent_configuration,created_at,updated_at&communications_workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.asc`),
     supabaseJson(`communications_signup_sources?select=id,organization_id,website_id,workspace_id,form_id,source_type,name,slug,status,created_at,updated_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.asc`),
     supabaseJson(`communications_consent_events?select=id,workspace_id,subscriber_id,channel,event_type,consent_method,disclosure_version,topic_ids,source_page,created_at&workspace_id=eq.${encodeURIComponent(workspace.id)}&order=created_at.desc&limit=200`),

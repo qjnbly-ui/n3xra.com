@@ -41,7 +41,12 @@ test("Communications checkout uses selectable organization plans with a Roots-sp
 });
 
 test("the verified Stripe webhook activates the Communications entitlement", async () => {
-  const webhook = await read("supabase/functions/website-stripe-webhook/index.ts");
+  const [webhook, usageMigration, communicationsPage, communicationsApp] = await Promise.all([
+    read("supabase/functions/website-stripe-webhook/index.ts"),
+    read("supabase/migrations/20260831234309_communications_usage_billing_ledger.sql"),
+    read("client-portal/communications/index.html"),
+    read("src/client-portal/communications-app.ts"),
+  ]);
 
   assert.match(webhook, /syncCommunicationsSubscription/);
   assert.match(webhook, /source: "subscription"/);
@@ -50,6 +55,16 @@ test("the verified Stripe webhook activates the Communications entitlement", asy
   assert.match(webhook, /communications_plan_catalog/);
   assert.match(webhook, /included_email_deliveries/);
   assert.match(webhook, /plan_key: planKey/);
+  assert.match(webhook, /event\.type === "invoice\.created"/);
+  assert.match(webhook, /recordCommunicationsUsageInvoice/);
+  assert.doesNotMatch(webhook, /invoiceItems\.create/);
+  assert.match(usageMigration, /communications_usage_invoices/);
+  assert.match(usageMigration, /communications_usage_for_period/);
+  assert.match(usageMigration, /email_deliveries_current_month/);
+  assert.match(communicationsPage, /metric-plan/);
+  assert.match(communicationsPage, /metric-email/);
+  assert.match(communicationsApp, /included_email_deliveries/);
+  assert.match(communicationsApp, /email_deliveries_current_month/);
 });
 
 test("the client sees Communications and website plans in one billing workspace", async () => {

@@ -172,6 +172,76 @@ async function syncCommunicationsInvoice(
   return true;
 }
 
+async function recordCommunicationsUsageInvoice(
+  admin: ReturnType<typeof createClient>,
+  stripe: Stripe,
+  invoice: Stripe.Invoice,
+) {
+  const subscriptionId = typeof invoice.subscription === "string" ? invoice.subscription : invoice.subscription?.id || null;
+  if (!subscriptionId || invoice.status !== "draft") return false;
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  if (appFrom(subscription.metadata) !== COMMUNICATIONS_APP) return false;
+  const organizationId = String(subscription.metadata.organization_id || "").trim();
+  if (!organizationId) throw new Error("Communications usage invoice metadata is incomplete.");
+  const periodStart = Number(invoice.period_start || 0);
+  const periodEnd = Number(invoice.period_end || 0);
+  if (!periodStart || !periodEnd || periodEnd < periodStart) throw new Error("Communications invoice period is invalid.");
+  const periodStartIso = unixDate(periodStart)!;
+  const periodEndIso = unixDate(periodEnd)!;
+  const { data: existing, error: existingError } = await admin.from("communications_usage_invoices")
+    .select("status")
+    .eq("stripe_invoice_id", invoice.id)
+    .maybeSingle();
+  if (existingError) throw new Error(existingError.message);
+  if (["prepared", "invoiced", "skipped"].includes(String(existing?.status || ""))) return true;
+  const { data: workspace, error: workspaceError } = await admin.from("communications_workspaces")
+    .select("id,plan_key,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents")
+    .eq("organization_id", organizationId)
+    .single();
+  if (workspaceError) throw new Error(workspaceError.message);
+  const { data: usageRows, error: usageError } = await admin.rpc("communications_usage_for_period", {
+    input_workspace_id: workspace.id,
+    input_period_start: periodStartIso,
+    input_period_end: periodEndIso,
+  });
+  if (usageError) throw new Error(usageError.message);
+  const usage = (usageRows || [])[0] || {};
+  const smsSegments = Number(usage.sms_segments || 0);
+  const outboundMmsUnits = Number(usage.outbound_mms_units || 0);
+  const emailDeliveries = Number(usage.email_deliveries || 0);
+  const smsOverageSegments = Math.max(0, smsSegments - Number(workspace.included_sms_segments || 0));
+  const emailOverageThousands = Math.ceil(Math.max(0, emailDeliveries - Number(workspace.included_email_deliveries || 0)) / 1000);
+  const totalOverageCents = (
+    smsOverageSegments * Number(workspace.sms_overage_cents || 0)
+    + outboundMmsUnits * Number(workspace.mms_unit_cents || 0)
+    + emailOverageThousands * Number(workspace.email_overage_per_1000_cents || 0)
+  );
+  const stored = await admin.from("communications_usage_invoices").upsert({
+    workspace_id: workspace.id,
+    organization_id: organizationId,
+    stripe_subscription_id: subscriptionId,
+    stripe_invoice_id: invoice.id,
+    plan_key: workspace.plan_key,
+    period_start: periodStartIso,
+    period_end: periodEndIso,
+    sms_segments: smsSegments,
+    included_sms_segments: Number(workspace.included_sms_segments || 0),
+    sms_overage_segments: smsOverageSegments,
+    sms_overage_cents: Number(workspace.sms_overage_cents || 0),
+    outbound_mms_units: outboundMmsUnits,
+    mms_unit_cents: Number(workspace.mms_unit_cents || 0),
+    email_deliveries: emailDeliveries,
+    included_email_deliveries: Number(workspace.included_email_deliveries || 0),
+    email_overage_thousands: emailOverageThousands,
+    email_overage_per_1000_cents: Number(workspace.email_overage_per_1000_cents || 0),
+    total_overage_cents: totalOverageCents,
+    status: totalOverageCents > 0 ? "prepared" : "skipped",
+    error_message: null,
+  }, { onConflict: "stripe_invoice_id" });
+  if (stored.error) throw new Error(stored.error.message);
+  return true;
+}
+
 async function syncSubscription(admin: ReturnType<typeof createClient>, subscription: Stripe.Subscription) {
   if (appFrom(subscription.metadata) !== WEBSITE_APP) return false;
   const snapshotId = String(subscription.metadata.billing_snapshot_id || "").trim();
@@ -528,6 +598,8 @@ Deno.serve(async (request) => {
       handled = appFrom(subscription.metadata) === COMMUNICATIONS_APP
         ? await syncCommunicationsSubscription(admin, subscription)
         : await syncSubscription(admin, subscription);
+    } else if (event.type === "invoice.created") {
+      handled = await recordCommunicationsUsageInvoice(admin, stripe, object as Stripe.Invoice);
     } else if (["invoice.finalized", "invoice.paid", "invoice.payment_failed", "invoice.voided"].includes(event.type)) {
       const invoice = object as Stripe.Invoice;
       const websiteHandled = await syncInvoice(admin, stripe, invoice, event.type);

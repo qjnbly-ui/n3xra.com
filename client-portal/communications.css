@@ -16,7 +16,7 @@ body.communications-loading.client-portal-shell main { visibility: visible; }
 .communications-onboarding-card h2 { margin: .15rem 0 .35rem; color: #fff; font: 600 1.7rem/1.1 var(--portal-heading-font),Georgia,serif; }
 .communications-onboarding-card p:last-child { max-width: 720px; margin: 0; color: rgba(255,255,255,.7); line-height: 1.5; }
 .communications-onboarding-card .portal-button { flex: 0 0 auto; color: var(--portal-deep); background: #fff; }
-.communications-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: .8rem; margin-bottom: 1rem; }
+.communications-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .8rem; margin-bottom: 1rem; }
 .communications-metrics article, .communications-panel { background: #fff; border: 1px solid var(--communications-line); border-radius: 14px; box-shadow: 0 16px 40px rgba(10,28,24,.05); }
 .communications-metrics article { display: grid; gap: .35rem; padding: 1.15rem; }
 .communications-metrics span { color: var(--communications-muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }

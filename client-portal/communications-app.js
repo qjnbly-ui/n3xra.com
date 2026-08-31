@@ -116,7 +116,7 @@ async function initialize() {
     if (!organizationId)
         throw new Error("Communications is not active for the selected organization. Open Billing to activate it.");
     const requestedWorkspace = String(new URLSearchParams(window.location.search).get("workspace") || "").trim().toLowerCase();
-    let workspaceQuery = supabase.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,website_url,status,included_sms_segments,sms_overage_cents,mms_unit_cents").eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(1);
+    let workspaceQuery = supabase.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,website_url,status,plan_key,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents").eq("organization_id", organizationId).order("created_at", { ascending: true }).limit(1);
     if (requestedWorkspace)
         workspaceQuery = workspaceQuery.eq("slug", requestedWorkspace);
     const { data: workspaceRows, error: workspaceError } = await workspaceQuery;
@@ -133,7 +133,7 @@ async function initialize() {
         supabase.from("communications_topic_metrics").select("topic_id,subscriber_count").eq("workspace_id", workspace.id),
         supabase.from("communications_keywords").select("keyword,topic_id").eq("workspace_id", workspace.id).eq("active", true).order("keyword"),
         supabase.from("communications_subscribers").select("id,full_name,phone_e164,email,sms_status,email_status,joined_at").eq("workspace_id", workspace.id).order("joined_at", { ascending: false }).range(subscriberPage * pageSize, subscriberPage * pageSize + pageSize - 1),
-        supabase.from("communications_workspace_metrics").select("total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month").eq("workspace_id", workspace.id).maybeSingle(),
+        supabase.from("communications_workspace_metrics").select("total_subscribers,sms_subscribers,email_subscribers,active_topics,consent_events,message_events,sms_segments_current_month,email_deliveries_current_month,outbound_mms_current_month").eq("workspace_id", workspace.id).maybeSingle(),
         supabase.from("communications_message_events").select("channel,direction,status,sms_segment_count,billable_units,body_preview,occurred_at").eq("workspace_id", workspace.id).order("occurred_at", { ascending: false }).limit(20),
         supabase.from("communications_signup_sources").select("source_type,public_token,metadata").eq("workspace_id", workspace.id).eq("status", "active").in("source_type", ["website_embed", "hosted_signup", "qr_campaign"]),
         supabase.from("communications_carrier_onboarding").select("status,review_notes,updated_at").eq("workspace_id", workspace.id).maybeSingle(),
@@ -153,17 +153,26 @@ async function initialize() {
         throw choicesResult.error;
     const choices = (choicesResult.data || []);
     const messages = (messagesResult.data || []);
-    const metrics = (metricsResult.data || { total_subscribers: 0, sms_subscribers: 0, email_subscribers: 0, active_topics: 0, consent_events: 0, message_events: 0, sms_segments_current_month: 0 });
+    const metrics = (metricsResult.data || { total_subscribers: 0, sms_subscribers: 0, email_subscribers: 0, active_topics: 0, consent_events: 0, message_events: 0, sms_segments_current_month: 0, email_deliveries_current_month: 0, outbound_mms_current_month: 0 });
     const smsSegments = Number(metrics.sms_segments_current_month || 0);
-    const usagePercent = workspace.included_sms_segments > 0 ? Math.round((smsSegments / workspace.included_sms_segments) * 100) : 0;
+    const emailDeliveries = Number(metrics.email_deliveries_current_month || 0);
+    const smsUsagePercent = workspace.included_sms_segments > 0 ? Math.round((smsSegments / workspace.included_sms_segments) * 100) : 0;
+    const emailUsagePercent = workspace.included_email_deliveries > 0 ? Math.round((emailDeliveries / workspace.included_email_deliveries) * 100) : 0;
+    const usagePercent = Math.max(smsUsagePercent, emailUsagePercent);
     const onboarding = onboardingResult.data;
     setText("#communications-title", workspace.program_name);
     setText("#communications-number", number?.phone_e164 ? formatPhone(number.phone_e164) : "Provisioning");
     setText("#communications-number-status", number ? `${number.carrier_registration_status.replaceAll("_", " ")} · ${number.status}` : workspace.status.replaceAll("_", " "));
     setText("#metric-subscribers", String(metrics.total_subscribers));
     setText("#metric-subscribers-detail", `${metrics.sms_subscribers} text · ${metrics.email_subscribers} email`);
+    const planName = workspace.plan_key === "plus" ? "Plus" : workspace.plan_key === "basic" ? "Basic" : "Founding";
+    setText("#metric-plan", planName);
+    setText("#metric-plan-detail", `${workspace.included_sms_segments.toLocaleString()} SMS · ${workspace.included_email_deliveries.toLocaleString()} emails included`);
     setText("#metric-sms", `${smsSegments} / ${workspace.included_sms_segments}`);
     setText("#metric-sms-detail", `${Math.max(0, workspace.included_sms_segments - smsSegments)} included segments remaining`);
+    setText("#metric-email", `${emailDeliveries.toLocaleString()} / ${workspace.included_email_deliveries.toLocaleString()}`);
+    setText("#metric-email-detail", `${Math.max(0, workspace.included_email_deliveries - emailDeliveries).toLocaleString()} included deliveries remaining`);
+    setText("#metric-mms", Number(metrics.outbound_mms_current_month || 0).toLocaleString());
     setText("#metric-topics", String(metrics.active_topics));
     setText("#metric-consent", String(metrics.consent_events));
     const onboardingCard = document.querySelector("#communications-onboarding-card");
@@ -189,7 +198,12 @@ async function initialize() {
     const alert = document.querySelector("#communications-usage-alert");
     if (alert && usagePercent >= 75) {
         alert.hidden = false;
-        alert.textContent = usagePercent >= 100 ? `You have used all ${workspace.included_sms_segments} included SMS segments. Additional usage is $${(workspace.sms_overage_cents / 100).toFixed(2)} per segment.` : `You have used ${usagePercent}% of this month’s included SMS segments.`;
+        if (smsUsagePercent >= emailUsagePercent) {
+            alert.textContent = usagePercent >= 100 ? `You have used all ${workspace.included_sms_segments.toLocaleString()} included SMS segments. Additional usage is $${(workspace.sms_overage_cents / 100).toFixed(2)} per segment.` : `You have used ${usagePercent}% of this month’s included SMS segments.`;
+        }
+        else {
+            alert.textContent = usagePercent >= 100 ? `You have used all ${workspace.included_email_deliveries.toLocaleString()} included email deliveries. Additional usage is $${(workspace.email_overage_per_1000_cents / 100).toFixed(2)} per 1,000 emails.` : `You have used ${usagePercent}% of this month’s included email deliveries.`;
+        }
     }
     renderJoinTools(workspace, number, keywords, (sourcesResult.data || []));
     renderTopics(topics, (topicMetricsResult.data || []));
