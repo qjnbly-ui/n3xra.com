@@ -46,6 +46,7 @@ const nativeProductWorkspacePaths = new Set([
   "/n3xra-admin/communications/pricing-activation/",
   "/n3xra-admin/communications/requests/",
   "/n3xra-admin/contact-cards/",
+  "/n3xra-admin/project-cards/",
 ]);
 
 const productWorkspacePaths = new Set([
@@ -118,7 +119,7 @@ const productApps = [
   {
     key: "project-cards",
     label: "Project Cards",
-    sections: [["workspace", "Projects & Cards", "/client-portal/project-cards/"]],
+    sections: [["workspace", "Administration", "/n3xra-admin/project-cards/"]],
   },
 ];
 

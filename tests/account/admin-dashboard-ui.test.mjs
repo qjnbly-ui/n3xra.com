@@ -53,7 +53,7 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   }
   assert.doesNotMatch(navigation, /Virals|AI Music|Internal Records|Archived Apps|Retired Apps/);
   assert.match(navigation, /\["\/account\/admin\/operations\/", "Financial Operations"\]/);
-  assert.match(navigation, /key: "project-cards",[\s\S]*label: "Project Cards",[\s\S]*"\/client-portal\/project-cards\/"/);
+  assert.match(navigation, /key: "project-cards",[\s\S]*label: "Project Cards",[\s\S]*"\/n3xra-admin\/project-cards\/"/);
   assert.doesNotMatch(navigation, /\["\/account\/admin\/operations\/", "Operations"\]/);
 
   assert.match(css, /\.admin-app-grid\s*{[\s\S]*grid-template-columns:\s*repeat\(3,/);
