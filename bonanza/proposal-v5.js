@@ -1,4 +1,5 @@
 "use strict";
+// Versioned filename prevents stale proposal controls from surviving a deployment.
 const sectionConfig = {
     included_website: noteOnly("Planning and website structure"),
     included_data: noteOnly("Custom design and development"),
