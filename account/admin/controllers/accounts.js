@@ -42,6 +42,9 @@ function productAdminLink(item, account) {
     if (item.organizationId) params.set("website", item.organizationId);
     return { href: `/n3xra-admin/websites/?${params}`, label: "Open Website admin" };
   }
+  if (item.product === "project_cards") {
+    return { href: `/n3xra-admin/project-cards/?${params}`, label: "Open Project Cards admin" };
+  }
   params.set("product", item.product || "all");
   return { href: `/account/admin/billing/?${params}`, label: `Open ${item.productLabel || "product"} billing` };
 }
@@ -56,6 +59,9 @@ function productClientPreviewLink(item) {
   }
   if (item.product === "communications" && item.workspaceSlug) {
     return `/client-portal/communications/?workspace=${encodeURIComponent(item.workspaceSlug)}`;
+  }
+  if (item.product === "project_cards") {
+    return `/project-cards/app/?organization=${encodeURIComponent(item.organizationId)}`;
   }
   return null;
 }

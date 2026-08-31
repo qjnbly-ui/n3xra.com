@@ -18,6 +18,7 @@ const PRODUCT_LABELS: Record<string, string> = {
   websites: "N3XRA Websites",
   communications: "N3XRA Communications",
   contact_cards: "N3XRA Contact Cards",
+  project_cards: "N3XRA Project Cards",
   prospects: "Potential Clients",
   ai_music: "AI Music Generator",
   virals: "N3XRA Virals",
@@ -222,6 +223,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    projectCardsEntitlementsResult,
     communicationsEntitlementsResult,
     communicationsWorkspacesResult,
     communicationsSubscriptionsResult,
@@ -243,6 +245,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     adminClient.from("virals_profiles").select("user_id, plan, account_status, monthly_analysis_limit, analyses_used, stripe_customer_id, stripe_subscription_id, subscription_current_period_end"),
     adminClient.from("account_phone_credentials").select("user_id, phone_e164, failed_attempts, locked_until, last_authenticated_at, last_password_reset_sent_at, created_at, updated_at"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "records"),
+    adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "project_cards"),
     adminClient.from("organization_product_entitlements").select("organization_id,status,portal_enabled,source,starts_at,ends_at").eq("product_key", "communications"),
     adminClient.from("communications_workspaces").select("id,organization_id,slug,program_name,sender_name,status,created_at,updated_at"),
     adminClient.from("organization_product_subscriptions").select("id,organization_id,product_key,stripe_customer_id,stripe_subscription_id,status,currency,setup_fee_cents,monthly_price_cents,setup_fee_paid,current_period_end,cancel_at_period_end").eq("product_key", "communications"),
@@ -266,6 +269,7 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     viralsProfilesResult,
     accountPhonesResult,
     recordsEntitlementsResult,
+    projectCardsEntitlementsResult,
     communicationsEntitlementsResult,
     communicationsWorkspacesResult,
     communicationsSubscriptionsResult,
@@ -293,6 +297,9 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     if (!websiteSnapshotMap.has(projectId)) websiteSnapshotMap.set(projectId, snapshot);
   });
   const activeRecordsOrganizationIds = new Set((recordsEntitlementsResult.data || [])
+    .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
+    .map((entitlement) => String(entitlement.organization_id)));
+  const activeProjectCardsOrganizationIds = new Set((projectCardsEntitlementsResult.data || [])
     .filter((entitlement) => entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || "")))
     .map((entitlement) => String(entitlement.organization_id)));
   const activeCommunicationsEntitlements = new Map((communicationsEntitlementsResult.data || [])
@@ -335,6 +342,18 @@ async function loadPlatformAccountData(adminClient: ReturnType<typeof createClie
     addAccess(membership.user_id, {
       product: "records", productLabel: PRODUCT_LABELS.records, organizationId: membership.organization_id,
       organization: organization?.name || "Records organization", role: membership.role, status: organization?.account_status || "active",
+    });
+  });
+  (recordsOrganizationsResult.data || []).filter((organization) => activeProjectCardsOrganizationIds.has(String(organization.id))).forEach((organization) => addAccess(organization.owner_user_id, {
+    product: "project_cards", productLabel: PRODUCT_LABELS.project_cards, organizationId: organization.id,
+    organization: organization.name, role: "owner", status: organization.account_status,
+  }));
+  (recordsMembershipsResult.data || []).forEach((membership) => {
+    const organization = recordsOrgMap.get(String(membership.organization_id));
+    if (!activeProjectCardsOrganizationIds.has(String(membership.organization_id))) return;
+    addAccess(membership.user_id, {
+      product: "project_cards", productLabel: PRODUCT_LABELS.project_cards, organizationId: membership.organization_id,
+      organization: organization?.name || "Project Cards workspace", role: membership.role, status: organization?.account_status || "active",
     });
   });
   (websiteMembersResult.data || []).forEach((membership) => {
@@ -1821,6 +1840,57 @@ Deno.serve(async (request) => {
         if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       }
       return jsonResponse({ ok: true, deletedCount: files?.length || 0 });
+    }
+
+    if (action === "activate-project-cards-for-account") {
+      const userId = String(payload.userId || "").trim();
+      const organizationId = String(payload.organizationId || "").trim();
+      if (!isValidUuid(userId) || !isValidUuid(organizationId)) {
+        return jsonResponse({ error: "A valid account and organization are required." }, 400);
+      }
+
+      const [targetResult, organizationResult, membershipResult] = await Promise.all([
+        adminClient.auth.admin.getUserById(userId),
+        adminClient.from("organizations").select("id,name,owner_user_id").eq("id", organizationId).maybeSingle(),
+        adminClient.from("organization_memberships").select("role").eq("organization_id", organizationId).eq("user_id", userId).maybeSingle(),
+      ]);
+      if (targetResult.error || !targetResult.data?.user) return jsonResponse({ error: targetResult.error?.message || "Account not found." }, 404);
+      if (organizationResult.error || !organizationResult.data) return jsonResponse({ error: organizationResult.error?.message || "Organization not found." }, 404);
+      if (membershipResult.error) return jsonResponse({ error: membershipResult.error.message }, 400);
+      const isOwner = String(organizationResult.data.owner_user_id) === userId;
+      if (!isOwner && !membershipResult.data) return jsonResponse({ error: "This account is not assigned to that organization." }, 400);
+
+      const existingEntitlementResult = await adminClient.from("organization_product_entitlements")
+        .select("source,starts_at,metadata")
+        .eq("organization_id", organizationId)
+        .eq("product_key", "project_cards")
+        .maybeSingle();
+      if (existingEntitlementResult.error) return jsonResponse({ error: existingEntitlementResult.error.message }, 400);
+      const existingEntitlement = existingEntitlementResult.data;
+      const entitlementResult = await adminClient.from("organization_product_entitlements").upsert({
+        organization_id: organizationId,
+        product_key: "project_cards",
+        status: "active",
+        portal_enabled: true,
+        source: existingEntitlement?.source === "subscription" ? "subscription" : "manual",
+        starts_at: existingEntitlement?.starts_at || new Date().toISOString(),
+        ends_at: null,
+        metadata: { ...(existingEntitlement?.metadata || {}), activated_via: "platform_admin", activated_for_user_id: userId, activated_by_user_id: user.id },
+      }, { onConflict: "organization_id,product_key" });
+      if (entitlementResult.error) return jsonResponse({ error: entitlementResult.error.message }, 400);
+
+      const membershipRole = String(membershipResult.data?.role || "viewer");
+      const productRole = isOwner || membershipRole === "account_admin" ? "account_admin" : membershipRole === "editor" ? "editor" : "viewer";
+      const accessResult = await adminClient.from("organization_product_member_access").upsert({
+        organization_id: organizationId,
+        product_key: "project_cards",
+        user_id: userId,
+        role: productRole,
+        status: "active",
+        granted_by: user.id,
+      }, { onConflict: "organization_id,product_key,user_id" });
+      if (accessResult.error) return jsonResponse({ error: accessResult.error.message }, 400);
+      return jsonResponse({ ok: true, organizationId, userId, role: productRole });
     }
 
     if (action === "list-platform-accounts") {

@@ -125,7 +125,7 @@ test("explicit website selection survives every unbranded workspace transition",
   assert.match(workspaceContext, /function routeForWebsite\(href, websiteId, organizationId = ""\)/);
   assert.match(workspaceContext, /\.website-organization-navigation a/);
   assert.match(workspaceContext, /routeForWebsite\(defaultWebsiteRoute\(selectedFeatures\), website\.id/);
-  assert.match(shell, /client-workspace-context\.js\?v=22/);
+  assert.match(shell, /client-workspace-context\.js\?v=23/);
   assert.match(html, /client-shell\.js\?v=27/);
 });
 

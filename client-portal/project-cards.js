@@ -8,6 +8,8 @@ let cards = [];
 let selected = new Set();
 let managedCardId = null;
 let pendingAction = null;
+const standaloneApp = document.body.classList.contains("project-cards-standalone");
+const appBase = standaloneApp ? "/project-cards/app/" : "/client-portal/project-cards/";
 const one = (selector) => document.querySelector(selector);
 const app = one("#pc-app");
 const status = one("#pc-status");
@@ -113,14 +115,21 @@ async function authorize() {
     }
     userId = session.user.id;
     const parameters = new URLSearchParams(window.location.search);
-    const requested = parameters.get("organization") || getStoredActiveOrganizationId();
+    let requested = parameters.get("organization") || getStoredActiveOrganizationId();
     if (parameters.get("activate") === "1") {
+        if (!requested) {
+            const { data: workspace, error: workspaceError } = await supabase.rpc("create_owned_organization", { input_organization_name: "Project Cards" });
+            if (workspaceError)
+                throw workspaceError;
+            requested = String(workspace?.organization_id || "");
+        }
         if (!requested)
-            throw new Error("Choose an organization before activating Project Cards.");
+            throw new Error("Unable to create your Project Cards workspace.");
         const { error: activationError } = await supabase.rpc("activate_project_cards", { input_organization_id: requested });
         if (activationError)
             throw activationError;
         parameters.delete("activate");
+        parameters.set("organization", requested);
         const nextQuery = parameters.toString();
         window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
     }
@@ -138,7 +147,7 @@ async function authorize() {
         throw organizationError;
     const workspaceName = one("#pc-workspace-name");
     if (workspaceName)
-        workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>Private to your organization</small>`;
+        workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>${standaloneApp ? "Independent N3XRA workspace" : "Connected to your organization"}</small>`;
     await loadWorkspace();
     render();
     if (status)
@@ -165,11 +174,11 @@ one("#pc-new-project")?.addEventListener("click", openCreateDialog);
 one("[data-empty-new-project]")?.addEventListener("click", openCreateDialog);
 one("#pc-dialog-close")?.addEventListener("click", () => dialog?.close());
 one("#pc-dialog-cancel")?.addEventListener("click", () => dialog?.close());
-function openActivation() { window.location.href = `/client-portal/project-cards/activate/?organization=${encodeURIComponent(organizationId)}`; }
+function openActivation() { window.location.href = `${appBase}activate/?organization=${encodeURIComponent(organizationId)}`; }
 one("#pc-activate-card")?.addEventListener("click", openActivation);
 one("[data-empty-activate-card]")?.addEventListener("click", openActivation);
 projectList?.addEventListener("click", (event) => { const button = event.target.closest("[data-open-project]"); if (button)
-    window.location.href = `/client-portal/project-cards/editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
+    window.location.href = `${appBase}editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
 createForm?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const values = new FormData(createForm);
@@ -185,7 +194,7 @@ createForm?.addEventListener("submit", async (event) => {
     }
     dialog?.close();
     createForm.reset();
-    window.location.href = `/client-portal/project-cards/editor/?project=${encodeURIComponent(String(data.id))}`;
+    window.location.href = `${appBase}editor/?project=${encodeURIComponent(String(data.id))}`;
 });
 cardList?.addEventListener("click", (event) => { const button = event.target.closest("[data-manage-card]"); if (!button)
     return; const card = cards.find((item) => item.id === button.dataset.manageCard); if (!card || !manageForm || !manageProject)

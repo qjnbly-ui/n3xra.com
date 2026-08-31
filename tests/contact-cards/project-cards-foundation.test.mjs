@@ -63,15 +63,33 @@ test("card activation waits for a secure server-created identity before NFC writ
 });
 
 test("Project Cards has a separate N3XRA admin workspace", async () => {
-  const [page, source, navigation] = await Promise.all([read("n3xra-admin/project-cards/index.html"), read("src/client-portal/project-cards-admin.ts"), read("account/admin/admin-navigation.js")]);
+  const [page, source, navigation, platformAdmin] = await Promise.all([read("n3xra-admin/project-cards/index.html"), read("src/client-portal/project-cards-admin.ts"), read("account/admin/admin-navigation.js"), read("supabase/functions/platform-admin/index.ts")]);
   assert.match(page, /Master administration/);
-  assert.match(page, /id="pca-organization-list"/);
+  assert.match(page, /id="pca-account-list"/);
+  assert.match(page, /All accounts/);
+  assert.match(page, /Independent N3XRA app/);
+  assert.match(page, /Organization assignments/);
   assert.match(page, /id="pca-detail"/);
   assert.match(source, /rpc\("is_platform_admin"\)/);
+  assert.match(source, /list-platform-accounts/);
   assert.match(source, /organization_product_entitlements/);
-  assert.match(source, /rpc\("activate_project_cards"/);
+  assert.match(source, /activate-project-cards-for-account/);
+  assert.match(platformAdmin, /action === "activate-project-cards-for-account"/);
+  assert.match(platformAdmin, /product: "project_cards"/);
   assert.match(navigation, /key: "project-cards"[\s\S]*\/n3xra-admin\/project-cards\//);
   assert.doesNotMatch(page, /Medford Fire Assignment|Internal preview/);
+});
+
+test("Project Cards has a standalone app entry in addition to the client-website add-on", async () => {
+  const [standalone, standaloneEditor, standaloneActivation, account, source, addOn] = await Promise.all([read("project-cards/app/index.html"), read("project-cards/app/editor/index.html"), read("project-cards/app/activate/index.html"), read("account/account.js"), read("src/client-portal/project-cards.ts"), read("client-portal/project-cards/index.html")]);
+  assert.match(standalone, /Independent N3XRA app/);
+  assert.match(standalone, /id="pc-app"/);
+  assert.match(standaloneEditor, /Independent N3XRA app/);
+  assert.match(standaloneActivation, /Independent N3XRA app/);
+  assert.match(account, /\/project-cards\/app\/\?activate=1/);
+  assert.match(source, /rpc\("create_owned_organization"/);
+  assert.match(source, /const appBase = standaloneApp \? "\/project-cards\/app\/"/);
+  assert.match(addOn, /client-portal\/client-shell\.js/);
 });
 
 test("project cards migration keeps tenant data private and permanent tokens non-recyclable", async () => {

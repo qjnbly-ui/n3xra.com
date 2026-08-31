@@ -863,12 +863,12 @@ async function renderDashboard(message = "") {
   if (projectCardsProductSummary && projectCardsProductLink) {
     projectCardsProductSummary.textContent = hasProjectCardsAccess
       ? "Build project pages, activate physical cards, and change their destinations at any time."
-      : "Activate a blank Project Cards workspace for your organization.";
+      : "Start the independent Project Cards app, then optionally connect it to a client organization.";
     projectCardsProductLink.href = hasProjectCardsAccess
-      ? `/client-portal/project-cards/?organization=${encodeURIComponent(projectCardsOrganizationId)}`
+      ? `/project-cards/app/?organization=${encodeURIComponent(projectCardsOrganizationId)}`
       : projectCardsOrganizationId
-        ? `/client-portal/project-cards/?organization=${encodeURIComponent(projectCardsOrganizationId)}&activate=1`
-        : "/project-cards/#signup";
+        ? `/project-cards/app/?organization=${encodeURIComponent(projectCardsOrganizationId)}&activate=1`
+        : "/project-cards/app/?activate=1";
     projectCardsProductLink.textContent = hasProjectCardsAccess
       ? "Open Project Cards"
       : "Activate Project Cards";

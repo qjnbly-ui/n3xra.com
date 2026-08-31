@@ -14,6 +14,8 @@ let cards: Card[] = [];
 let selected = new Set<string>();
 let managedCardId: string | null = null;
 let pendingAction: "unassign" | "deactivate" | "retire" | null = null;
+const standaloneApp = document.body.classList.contains("project-cards-standalone");
+const appBase = standaloneApp ? "/project-cards/app/" : "/client-portal/project-cards/";
 
 const one = <T extends Element>(selector: string) => document.querySelector<T>(selector);
 const app = one<HTMLElement>("#pc-app");
@@ -103,12 +105,18 @@ async function authorize(): Promise<void> {
   if (!session?.user) { window.location.replace(`/client-portal/login/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
   userId = session.user.id;
   const parameters = new URLSearchParams(window.location.search);
-  const requested = parameters.get("organization") || getStoredActiveOrganizationId();
+  let requested = parameters.get("organization") || getStoredActiveOrganizationId();
   if (parameters.get("activate") === "1") {
-    if (!requested) throw new Error("Choose an organization before activating Project Cards.");
+    if (!requested) {
+      const { data: workspace, error: workspaceError } = await supabase.rpc("create_owned_organization", { input_organization_name: "Project Cards" });
+      if (workspaceError) throw workspaceError;
+      requested = String(workspace?.organization_id || "");
+    }
+    if (!requested) throw new Error("Unable to create your Project Cards workspace.");
     const { error: activationError } = await supabase.rpc("activate_project_cards", { input_organization_id: requested });
     if (activationError) throw activationError;
     parameters.delete("activate");
+    parameters.set("organization", requested);
     const nextQuery = parameters.toString();
     window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
   }
@@ -122,7 +130,7 @@ async function authorize(): Promise<void> {
   const { data: organizationRow, error: organizationError } = await supabase.from("organizations").select("id,name").eq("id", organizationId).maybeSingle();
   if (organizationError) throw organizationError;
   const workspaceName = one<HTMLElement>("#pc-workspace-name");
-  if (workspaceName) workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>Private to your organization</small>`;
+  if (workspaceName) workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>${standaloneApp ? "Independent N3XRA workspace" : "Connected to your organization"}</small>`;
   await loadWorkspace();
   render();
   if (status) status.hidden = true;
@@ -140,14 +148,14 @@ one("#pc-new-project")?.addEventListener("click", openCreateDialog);
 one("[data-empty-new-project]")?.addEventListener("click", openCreateDialog);
 one("#pc-dialog-close")?.addEventListener("click", () => dialog?.close());
 one("#pc-dialog-cancel")?.addEventListener("click", () => dialog?.close());
-function openActivation(): void { window.location.href = `/client-portal/project-cards/activate/?organization=${encodeURIComponent(organizationId)}`; }
+function openActivation(): void { window.location.href = `${appBase}activate/?organization=${encodeURIComponent(organizationId)}`; }
 one("#pc-activate-card")?.addEventListener("click", openActivation);
 one("[data-empty-activate-card]")?.addEventListener("click", openActivation);
-projectList?.addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-open-project]"); if (button) window.location.href = `/client-portal/project-cards/editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
+projectList?.addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-open-project]"); if (button) window.location.href = `${appBase}editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
 createForm?.addEventListener("submit", async (event) => { event.preventDefault(); const values = new FormData(createForm); const name = String(values.get("name") || "").trim(); if (!name) return; const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "project"; const payload = { organization_id: organizationId, slug: `${slugBase}-${Date.now().toString(36)}`, name, description: String(values.get("description") || "").trim(), status: values.get("status") === "live" ? "live" : "draft", created_by_user_id: userId };
   const { data, error } = await supabase.from("project_card_projects").insert(payload).select("id").single();
   if (error) { message(error.message); return; }
-  dialog?.close(); createForm.reset(); window.location.href = `/client-portal/project-cards/editor/?project=${encodeURIComponent(String(data.id))}`;
+  dialog?.close(); createForm.reset(); window.location.href = `${appBase}editor/?project=${encodeURIComponent(String(data.id))}`;
 });
 
 cardList?.addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-manage-card]"); if (!button) return; const card = cards.find((item) => item.id === button.dataset.manageCard); if (!card || !manageForm || !manageProject) return; managedCardId = card.id; one<HTMLElement>("#pc-manage-title")!.textContent = `Manage ${card.card_code}`; one<HTMLElement>("#pc-manage-address")!.textContent = `n3xra.com/t/${card.token}`; (manageForm.elements.namedItem("assignedName") as HTMLInputElement).value = card.assigned_name; manageProject.value = card.project_id || ""; manageDialog?.showModal(); });
