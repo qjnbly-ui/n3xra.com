@@ -1,10 +1,10 @@
 "use strict";
 const sectionConfig = {
-    included_website: included("Municipal website"),
-    included_data: included("Dedicated Town data"),
-    included_content: included("Town-managed information"),
-    included_forms: included("Forms and request intake"),
-    included_payments: included("Stripe payments"),
+    included_website: noteOnly("Planning and website structure"),
+    included_data: noteOnly("Custom design and development"),
+    included_content: noteOnly("Town-managed content systems"),
+    included_forms: noteOnly("Forms, requests, and Stripe payments"),
+    included_payments: noteOnly("Dedicated data, testing, and launch"),
     addon_records: {
         title: "Records organization",
         question: "When should the Town consider this add-on?",
@@ -24,8 +24,8 @@ const sectionConfig = {
 function choices(...items) {
     return items.map(([value, label]) => ({ value, label }));
 }
-function included(title) {
-    return { title, question: "Does this included scope look right?", choices: choices(["looks_good", "Good as proposed"], ["question", "I have a question"]) };
+function noteOnly(title) {
+    return { title, noteOnly: true, question: "", choices: [] };
 }
 const gate = document.querySelector("#access-gate");
 const app = document.querySelector("#proposal-app");
@@ -108,12 +108,18 @@ function renderFeedback() {
         rows.sort((a, b) => Object.keys(sectionConfig).indexOf(a.section_key) - Object.keys(sectionConfig).indexOf(b.section_key)).forEach((row) => {
             const item = document.createElement("li");
             const section = document.createElement("span");
-            const choice = document.createElement("strong");
             const note = document.createElement("p");
             section.textContent = sectionConfig[row.section_key]?.title || row.section_key;
-            choice.textContent = choiceLabel(row.section_key, row.choice);
             note.textContent = row.note || "No note added.";
-            item.append(section, choice, note);
+            if (sectionConfig[row.section_key]?.noteOnly) {
+                item.classList.add("note-only-feedback");
+                item.append(section, note);
+            }
+            else {
+                const choice = document.createElement("strong");
+                choice.textContent = choiceLabel(row.section_key, row.choice);
+                item.append(section, choice, note);
+            }
             list.append(item);
         });
         article.append(header, list);
@@ -159,6 +165,12 @@ function installControls() {
         const controls = responseTemplate.content.firstElementChild.cloneNode(true);
         controls.querySelector(".response-question").textContent = config.question;
         const choiceRow = controls.querySelector(".choice-row");
+        if (config.noteOnly) {
+            controls.classList.add("note-only");
+            controls.querySelector(".response-question").hidden = true;
+            choiceRow.hidden = true;
+            controls.querySelector(".note-panel summary").textContent = "Question or note";
+        }
         config.choices.forEach((choice) => {
             const button = document.createElement("button");
             button.type = "button";
@@ -178,12 +190,21 @@ function installControls() {
             choiceRow.append(button);
         });
         controls.querySelector(".save-note").addEventListener("click", () => {
+            const note = controls.querySelector("textarea").value.trim();
+            if (config.noteOnly) {
+                if (!note) {
+                    controls.querySelector(".save-status").textContent = "Write a question or note first.";
+                    return;
+                }
+                void save(key, "note", note, card);
+                return;
+            }
             const row = ownResponse(key);
             if (!row?.choice) {
                 controls.querySelector(".save-status").textContent = "Choose a response first.";
                 return;
             }
-            void save(key, row.choice, controls.querySelector("textarea").value.trim(), card);
+            void save(key, row.choice, note, card);
         });
         card.append(controls);
     });
