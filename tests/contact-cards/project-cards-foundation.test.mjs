@@ -63,13 +63,14 @@ test("card activation waits for a secure server-created identity before NFC writ
 });
 
 test("Project Cards has a separate N3XRA admin workspace", async () => {
-  const [page, source, navigation, platformAdmin] = await Promise.all([read("n3xra-admin/project-cards/index.html"), read("src/client-portal/project-cards-admin.ts"), read("account/admin/admin-navigation.js"), read("supabase/functions/platform-admin/index.ts")]);
+  const [page, styles, source, navigation, platformAdmin] = await Promise.all([read("n3xra-admin/project-cards/index.html"), read("n3xra-admin/project-cards/project-cards-admin.css"), read("src/client-portal/project-cards-admin.ts"), read("account/admin/admin-navigation.js"), read("supabase/functions/platform-admin/index.ts")]);
   assert.match(page, /Master administration/);
   assert.match(page, /id="pca-account-list"/);
   assert.match(page, /All accounts/);
   assert.match(page, /Independent N3XRA app/);
   assert.match(page, /Organization assignments/);
   assert.match(page, /id="pca-detail"/);
+  assert.match(styles, /\.pca-empty\[hidden\]\{display:none\}/);
   assert.match(source, /rpc\("is_platform_admin"\)/);
   assert.match(source, /list-platform-accounts/);
   assert.match(source, /organization_product_entitlements/);
