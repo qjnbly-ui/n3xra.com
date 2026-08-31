@@ -5,7 +5,7 @@ Production project inspected read-only: `vdbjlgmbpykjblprqnak`
 
 ## Scope and status
 
-This report preserves the production security findings separately from the Nexra Communications migration. It is advisory only.
+This report preserves the production security findings separately from the N3XRA Communications migration. It is advisory only.
 
 No function access was revoked, no function was changed between `SECURITY DEFINER` and `SECURITY INVOKER`, no schema or extension was moved, no RLS policy was added or removed, and no authentication setting was changed.
 

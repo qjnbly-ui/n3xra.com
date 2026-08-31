@@ -31,7 +31,7 @@ const PRODUCTS = [
   },
   {
     id: "communications",
-    name: "Nexra Communications",
+    name: "N3XRA Communications",
     route: "/nexra-communications/",
     summary: "Dedicated business numbers, carrier onboarding, permission-based text and email signups, QR and keyword enrollment, subscriber preferences, consent history, connected billing, usage reporting, and client workspaces.",
   },
@@ -211,7 +211,7 @@ const RECENT_CAPABILITIES = [
     introducedBy: "0c6f95e",
     date: "2026-08-14",
     title: "Trusted Communications delivery foundation",
-    summary: "Nexra Communications gained a protected email-delivery foundation with reliable preparation, delivery tracking, retry handling, suppression awareness, and verified provider events.",
+    summary: "N3XRA Communications gained a protected email-delivery foundation with reliable preparation, delivery tracking, retry handling, suppression awareness, and verified provider events.",
   },
   {
     introducedBy: "2fc3c54",
@@ -222,7 +222,7 @@ const RECENT_CAPABILITIES = [
   {
     introducedBy: "6c22bc9",
     date: "2026-08-14",
-    title: "Nexra Communications founding pilot",
+    title: "N3XRA Communications founding pilot",
     summary: "Organizations can request a dedicated number, collect permission-based text and email subscribers through website forms, QR codes, and keywords, and review preferences, consent history, topics, and usage from their branded client portal.",
   },
   {

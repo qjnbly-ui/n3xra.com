@@ -1,4 +1,4 @@
--- Shared, multi-tenant website forms and Nexra Communications foundation.
+-- Shared, multi-tenant website forms and N3XRA Communications foundation.
 -- Public ingestion is server-only. Customer portal reads are organization-scoped by RLS.
 
 create unique index if not exists client_websites_id_organization_uidx
