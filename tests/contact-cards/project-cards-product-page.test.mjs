@@ -12,13 +12,17 @@ test("the homepage presents Project Cards as a public N3XRA product", async () =
 });
 
 test("the Project Cards presentation explains the product and offers signup", async () => {
-  const page = await projectFile("project-cards/index.html");
+  const [page, styles] = await Promise.all([
+    projectFile("project-cards/index.html"),
+    projectFile("assets/project-cards.css"),
+  ]);
   assert.match(page, /One card[.]<br><em>Any assignment[.]<\/em>/);
   assert.match(page, /The card stays the same[.]/);
   assert.match(page, /The destination changes[.]/);
   assert.match(page, /href="\/account\/?[?]signup=signup&amp;product=project_cards"/);
   assert.match(page, /Project Cards is entering early access/);
   assert.doesNotMatch(page, /is_platform_admin|client-portal\/project-cards\.js/);
+  assert.doesNotMatch(styles, /\.cards-hero:before|background-size:64px 64px/);
 });
 
 test("the presentation's interactive example has all three destinations", async () => {

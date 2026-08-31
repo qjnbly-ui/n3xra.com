@@ -61,6 +61,7 @@ const openRecordsButton = document.getElementById("open-records-button");
 const communicationsProductCard = document.getElementById("communications-product-card");
 const communicationsProductSummary = document.getElementById("communications-product-summary");
 const communicationsProductLink = document.getElementById("communications-product-link");
+const projectCardsProductCard = document.getElementById("project-cards-product-card");
 const openAdminViralsButton = document.getElementById("open-admin-virals-button");
 const openAdminMusicButton = document.getElementById("open-admin-music-button");
 const openMusicButton = document.getElementById("open-music-button");
@@ -873,6 +874,7 @@ async function renderDashboard(message = "") {
   [
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
+    [projectCardsProductCard, false],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
     [organizationAdminCard, hasOrganizationAdminAccess],
     [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],

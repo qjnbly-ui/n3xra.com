@@ -115,6 +115,11 @@ const productApps = [
     label: "Contact Cards",
     sections: [["workspace", "Cards & Requests", "/n3xra-admin/contact-cards/"]],
   },
+  {
+    key: "project-cards",
+    label: "Project Cards",
+    sections: [["workspace", "Projects & Cards", "/client-portal/project-cards/"]],
+  },
 ];
 
 const companyLinks = [
