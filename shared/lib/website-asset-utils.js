@@ -5,20 +5,8 @@ export function safeWebsiteAssetFilename(value = "asset") {
   return `${stem}${extension}`;
 }
 
-export function websiteAssetThumbnailUrl(value = "", { width = 640, height = 480, quality = 70 } = {}) {
-  const source = String(value || "");
-  if (!source.includes("/storage/v1/object/public/website-assets-public/")) return source;
-  try {
-    const url = new URL(source);
-    url.pathname = url.pathname.replace("/storage/v1/object/public/", "/storage/v1/render/image/public/");
-    url.searchParams.set("width", String(width));
-    url.searchParams.set("height", String(height));
-    url.searchParams.set("resize", "contain");
-    url.searchParams.set("quality", String(quality));
-    return url.toString();
-  } catch {
-    return source;
-  }
+export function websiteAssetThumbnailUrl(value = "") {
+  return String(value || "");
 }
 
 export function humanizeWebsiteAssetFilename(filename = "") {

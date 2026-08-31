@@ -39,12 +39,8 @@ test("renames the visible file while preserving its file type", () => {
   assert.throws(() => validateWebsiteAssetRename("folder/new-hero.png", "old-hero.png"), /without slashes/);
 });
 
-test("uses lightweight transformed images for public website thumbnails", () => {
+test("uses published image URLs directly for website thumbnails", () => {
   const original = "https://example.supabase.co/storage/v1/object/public/website-assets-public/site/file/photo.jpg";
-  const thumbnail = websiteAssetThumbnailUrl(original);
-  assert.match(thumbnail, /\/storage\/v1\/render\/image\/public\/website-assets-public\//);
-  assert.match(thumbnail, /width=640/);
-  assert.match(thumbnail, /height=480/);
-  assert.match(thumbnail, /quality=70/);
+  assert.equal(websiteAssetThumbnailUrl(original), original);
   assert.equal(websiteAssetThumbnailUrl("https://cdn.example.com/photo.jpg"), "https://cdn.example.com/photo.jpg");
 });
