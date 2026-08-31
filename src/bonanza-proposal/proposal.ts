@@ -15,7 +15,7 @@ const sectionConfig: Record<string, SectionConfig> = {
   included_data: included("Dedicated Town data"),
   included_content: included("Town-managed information"),
   included_forms: included("Forms and request intake"),
-  included_payments: included("Five payment purposes"),
+  included_payments: included("Stripe payments"),
   addon_records: {
     title: "Records organization",
     question: "When should the Town consider this add-on?",
@@ -26,8 +26,6 @@ const sectionConfig: Record<string, SectionConfig> = {
     question: "Which starting point should the Town consider?",
     choices: choices(["basic", "Basic · +$39/mo"], ["plus", "Plus · +$69/mo"], ["later", "Revisit later"], ["question", "I have a question"]),
   },
-  later_grant: later("Cybersecurity grant phase"),
-  later_workspace: later("Additional municipal tools"),
   overall: {
     title: "Overall direction",
     question: "What should happen next?",
@@ -41,10 +39,6 @@ function choices(...items: [string, string][]): Choice[] {
 
 function included(title: string): SectionConfig {
   return { title, question: "Does this included scope look right?", choices: choices(["looks_good", "Good as proposed"], ["question", "I have a question"]) };
-}
-
-function later(title: string): SectionConfig {
-  return { title, question: "Should this stay in the later roadmap?", choices: choices(["interested", "Keep in the roadmap"], ["later", "Discuss later"], ["question", "I have a question"]) };
 }
 
 const gate = document.querySelector<HTMLElement>("#access-gate")!;
