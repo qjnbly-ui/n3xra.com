@@ -23,6 +23,10 @@ function assistantAudience() {
   return isAdminRoute() || cachedAssistantAudience() === "admin" ? "admin" : "public";
 }
 
+function assistantProductName() {
+  return String(document.body?.dataset.assistantProduct || "").trim();
+}
+
 function ensureAssistantTrigger(container, mobile = false) {
   if (!container) return null;
 
@@ -40,8 +44,9 @@ function ensureAssistantTrigger(container, mobile = false) {
     else container.prepend(trigger);
   }
 
-  const admin = assistantAudience() === "admin";
-  const label = admin ? "Ask Admin AI" : "Ask N3XRA";
+  const productName = assistantProductName();
+  const admin = !productName && assistantAudience() === "admin";
+  const label = productName ? `Ask ${productName} AI` : admin ? "Ask Admin AI" : "Ask N3XRA";
   if (trigger.textContent !== label) trigger.textContent = label;
   trigger.classList.toggle("is-admin", admin);
   trigger.removeAttribute("data-assistant-state");

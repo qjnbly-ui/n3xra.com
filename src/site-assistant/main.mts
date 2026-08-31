@@ -178,12 +178,18 @@ function addNavTrigger(container: Element | null, mobile = false): HTMLButtonEle
   return trigger;
 }
 
-function modeContent(mode: AssistantMode, audience: Audience) {
+function modeContent(mode: AssistantMode, audience: Audience, productName = "") {
   if (mode === "codebase") return {
     kicker: "Private administrator tool", title: "Codebase AI", assistantName: "Codebase AI",
     description: "Answers grounded in the current private N3XRA code index.", label: "Ask a codebase question",
     placeholder: "How is this feature implemented?", welcome: "Codebase AI is on. Ask about a product, page, API, database table, function, or workflow.",
     prompts: ["How does admin authentication work?", "Trace the current page workflow", "Where is this feature implemented?"],
+  };
+  if (productName) return {
+    kicker: `N3XRA ${productName}`, title: `Ask ${productName} AI`, assistantName: `${productName} AI`,
+    description: `Help based on this ${productName} workspace, your account, and verified N3XRA information.`, label: `Ask a ${productName} question`,
+    placeholder: "What can I do here?", welcome: `Ask about this workspace, your account, or how ${productName} works.`,
+    prompts: ["Explain this page", "What can I do here?", "Where can I get support?"],
   };
   if (audience === "admin") return {
     kicker: "Verified platform administrator", title: "Ask Admin AI", assistantName: "Admin AI",
@@ -211,6 +217,7 @@ async function initializeSiteAssistant(): Promise<void> {
   if (!desktopActions) return;
   const desktopTrigger = addNavTrigger(desktopActions);
   const mobileTrigger = addNavTrigger(document.querySelector(".site-mobile-menu"), true);
+  const productName = String(document.body?.dataset.assistantProduct || "").trim();
   const layer = document.createElement("div");
   layer.className = "site-assistant-layer";
   layer.id = "site-assistant-layer";
@@ -362,7 +369,7 @@ async function initializeSiteAssistant(): Promise<void> {
     requestedMode: AssistantMode,
   ): Promise<void> => {
     const requestVersion = ++followUpRequestVersion;
-    renderStarterPrompts(modeContent(requestedMode, audience).prompts);
+    renderStarterPrompts(modeContent(requestedMode, audience, productName).prompts);
     starters.setAttribute("aria-busy", "true");
     try {
       const modulePath = "/shared/lib/ai-follow-ups.js?v=20260812";
@@ -384,7 +391,7 @@ async function initializeSiteAssistant(): Promise<void> {
   const renderMode = (): void => {
     followUpRequestVersion += 1;
     starters.removeAttribute("aria-busy");
-    const content = modeContent(activeMode, audience);
+    const content = modeContent(activeMode, audience, productName);
     layer.dataset.mode = activeMode;
     queryRequired<HTMLElement>(layer, "[data-assistant-kicker]").textContent = content.kicker;
     queryRequired<HTMLElement>(layer, "[data-assistant-title]").textContent = content.title;
@@ -466,11 +473,11 @@ async function initializeSiteAssistant(): Promise<void> {
     modes.hidden = false;
   }
   const triggerAudience: Audience = desktopTrigger?.classList.contains("is-admin") ? "admin" : audience;
-  const triggerLabel = triggerAudience === "admin" ? "Ask Admin AI" : triggerAudience === "account" ? "Ask Account AI" : "Ask N3XRA";
+  const triggerLabel = productName ? `Ask ${productName} AI` : triggerAudience === "admin" ? "Ask Admin AI" : triggerAudience === "account" ? "Ask Account AI" : "Ask N3XRA";
   [desktopTrigger, mobileTrigger].forEach((trigger) => {
     if (!trigger) return;
     trigger.textContent = triggerLabel;
-    trigger.classList.toggle("is-admin", triggerAudience === "admin");
+    trigger.classList.toggle("is-admin", !productName && triggerAudience === "admin");
     trigger.removeAttribute("data-assistant-state");
   });
   renderMode();

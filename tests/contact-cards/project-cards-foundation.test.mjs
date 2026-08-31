@@ -82,15 +82,25 @@ test("Project Cards has a separate N3XRA admin workspace", async () => {
 });
 
 test("Project Cards has a standalone app entry in addition to the client-website add-on", async () => {
-  const [standalone, standaloneStyles, standaloneEditor, standaloneActivation, account, source, addOn] = await Promise.all([read("project-cards/app/index.html"), read("project-cards/app/app-shell.css"), read("project-cards/app/editor/index.html"), read("project-cards/app/activate/index.html"), read("account/account.js"), read("src/client-portal/project-cards.ts"), read("client-portal/project-cards/index.html")]);
-  assert.match(standalone, /class="site-topbar home-topbar account-topbar"/);
-  assert.match(standalone, /Back to dashboard/);
+  const [standalone, standaloneStyles, standaloneEditor, standaloneActivation, productHeaderStyles, siteNav, assistant, account, source, addOn] = await Promise.all([read("project-cards/app/index.html"), read("project-cards/app/app-shell.css"), read("project-cards/app/editor/index.html"), read("project-cards/app/activate/index.html"), read("assets/product-app-header.css"), read("assets/site-nav.js"), read("src/site-assistant/main.mts"), read("account/account.js"), read("src/client-portal/project-cards.ts"), read("client-portal/project-cards/index.html")]);
+  assert.match(standalone, /class="product-app-header"/);
+  assert.match(standalone, /aria-label="N3XRA Project Cards home"/);
+  assert.match(standalone, /Ask Project Cards AI/);
+  assert.match(standalone, /client-portal\/product-app-shell\.js/);
+  assert.match(standalone, />Dashboard</);
+  assert.match(standalone, />Sign out</);
   assert.doesNotMatch(standalone, /class="portal-heading"/);
   assert.match(standalone, /id="pc-app"/);
-  assert.match(standaloneEditor, /class="site-topbar home-topbar account-topbar"/);
+  assert.match(standaloneEditor, /class="product-app-header"/);
+  assert.match(standaloneEditor, /Ask Project Cards AI/);
   assert.doesNotMatch(standaloneEditor, /class="portal-heading"/);
-  assert.match(standaloneActivation, /class="site-topbar home-topbar account-topbar"/);
+  assert.match(standaloneActivation, /class="product-app-header"/);
+  assert.match(standaloneActivation, /Ask Project Cards AI/);
   assert.doesNotMatch(standaloneActivation, /class="portal-heading"/);
+  assert.match(productHeaderStyles, /background:#070d14/);
+  assert.match(productHeaderStyles, /width:min\(1240px,calc\(100vw - 40px\)\)/);
+  assert.match(siteNav, /dataset\.assistantProduct/);
+  assert.match(assistant, /Ask \$\{productName\} AI/);
   assert.match(standalone, /One card[.] Any assignment[.]/);
   assert.match(standaloneStyles, /\.project-cards-standalone \.pc-hero\{align-items:center;padding:1[.]35rem/);
   assert.match(standaloneStyles, /\.portal-shell\{width:100%;max-width:none/);

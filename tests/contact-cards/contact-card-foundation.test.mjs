@@ -45,10 +45,12 @@ test("private card media is only served for published profiles", async () => {
 });
 
 test("friendly card URLs and separate customer and admin entry points are connected", async () => {
-  const [vercel, account, activation, admin, adminLogic, adminStyles, sharedStyles, productShell, prospects, editor] = await Promise.all([
+  const [vercel, account, activation, productHeaderStyles, productAppShell, admin, adminLogic, adminStyles, sharedStyles, productShell, prospects, editor] = await Promise.all([
     read("vercel.json"),
     read("account/index.html"),
     read("client-portal/contact-card/index.html"),
+    read("assets/product-app-header.css"),
+    read("client-portal/product-app-shell.js"),
     read("n3xra-admin/contact-cards/index.html"),
     read("src/contact-cards/admin.ts"),
     read("n3xra-admin/contact-cards/contact-cards-admin.css"),
@@ -62,6 +64,15 @@ test("friendly card URLs and separate customer and admin entry points are connec
   assert.match(account, /Activate Contact Card/);
   assert.match(activation, /card-activation-slug/);
   assert.match(activation, /card-scan-input/);
+  assert.match(activation, /class="product-app-header"/);
+  assert.match(activation, /aria-label="N3XRA Contact Cards home"/);
+  assert.match(activation, /Ask Contact Cards AI/);
+  assert.match(activation, />Dashboard</);
+  assert.match(activation, />Sign out</);
+  assert.match(productHeaderStyles, /body\[data-assistant-product="Contact Cards"\]/);
+  assert.match(activation, /client-portal\/product-app-shell\.js/);
+  assert.match(productAppShell, /document\.title = `\$\{identity\.websiteName\} \| \$\{productName\}`/);
+  assert.match(productAppShell, /name\.textContent = identity\.websiteName/);
   assert.doesNotMatch(activation, /Your digital introduction/);
   assert.doesNotMatch(activation, /Choose your permanent address/);
   assert.match(activation, /id="card-editor-toolbar" hidden/);
