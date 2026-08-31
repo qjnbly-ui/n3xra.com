@@ -14,7 +14,7 @@ const projectFile = (path) => readFile(new URL(path, root), "utf8");
 test("every new admin notification is queued for asynchronous email and text delivery", async () => {
   const [emailMigration, smsMigration] = await Promise.all([
     projectFile("supabase/migrations/20260824062732_admin_notification_email_delivery.sql"),
-    projectFile("supabase/migrations/20260824211010_add_admin_notification_sms_delivery.sql"),
+    projectFile("supabase/migrations/20260824211313_add_admin_notification_sms_delivery.sql"),
   ]);
   assert.match(emailMigration, /vault\.decrypted_secrets/);
   assert.match(smsMigration, /after insert on public\.admin_notifications/);
@@ -26,7 +26,7 @@ test("every new admin notification is queued for asynchronous email and text del
 
 test("platform admins can independently control email and text copies from the Admin Inbox", async () => {
   const [migration, endpoint, html, script] = await Promise.all([
-    projectFile("supabase/migrations/20260824211851_admin_notification_delivery_preferences.sql"),
+    projectFile("supabase/migrations/20260824212031_admin_notification_delivery_preferences.sql"),
     projectFile("supabase/functions/admin-notification-email/index.ts"),
     projectFile("account/admin/inbox/index.html"),
     projectFile("account/admin/inbox/inbox.js"),

@@ -37,10 +37,10 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   const adminSection = html.match(/<section class="dashboard-section admin-app-section[\s\S]+?<\/section>\s*<\/div>/)?.[0] || "";
 
   const adminCards = adminSection.match(/class="app-card admin-app-card"/g) || [];
-  assert.equal(adminCards.length, 8);
+  assert.equal(adminCards.length, 9);
   assert.doesNotMatch(html, /id="(?:music|virals)-app-card"/);
   assert.doesNotMatch(adminSection, /Utilities Admin|\/n3xra-admin\/utilities/);
-  assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
+  assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Projects &amp; Physical Cards[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
   assert.match(adminSection, /Open all admin tools/);
   assert.match(adminSection, /Retired products[\s\S]*N3XRA Virals[\s\S]*N3XRA AI Music Generator/);
   assert.doesNotMatch(adminSection, /N3XRA Internal Records|open-admin-records-button/);

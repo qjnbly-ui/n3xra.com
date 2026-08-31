@@ -8,8 +8,8 @@ const read = (path) => readFile(new URL(path, root), "utf8");
 test("Communications checkout uses standard pricing with a Roots-specific setup override", async () => {
   const [billing, migration, onboardingMigration] = await Promise.all([
     read("supabase/functions/communications-billing/index.ts"),
-    read("supabase/migrations/20260826151257_communications_product_billing.sql"),
-    read("supabase/migrations/20260826153548_communications_twilio_onboarding.sql"),
+    read("supabase/migrations/20260826151643_communications_product_billing.sql"),
+    read("supabase/migrations/20260826170812_communications_twilio_onboarding.sql"),
   ]);
 
   assert.match(billing, /mode: "subscription"/);

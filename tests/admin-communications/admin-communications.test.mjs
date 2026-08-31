@@ -79,7 +79,7 @@ test("the admin communications feature keeps credentials server-side and consent
   const [helper, endpoint, migration, nexMigration, page, navigation] = await Promise.all([
     readFile(new URL("../../api/_admin-communications.js", import.meta.url), "utf8"),
     readFile(new URL("../../api/admin-communications.js", import.meta.url), "utf8"),
-    readFile(new URL("../../supabase/migrations/20260824193252_add_admin_calls_and_messages.sql", import.meta.url), "utf8"),
+    readFile(new URL("../../supabase/migrations/20260824193739_add_admin_calls_and_messages.sql", import.meta.url), "utf8"),
     readFile(new URL("../../supabase/migrations/20260825132519_add_nex_conversation_handoff.sql", import.meta.url), "utf8"),
     readFile(new URL("../../account/admin/communications/index.html", import.meta.url), "utf8"),
     readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8"),

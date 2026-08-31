@@ -1,0 +1,23 @@
+import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
+const one = (selector) => document.querySelector(selector);
+const form = one("#pa-form");
+function showStep(step) { document.querySelectorAll("[data-step]").forEach((panel) => { panel.hidden = panel.dataset.step !== step; }); document.querySelectorAll("[data-progress]").forEach((item) => item.classList.toggle("is-active", Number(item.dataset.progress) <= Number(step))); window.scrollTo({ top: 0, behavior: "smooth" }); }
+function review() { if (!form?.reportValidity())
+    return false; const values = new FormData(form); one("#pa-review-name").textContent = String(values.get("assignedName") || ""); one("#pa-review-project").textContent = String(values.get("project") || "Leave unassigned"); return true; }
+function detectNfc() { const supported = "NDEFReader" in window && window.isSecureContext; const title = one("#pa-device-title"); const copy = one("#pa-device-copy"); if (title)
+    title.textContent = supported ? "NFC writing appears available" : "Use a compatible NFC-writing device"; if (copy)
+    copy.textContent = supported ? "The browser can request permission when the production Write button is pressed." : "This setup can be completed here, then written from a supported Android phone or the future N3XRA mobile app."; }
+async function authorize() { if (!hasConfig())
+    throw new Error("The N3XRA data connection is not configured."); const supabase = createBrowserSupabase(); const session = await getSessionOrNull(supabase); if (!session?.user) {
+    window.location.replace(`/client-portal/login/?next=${encodeURIComponent(window.location.pathname)}`);
+    return;
+} const { data, error } = await supabase.rpc("is_platform_admin"); if (error || data !== true) {
+    window.location.replace("/client-portal/");
+    return;
+} detectNfc(); one("#pa-status").hidden = true; one("#pa-app").hidden = false; document.body.classList.remove("portal-loading"); }
+document.querySelectorAll("[data-next]").forEach((button) => button.addEventListener("click", () => { const next = button.dataset.next || "1"; if (next === "2" && !review())
+    return; if (next === "3")
+    one("#pa-token").textContent = "PREVIEW-7Q4K"; showStep(next); }));
+document.querySelectorAll("[data-back]").forEach((button) => button.addEventListener("click", () => showStep(button.dataset.back || "1")));
+void authorize().catch((error) => { const status = one("#pa-status"); if (status)
+    status.textContent = error instanceof Error ? error.message : "Unable to open card activation."; document.body.classList.remove("portal-loading"); });

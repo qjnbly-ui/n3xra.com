@@ -218,6 +218,10 @@
   ],
   "rewrites": [
     {
+      "source": "/p/:slug",
+      "destination": "/project-card?slug=:slug"
+    },
+    {
       "source": "/card/:slug",
       "destination": "/card?slug=:slug"
     },

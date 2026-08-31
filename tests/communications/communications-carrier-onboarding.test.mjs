@@ -65,7 +65,7 @@ test("Communications follows the selected organization and never borrows another
 });
 
 test("carrier onboarding persistence is tenant-scoped, account-admin-only, and server validated", async () => {
-  const migration = await read("supabase/migrations/20260826153548_communications_twilio_onboarding.sql");
+  const migration = await read("supabase/migrations/20260826170812_communications_twilio_onboarding.sql");
 
   assert.match(migration, /communications_carrier_onboarding_workspace_organization_fk/);
   assert.match(migration, /enable row level security/);

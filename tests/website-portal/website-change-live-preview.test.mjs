@@ -37,9 +37,9 @@ test("live preview storage rejects traversal and rewrites root assets into the i
 
 test("Fast Live Preview auto-starts per website and preserves the Vercel fallback", async () => {
   const [migration, autoStartMigration, adminRetryMigration, workflow, edge, intake, callback, admin, settings] = await Promise.all([
-    projectFile("supabase/migrations/20260825025020_add_n3xra_live_website_previews.sql"),
-    projectFile("supabase/migrations/20260825040000_auto_start_client_fast_previews.sql"),
-    projectFile("supabase/migrations/20260825041500_allow_admin_immediate_failed_preview_retry.sql"),
+    projectFile("supabase/migrations/20260825031036_add_n3xra_live_website_previews.sql"),
+    projectFile("supabase/migrations/20260825033536_auto_start_client_fast_previews.sql"),
+    projectFile("supabase/migrations/20260825040530_allow_admin_immediate_failed_preview_retry.sql"),
     projectFile(".github/workflows/website-change-preview.yml"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
     projectFile("api/website-change-intake.js"),
@@ -72,7 +72,7 @@ test("Fast Live Preview auto-starts per website and preserves the Vercel fallbac
 
 test("Fast Preview refinements reuse one protected session and keep final approval separate", async () => {
   const [migration, edge, workflow, client, admin, upload, callback] = await Promise.all([
-    projectFile("supabase/migrations/20260825041731_reusable_fast_preview_sessions.sql"),
+    projectFile("supabase/migrations/20260825043902_reusable_fast_preview_sessions.sql"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
     projectFile(".github/workflows/website-change-preview.yml"),
     projectFile("src/client-portal/support-workspace.ts"),

@@ -95,7 +95,7 @@ test("Fast Preview starts on client submission while admins retain Vercel-start 
 test("Vercel preview start remains admin-only while request owners may start enabled Fast Preview", async () => {
   const [edge, migration] = await Promise.all([
     projectFile("supabase/functions/website-change-automation/index.ts"),
-    projectFile("supabase/migrations/20260825040000_auto_start_client_fast_previews.sql"),
+    projectFile("supabase/migrations/20260825033536_auto_start_client_fast_previews.sql"),
   ]);
   assert.match(edge, /action !== "start-preview"/);
   assert.match(edge, /previewAdmin[\s\S]*platform_admins[\s\S]*eq\("status", "active"\)/);
@@ -135,7 +135,7 @@ test("progress tracking is tenant-readable without querying protected support ro
 test("production email waits for Vercel readiness after merge", async () => {
   const [emailMigration, productionMigration, edge, callback, workflow] = await Promise.all([
     projectFile("supabase/migrations/20260824172433_track_website_change_client_emails.sql"),
-    projectFile("supabase/migrations/20260824213509_track_website_change_production_deployment.sql"),
+    projectFile("supabase/migrations/20260824214001_track_website_change_production_deployment.sql"),
     projectFile("supabase/functions/website-change-automation/index.ts"),
     projectFile("api/website-change-run-callback.js"),
     projectFile(".github/workflows/website-change-preview.yml"),

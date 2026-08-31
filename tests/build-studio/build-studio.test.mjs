@@ -35,7 +35,7 @@ test("Build worker uses App Server over stdio and server-managed sessions", asyn
   const [worker, appServer, migration] = await Promise.all([
     read("services/build-worker/src/server.ts"),
     read("services/build-worker/src/codex-app-server.ts"),
-    read("supabase/migrations/20260826202714_build_studio_foundation.sql"),
+    read("supabase/migrations/20260826204348_build_studio_foundation.sql"),
   ]);
   assert.match(appServer, /spawn\("codex", \["app-server"\]/);
   assert.match(appServer, /chatgptDeviceCode/);

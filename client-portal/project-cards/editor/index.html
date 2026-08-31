@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en" class="portal-brand-pending">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Project Editor | N3XRA</title><meta name="robots" content="noindex,nofollow,noarchive">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=19"><link rel="stylesheet" href="/client-portal/client-shell.css?v=10"><link rel="stylesheet" href="/client-portal/project-cards/editor/editor.css?v=1">
+  <script src="/shared/config.js"></script><script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="portal-loading" data-disable-site-assistant>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell"><section class="portal-heading"><div><p class="portal-kicker">Project cards</p><h1>Project Editor</h1></div></section><div class="portal-layout"><nav class="portal-nav" aria-label="Client portal navigation"></nav><section class="portal-workspace">
+    <p class="pe-gate" id="pe-status" role="status">Opening the project editor…</p>
+    <div class="pe-app" id="pe-app" hidden>
+      <header class="pe-top"><div><a href="/client-portal/project-cards/">← Projects &amp; cards</a><p>MEDFORD FIRE ASSIGNMENT</p><h2>Build the page people see when they scan.</h2></div><div class="pe-top-actions"><span id="pe-save-state">Preview changes are saved on this device</span><a href="/p/medford-fire" target="_blank">Preview live page ↗</a></div></header>
+      <div class="pe-layout">
+        <aside class="pe-settings"><p>PROJECT SETTINGS</p><label><span>Project name</span><input id="pe-project-name" value="Medford Fire Assignment"></label><label><span>Location</span><input id="pe-project-location" value="Southern &amp; South Central Oregon"></label><label><span>Page status</span><select id="pe-project-status"><option value="live">Live</option><option value="draft">Draft</option></select></label><label><span>Access</span><select id="pe-project-access"><option value="public">Anyone with the card or link</option><option value="private">Sign-in required</option></select></label><div class="pe-address"><span>PERMANENT PROJECT LINK</span><strong>n3xra.com/p/medford-fire</strong><small>Cards can point here without changing what is written to them.</small></div></aside>
+        <main class="pe-canvas"><div class="pe-canvas-head"><div><p>PAGE CONTENT</p><h3>Resources</h3><span>Drag later; use the arrows now to arrange what crews see first.</span></div><button id="pe-add-resource" type="button">＋ Add resource</button></div><div class="pe-resource-list" id="pe-resource-list"></div></main>
+        <aside class="pe-cards"><div><p>ASSIGNED CARDS</p><h3><strong id="pe-card-count">7</strong> cards open this project</h3></div><div id="pe-assigned-cards"></div><a href="/client-portal/project-cards/?view=cards">Manage assignments →</a></aside>
+      </div>
+    </div>
+  </section></div></main>
+  <dialog class="pe-dialog" id="pe-resource-dialog"><form id="pe-resource-form"><header><div><p>NEW PAGE ITEM</p><h2>Add a resource</h2></div><button type="button" id="pe-resource-close" aria-label="Close">×</button></header><label><span>Resource type</span><select name="type"><option value="pdf">PDF or briefing</option><option value="radio">Radio channels</option><option value="image">Image or map</option><option value="file">Document or file</option><option value="link">Web link</option></select></label><label><span>Title</span><input name="title" required maxlength="100" placeholder="Example: Daily fire weather briefing"></label><label><span>Details</span><input name="detail" maxlength="140" placeholder="Example: Updated each morning"></label><footer><button type="button" id="pe-resource-cancel">Cancel</button><button class="is-primary" type="submit">Add to page</button></footer></form></dialog>
+  <div class="pe-toast" id="pe-toast" role="status" hidden></div>
+  <script type="module" src="/client-portal/client-shell.js?v=29"></script><script type="module" src="/client-portal/portal-shell.js?v=6"></script><script type="module" src="/client-portal/project-cards-editor.js?v=1"></script>
+</body></html>

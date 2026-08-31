@@ -42,7 +42,7 @@ test("the client portal provides one shared Organization Admin workspace", async
 
 test("organization admins can assign independent product permissions", async () => {
   const [migration, script, apps, records] = await Promise.all([
-    projectFile("supabase/migrations/20260827212747_organization_product_member_permissions.sql"),
+    projectFile("supabase/migrations/20260827213257_organization_product_member_permissions.sql"),
     projectFile("src/client-portal/team.ts"),
     projectFile("src/client-portal/portal-apps.ts"),
     projectFile("n3xra-records/dashboard.js"),
@@ -64,7 +64,7 @@ test("organization admins can assign independent product permissions", async () 
 });
 
 test("the organization overview composes existing product permission systems without replacing them", async () => {
-  const migration = await projectFile("supabase/migrations/20260827152715_organization_admin_product_overview.sql");
+  const migration = await projectFile("supabase/migrations/20260827153004_organization_admin_product_overview.sql");
   assert.match(migration, /organization_product_entitlements/);
   assert.match(migration, /website_members/);
   assert.match(migration, /public\.can_view_organization\(input_organization_id\)/);
@@ -111,7 +111,7 @@ test("N3XRA website administration uses the same direct-add and invitation workf
 });
 
 test("confirmed accounts are attached immediately and organization teams default to unlimited", async () => {
-  const migration = await projectFile("supabase/migrations/20260830015340_direct_existing_member_access_and_unlimited_teams.sql");
+  const migration = await projectFile("supabase/migrations/20260830021811_direct_existing_member_access_and_unlimited_teams.sql");
 
   assert.match(migration, /alter column user_limit set default 0/);
   assert.match(migration, /Zero means unlimited/);
@@ -131,7 +131,7 @@ test("legacy websites expose a platform-admin-only organization connection witho
     projectFile("n3xra-admin/websites/index.html"),
     projectFile("n3xra-admin/websites/websites-admin.js"),
     projectFile("supabase/migrations/20260823234716_connect_website_client_organization.sql"),
-    projectFile("supabase/migrations/20260824131458_connect_website_to_existing_organization.sql"),
+    projectFile("supabase/migrations/20260824131658_connect_website_to_existing_organization.sql"),
   ]);
 
   assert.match(html, /id="website-organization-setup" hidden/);

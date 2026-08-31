@@ -6,6 +6,7 @@ import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
 void initializePortalBrandShell();
 
 const brandedPortal = isBrandedPortalHostname();
+const projectCardsRoute = normalizePath(window.location.pathname).startsWith("/client-portal/project-cards/");
 const appSections = [
   ...(brandedPortal
     ? [{ key: "dashboard", label: "Apps Dashboard", href: "/client-portal/", path: "/client-portal/", view: "dashboard", requiresAdditionalApps: true }]
@@ -16,6 +17,9 @@ const appSections = [
   { key: "team", label: "Organization Admin", href: "/client-portal/team/", path: "/client-portal/team/", requiresOrganizationAdmin: true },
   ...(brandedPortal || normalizePath(window.location.pathname) === "/client-portal/communications/"
     ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
+    : []),
+  ...(projectCardsRoute
+    ? [{ key: "project-cards", label: "Projects & Cards", href: "/client-portal/project-cards/", path: "/client-portal/project-cards/" }]
     : []),
   { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support", feature: "support" },
 ];
@@ -42,6 +46,9 @@ const routeDetails = {
   "/client-portal/publishing/": { key: "publishing", kicker: "Website publishing", title: "From the Greenhouse", description: "Create and publish new pieces, farm stories, updates, and customer moments." },
   "/client-portal/team/": { key: "team", kicker: "Owner controls", title: "Organization Admin", description: "Invite people, assign organization roles, and manage access from one shared control center." },
   "/client-portal/communications/": { key: "communications", kicker: "Business portal", title: "Communications", description: "Manage subscriber preferences, consent history, signup tools, and messaging readiness." },
+  "/client-portal/project-cards/": { key: "project-cards", kicker: "N3XRA internal preview", title: "Projects & Physical Cards", description: "Build reusable resource hubs and control where every physical NFC card opens." },
+  "/client-portal/project-cards/editor/": { key: "project-cards-editor", kicker: "Project cards", title: "Project Editor", description: "Arrange the resources people see when they scan a card assigned to this project." },
+  "/client-portal/project-cards/activate/": { key: "project-cards-activate", kicker: "Project cards", title: "Activate a Card", description: "Create a permanent card identity and prepare a physical NFC card for use." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
   "/website-onboarding/": { key: "onboarding", kicker: "Website workspace", title: "Onboarding", description: "Provide the information and files needed to move this website forward." },
@@ -69,6 +76,7 @@ function currentDetails() {
 
 function isCurrentSection(section) {
   if (section.key === "project" && ["/project-workspace/", "/proposals/", "/website-onboarding/"].includes(normalizePath(window.location.pathname))) return true;
+  if (section.key === "project-cards" && normalizePath(window.location.pathname).startsWith("/client-portal/project-cards/")) return true;
   if (normalizePath(window.location.pathname) !== normalizePath(section.path)) return false;
   if (section.hash) return window.location.hash === section.hash;
   return section.path !== "/client-portal/" || (section.key === "dashboard" && !window.location.hash);

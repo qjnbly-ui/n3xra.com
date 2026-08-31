@@ -7,7 +7,7 @@ const require = createRequire(import.meta.url);
 const projectFile = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("website publishing is tenant-owned and protected by RLS", async () => {
-  const migration = await projectFile("supabase/migrations/20260830180514_website_publishing_foundation.sql");
+  const migration = await projectFile("supabase/migrations/20260830203919_website_publishing_foundation.sql");
   for (const table of ["website_publishing_settings", "website_posts", "website_post_media", "website_story_submissions"]) {
     assert.match(migration, new RegExp(`alter table public\\.${table} enable row level security`));
     assert.match(migration, new RegExp(`revoke all on public\\.${table} from anon`));

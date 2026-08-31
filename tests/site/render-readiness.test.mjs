@@ -110,7 +110,7 @@ test("the homepage mobile menu keeps four equal navigation tabs without a duplic
   ]);
   const mobileMenu = html.match(/<nav class="site-mobile-menu" id="home-mobile-menu"[\s\S]*?<\/nav>/)?.[0] || "";
 
-  assert.match(html, /home\.css\?v=49/);
+  assert.match(html, /home\.css\?v=51/);
   assert.deepEqual(
     [...mobileMenu.matchAll(/class="site-menu-link"[^>]*>([^<]+)<\/a>/g)].map((match) => match[1]),
     ["Projects", "Services", "Support", "Software"],

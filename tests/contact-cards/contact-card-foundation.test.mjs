@@ -23,7 +23,7 @@ test("public contact-card endpoint returns only the approved public fields", asy
 });
 
 test("contact cards enforce owner-scoped reads and updates", async () => {
-  const migration = await read("supabase/migrations/20260826043457_contact_card_profiles.sql");
+  const migration = await read("supabase/migrations/20260826115940_contact_card_profiles.sql");
   assert.match(migration, /enable row level security/i);
   assert.match(migration, /auth\.uid\(\)\) = owner_user_id/);
   assert.match(migration, /for update to authenticated[\s\S]*using[\s\S]*with check/i);
@@ -139,7 +139,7 @@ test("public Contact Card product page uses the shared N3XRA account flow", asyn
 });
 
 test("physical card requests create an important Admin Inbox notification", async () => {
-  const migration = await read("supabase/migrations/20260826130412_notify_admin_on_contact_card_request.sql");
+  const migration = await read("supabase/migrations/20260826130905_notify_admin_on_contact_card_request.sql");
   assert.match(migration, /new\.physical_card_status = 'requested'/);
   assert.match(migration, /old\.physical_card_status is distinct from 'requested'/);
   assert.match(migration, /insert into public\.admin_notifications/);
@@ -149,8 +149,8 @@ test("physical card requests create an important Admin Inbox notification", asyn
 
 test("customers can activate their own card and physical requests are protected", async () => {
   const [migration, adminOverride, editor, activation, cardStyles] = await Promise.all([
-    read("supabase/migrations/20260826043457_contact_card_profiles.sql"),
-    read("supabase/migrations/20260826124620_allow_admin_partial_contact_cards.sql"),
+    read("supabase/migrations/20260826115940_contact_card_profiles.sql"),
+    read("supabase/migrations/20260826124758_allow_admin_partial_contact_cards.sql"),
     read("src/contact-cards/editor.ts"),
     read("client-portal/contact-card/index.html"),
     read("card/card.css"),
@@ -219,7 +219,7 @@ test("Connect Back stores public submissions privately for the card owner", asyn
 
 test("Contact Card Contacts combines Connect Back and scanned business cards", async () => {
   const [migration, editor, editorPage] = await Promise.all([
-    read("supabase/migrations/20260828152031_contact_card_scanned_contacts.sql"),
+    read("supabase/migrations/20260828152417_contact_card_scanned_contacts.sql"),
     read("src/contact-cards/editor.ts"),
     read("client-portal/contact-card/index.html"),
   ]);
@@ -244,7 +244,7 @@ test("Contact Card Contacts combines Connect Back and scanned business cards", a
 
 test("contact cards store additional public emails and phone numbers", async () => {
   const [migration, publicCard] = await Promise.all([
-    read("supabase/migrations/20260826232037_add_contact_card_extra_contacts.sql"),
+    read("supabase/migrations/20260826232224_add_contact_card_extra_contacts.sql"),
     read("src/contact-cards/public-card.ts"),
   ]);
   assert.match(migration, /additional_emails text\[\]/);
@@ -278,7 +278,7 @@ test("contact methods retain descriptions and public links use service logos", a
 });
 
 test("customers can keep editing while N3XRA fulfills a physical card", async () => {
-  const migration = await read("supabase/migrations/20260827032319_allow_customer_profile_updates_during_fulfillment.sql");
+  const migration = await read("supabase/migrations/20260827032424_allow_customer_profile_updates_during_fulfillment.sql");
   assert.match(migration, /new\.physical_card_status is distinct from old\.physical_card_status/);
   assert.match(migration, /old\.physical_card_status in \('processing', 'shipped', 'delivered'\)/);
   assert.match(migration, /Only N3XRA can update card fulfillment status/);
@@ -286,14 +286,14 @@ test("customers can keep editing while N3XRA fulfills a physical card", async ()
 });
 
 test("platform administrators can update a contact card owner", async () => {
-  const migration = await read("supabase/migrations/20260827034648_grant_contact_card_admin_owner_updates.sql");
+  const migration = await read("supabase/migrations/20260827034813_grant_contact_card_admin_owner_updates.sql");
   assert.match(migration, /grant update \(owner_user_id\)/i);
   assert.match(migration, /contact_card_profiles to authenticated/i);
 });
 
 test("Contact Card commerce keeps one-time card checkout while reserving branding removal for Premium", async () => {
   const [migration, billing, webhook, editor, editorPage, landing] = await Promise.all([
-    read("supabase/migrations/20260827051948_contact_card_commerce.sql"),
+    read("supabase/migrations/20260827052555_contact_card_commerce.sql"),
     read("supabase/functions/contact-card-billing/index.ts"),
     read("supabase/functions/stripe-webhook/index.ts"),
     read("src/contact-cards/editor.ts"),
@@ -394,7 +394,7 @@ test("Contact Card Premium offers one server-enforced seven-day trial without br
 
 test("complimentary Contact Card Premium unlocks tools while paid Premium alone removes branding", async () => {
   const [migration, platformAdmin, adminPage, adminLogic, editor, publicEndpoint, connectEndpoint] = await Promise.all([
-    read("supabase/migrations/20260829004040_unified_product_access_grants.sql"),
+    read("supabase/migrations/20260829010505_unified_product_access_grants.sql"),
     read("supabase/functions/platform-admin/index.ts"),
     read("n3xra-admin/contact-cards/index.html"),
     read("src/contact-cards/admin.ts"),

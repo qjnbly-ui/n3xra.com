@@ -1,0 +1,30 @@
+"use strict";
+const previews = {
+    weather: { title: "Fire Weather Briefing", kicker: "NOAA MEDFORD · TODAY", html: '<div class="ph-preview"><strong>Daily briefing preview</strong><br>Red Flag Warning remains in effect. Hot, dry, and unstable conditions are expected through the operational period.<br><br><em>The automated PDF will appear here once the email-ingestion connection is enabled.</em></div>' },
+    radio: { title: "Radio Channels", kicker: "QUICK REFERENCE", html: '<table class="ph-radio"><tr><td>Command 1</td><td>168.1000</td></tr><tr><td>Tactical 3</td><td>167.9500</td></tr><tr><td>Air-to-Ground</td><td>166.6750</td></tr><tr><td>Travel</td><td>163.1000</td></tr></table>' },
+    map: { title: "Division Map", kicker: "REVISION 3", html: '<div class="ph-preview"><strong>Operational map preview</strong><br>The uploaded image or map will open at full resolution here. The project owner can replace it without changing any card.</div>' },
+    iap: { title: "Incident Action Plan", kicker: "CURRENT OPERATIONAL PERIOD", html: '<div class="ph-preview"><strong>Document ready</strong><br>In production, this opens or downloads the current PDF from protected storage.</div>' },
+    form: { title: "Check-in & Safety", kicker: "SECURE FORM", html: '<div class="ph-preview"><strong>Field form preview</strong><br>Name · Crew · Current location · Status · Safety concern<br><br>The form can be added as a native N3XRA resource or an approved external link.</div>' },
+};
+const dialog = document.querySelector("#ph-dialog");
+const title = document.querySelector("#ph-dialog-title");
+const kicker = document.querySelector("#ph-dialog-kicker");
+const content = document.querySelector("#ph-dialog-content");
+const toast = document.querySelector("#ph-toast");
+document.querySelectorAll("[data-resource]").forEach((button) => button.addEventListener("click", () => { const preview = previews[button.dataset.resource || ""]; if (!preview || !title || !kicker || !content)
+    return; title.textContent = preview.title; kicker.textContent = preview.kicker; content.innerHTML = preview.html; dialog?.showModal(); }));
+document.querySelector("#ph-close")?.addEventListener("click", () => dialog?.close());
+document.querySelector("#ph-done")?.addEventListener("click", () => dialog?.close());
+document.querySelector("#ph-share")?.addEventListener("click", async () => { try {
+    if (navigator.share)
+        await navigator.share({ title: document.title, url: window.location.href });
+    else {
+        await navigator.clipboard.writeText(window.location.href);
+        if (toast) {
+            toast.textContent = "Link copied";
+            toast.hidden = false;
+            window.setTimeout(() => { toast.hidden = true; }, 2200);
+        }
+    }
+}
+catch { /* A canceled share needs no error. */ } });
