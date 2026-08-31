@@ -1,7 +1,7 @@
 .partners-admin-page { height: 100dvh; min-height: 0; overflow: hidden; background: #edf3f5; }
 .partners-admin-page main.portal-shell,
 .partners-admin-page main.portal-shell > .portal-layout { height: calc(100dvh - 76px); min-height: 0; overflow: hidden; }
-.partner-admin-workspace { min-width: 0; min-height: 0 !important; height: 100%; padding: 0 !important; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
+.partner-admin-workspace { display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; min-height: 0 !important; height: 100%; padding: 0 !important; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
 
 .partner-admin-workbench {
   display: grid;
@@ -16,6 +16,7 @@
   min-width: 0;
   min-height: 0;
   overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .partner-admin-list-pane {
