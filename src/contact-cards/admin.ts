@@ -24,9 +24,7 @@ const newButton = document.querySelector<HTMLButtonElement>("#contact-card-new")
 const deleteButton = document.querySelector<HTMLButtonElement>("#contact-card-delete");
 const formStatus = document.querySelector<HTMLElement>("#contact-card-form-status");
 const publicLink = document.querySelector<HTMLAnchorElement>("#contact-card-public-link");
-const modal = document.querySelector<HTMLElement>("#contact-card-modal");
-const modalClose = document.querySelector<HTMLButtonElement>("#contact-card-modal-close");
-const modalBackdrop = document.querySelector<HTMLButtonElement>("#contact-card-modal-backdrop");
+const emptyState = document.querySelector<HTMLElement>("#contact-card-empty");
 const linksContainer = document.querySelector<HTMLElement>("#admin-card-links");
 const addLinkButton = document.querySelector<HTMLButtonElement>("#admin-card-add-link");
 const sectionOrderContainer = document.querySelector<HTMLElement>("#admin-card-section-order");
@@ -60,7 +58,6 @@ let accounts: Row[] = [];
 let selectedId = "";
 let adminUserId = "";
 let sectionOrder: SectionKey[] = [...DEFAULT_SECTION_ORDER];
-let modalReturnFocus: HTMLElement | null = null;
 let accessToken = "";
 let pendingScanDataUrl = "";
 let pendingScanDetails: ScanDetails | null = null;
@@ -205,34 +202,16 @@ function saveErrorMessage(error: unknown): string {
   return message || "The Contact Card could not be saved. Review the information and try again.";
 }
 
-function openModal(preferredFocus: HTMLElement | null): void {
-  if (!modal || !form) return;
-  if (modal.hidden) modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  modal.hidden = false;
-  form.hidden = false;
-  document.body.classList.add("contact-card-modal-open");
-  window.requestAnimationFrame(() => preferredFocus?.focus());
-}
-
-function closeModalNow(): void {
-  if (!modal || !form) return;
-  modal.hidden = true;
-  form.hidden = true;
-  document.body.classList.remove("contact-card-modal-open");
-  modalReturnFocus?.focus();
-  modalReturnFocus = null;
-}
-
-async function requestClose(): Promise<void> {
+async function saveBeforeSelectionChange(): Promise<boolean> {
   window.clearTimeout(saveTimer);
   if (changesPending) {
     const saved = await saveCard();
-    if (!saved) return;
+    if (!saved) return false;
   } else if (savePromise) {
     const saved = await savePromise;
-    if (!saved) return;
+    if (!saved) return false;
   }
-  closeModalNow();
+  return true;
 }
 
 async function invoke(action: string, details: Row = {}): Promise<Row> {
@@ -250,13 +229,26 @@ function renderOwnerOptions(selected = "", locked = false): void {
 }
 
 function showCard(card: Row | null): void {
-  if (!form) return; changesPending = false; window.clearTimeout(saveTimer); form.classList.remove("hidden"); selectedId = String(card?.id || ""); form.reset(); field("id").value = selectedId; renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
+  if (!form) return; changesPending = false; window.clearTimeout(saveTimer); form.hidden = false; emptyState?.setAttribute("hidden", ""); selectedId = String(card?.id || ""); form.reset(); field("id").value = selectedId; renderOwnerOptions(String(card?.owner_user_id || ""), Boolean(card));
   for (const name of ["slug", "status", "physical_card_status", "display_name", "headline", "company_name", "bio", "email", "email_label", "phone_e164", "phone_label", "website_url", "location_text", "accent_color", "shipping_name", "shipping_address_line_1", "shipping_address_line_2", "shipping_city", "shipping_region", "shipping_postal_code", "shipping_country"]) field(name).value = String(card?.[name] ?? (name === "email_label" ? "Email" : name === "phone_label" ? "Phone" : name === "shipping_country" ? "United States" : name === "status" ? "published" : name === "physical_card_status" ? "not_requested" : name === "accent_color" ? "#2f7d68" : ""));
   const branding = field("show_n3xra_branding") as HTMLInputElement; branding.checked = card?.show_n3xra_branding !== false; branding.disabled = !card; renderContacts("email", card?.additional_emails, card?.additional_email_labels); renderContacts("phone", card?.additional_phones, card?.additional_phone_labels); sectionOrder = validSectionOrder(card?.section_order); renderSectionOrder(); linksContainer?.replaceChildren(); for (const link of (card?.links || []) as CardLink[]) addLinkRow(link); if (!card?.links?.length) addLinkRow(); void loadMediaPreviews(card); setMediaStatus();
   const title = document.querySelector<HTMLElement>("#contact-card-form-title"); const kicker = document.querySelector<HTMLElement>("#contact-card-form-kicker"); const summary = document.querySelector<HTMLElement>("#contact-card-form-summary");
   if (title) title.textContent = card?.display_name || "Add Contact Card"; if (kicker) kicker.textContent = card ? "Existing card" : "Manual setup"; if (summary) summary.textContent = card ? `${owner(card)?.email || "N3XRA account"} · n3xra.com/card/${card.slug}` : "Choose an existing account and reserve an available public address.";
   if (accessControls) accessControls.hidden = !card; if (card) void loadProductAccess(card); else { accessData = { grants: [], events: [], billing: null }; setAccessStatus(); }
-  if (deleteButton) deleteButton.hidden = !card; if (publicLink) { publicLink.hidden = !card?.slug; publicLink.href = card?.slug ? `/card/${encodeURIComponent(card.slug)}` : "#"; } setFormStatus(card ? "All changes saved" : "Complete the card details, then save."); setScanStatus(); pendingScanDataUrl = ""; if (scanButton) scanButton.disabled = true; if (scanPreview) scanPreview.innerHTML = "<span>Business card photo</span>"; renderList(); openModal(card ? field("slug") : field("owner_user_id"));
+  if (deleteButton) deleteButton.hidden = !card; if (publicLink) { publicLink.hidden = !card?.slug; publicLink.href = card?.slug ? `/card/${encodeURIComponent(card.slug)}` : "#"; } setFormStatus(card ? "All changes saved" : "Complete the card details, then save."); setScanStatus(); pendingScanDataUrl = ""; if (scanButton) scanButton.disabled = true; if (scanPreview) scanPreview.innerHTML = "<span>Business card photo</span>"; renderList(); window.requestAnimationFrame(() => (card ? field("slug") : field("owner_user_id")).focus());
+}
+
+async function selectCard(card: Row | null): Promise<void> {
+  if (card?.id === selectedId && !changesPending) return;
+  if (!(await saveBeforeSelectionChange())) return;
+  showCard(card);
+}
+
+function showEmptyState(): void {
+  if (form) form.hidden = true;
+  if (emptyState) emptyState.hidden = false;
+  selectedId = "";
+  renderList();
 }
 
 async function loadData(selectId = selectedId): Promise<void> {
@@ -297,8 +289,8 @@ async function saveCard(): Promise<boolean> {
 
 form?.addEventListener("submit", (event) => { event.preventDefault(); markChanged(); void saveCard(); });
 
-deleteButton?.addEventListener("click", () => { void (async () => { if (!supabase || !selectedId) return; const selected = cards.find((item) => item.id === selectedId); if (!selected || !window.confirm(`Delete the Contact Card for ${selected.display_name}? This cannot be undone.`)) return; setFormStatus("Deleting Contact Card…"); const mediaPaths = [selected.profile_image_path, selected.company_logo_path, selected.background_image_path].filter(Boolean); if (mediaPaths.length) await supabase.storage.from("contact-card-media").remove(mediaPaths); const { error } = await supabase.from("contact_card_profiles").delete().eq("id", selectedId); if (error) return setFormStatus(error.message, "error"); selectedId = ""; changesPending = false; closeModalNow(); await loadData(); })(); });
-newButton?.addEventListener("click", () => showCard(null)); search?.addEventListener("input", renderList); list?.addEventListener("click", (event) => { const id = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-card-id]")?.dataset.cardId; const selected = cards.find((item) => item.id === id); if (selected) showCard(selected); });
+deleteButton?.addEventListener("click", () => { void (async () => { if (!supabase || !selectedId) return; const selected = cards.find((item) => item.id === selectedId); if (!selected || !window.confirm(`Delete the Contact Card for ${selected.display_name}? This cannot be undone.`)) return; setFormStatus("Deleting Contact Card…"); const mediaPaths = [selected.profile_image_path, selected.company_logo_path, selected.background_image_path].filter(Boolean); if (mediaPaths.length) await supabase.storage.from("contact-card-media").remove(mediaPaths); const { error } = await supabase.from("contact_card_profiles").delete().eq("id", selectedId); if (error) return setFormStatus(error.message, "error"); changesPending = false; showEmptyState(); await loadData(); })(); });
+newButton?.addEventListener("click", () => void selectCard(null)); search?.addEventListener("input", renderList); list?.addEventListener("click", (event) => { const id = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-card-id]")?.dataset.cardId; const selected = cards.find((item) => item.id === id); if (selected) void selectCard(selected); });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 document.querySelectorAll<HTMLButtonElement>("[data-admin-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.adminAddContact as "email" | "phone"); markChanged(); }));
 document.querySelectorAll<HTMLInputElement>("[data-admin-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.adminMediaInput as MediaType; if (!file || !(type in MEDIA_CONFIG)) return; void uploadMedia(type, file).catch((error: unknown) => setMediaStatus(error instanceof Error ? error.message : "The image could not be uploaded.", true)).finally(() => { control.value = ""; }); }));
@@ -310,7 +302,6 @@ accessGrant?.addEventListener("click", () => void grantProductAccess());
 accessPause?.addEventListener("click", () => { const grant = currentAccessGrant(); void updateProductAccessStatus(grant?.status === "paused" ? "active" : "paused"); });
 accessRevoke?.addEventListener("click", () => { if (window.confirm("Revoke this complimentary Premium access? Paid Stripe service, if present, will not be changed.")) void updateProductAccessStatus("revoked"); });
 form?.addEventListener("input", (event) => { if (!(event.target as HTMLElement).closest("[data-access-controls]")) markChanged(); }); form?.addEventListener("change", (event) => { if (!(event.target as HTMLElement).closest("[data-access-controls]")) markChanged(); });
-modalClose?.addEventListener("click", () => void requestClose()); modalBackdrop?.addEventListener("click", () => void requestClose()); document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden && !scanReview?.open) { event.preventDefault(); void requestClose(); } });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && changesPending) void saveCard(); }); window.addEventListener("pagehide", () => { if (changesPending) void saveCard(); });
 
 void (async () => { if (!supabase) throw new Error("Supabase is not configured."); const session = await getSessionOrNull(supabase); if (!session?.user) { window.location.replace("/account/?next=/n3xra-admin/contact-cards/"); return; } adminUserId = session.user.id; accessToken = String(session.access_token || ""); const requestedCard = new URLSearchParams(window.location.search).get("card") || ""; await loadData(requestedCard); document.body.classList.remove("portal-loading"); const screen = document.querySelector<HTMLElement>("#portal-status"); if (screen) screen.hidden = true; })().catch((error: unknown) => { const screen = document.querySelector<HTMLElement>("#portal-status"); if (screen) screen.textContent = error instanceof Error ? error.message : "Contact Cards could not be opened."; });

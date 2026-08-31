@@ -17,9 +17,7 @@ const newButton = document.querySelector("#contact-card-new");
 const deleteButton = document.querySelector("#contact-card-delete");
 const formStatus = document.querySelector("#contact-card-form-status");
 const publicLink = document.querySelector("#contact-card-public-link");
-const modal = document.querySelector("#contact-card-modal");
-const modalClose = document.querySelector("#contact-card-modal-close");
-const modalBackdrop = document.querySelector("#contact-card-modal-backdrop");
+const emptyState = document.querySelector("#contact-card-empty");
 const linksContainer = document.querySelector("#admin-card-links");
 const addLinkButton = document.querySelector("#admin-card-add-link");
 const sectionOrderContainer = document.querySelector("#admin-card-section-order");
@@ -53,7 +51,6 @@ let accounts = [];
 let selectedId = "";
 let adminUserId = "";
 let sectionOrder = [...DEFAULT_SECTION_ORDER];
-let modalReturnFocus = null;
 let accessToken = "";
 let pendingScanDataUrl = "";
 let pendingScanDetails = null;
@@ -406,38 +403,19 @@ function saveErrorMessage(error) {
         return "Your administrator session does not have permission to save this Contact Card. Sign in again and try once more.";
     return message || "The Contact Card could not be saved. Review the information and try again.";
 }
-function openModal(preferredFocus) {
-    if (!modal || !form)
-        return;
-    if (modal.hidden)
-        modalReturnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    modal.hidden = false;
-    form.hidden = false;
-    document.body.classList.add("contact-card-modal-open");
-    window.requestAnimationFrame(() => preferredFocus?.focus());
-}
-function closeModalNow() {
-    if (!modal || !form)
-        return;
-    modal.hidden = true;
-    form.hidden = true;
-    document.body.classList.remove("contact-card-modal-open");
-    modalReturnFocus?.focus();
-    modalReturnFocus = null;
-}
-async function requestClose() {
+async function saveBeforeSelectionChange() {
     window.clearTimeout(saveTimer);
     if (changesPending) {
         const saved = await saveCard();
         if (!saved)
-            return;
+            return false;
     }
     else if (savePromise) {
         const saved = await savePromise;
         if (!saved)
-            return;
+            return false;
     }
-    closeModalNow();
+    return true;
 }
 async function invoke(action, details = {}) {
     if (!supabase)
@@ -466,7 +444,8 @@ function showCard(card) {
         return;
     changesPending = false;
     window.clearTimeout(saveTimer);
-    form.classList.remove("hidden");
+    form.hidden = false;
+    emptyState?.setAttribute("hidden", "");
     selectedId = String(card?.id || "");
     form.reset();
     field("id").value = selectedId;
@@ -518,7 +497,22 @@ function showCard(card) {
     if (scanPreview)
         scanPreview.innerHTML = "<span>Business card photo</span>";
     renderList();
-    openModal(card ? field("slug") : field("owner_user_id"));
+    window.requestAnimationFrame(() => (card ? field("slug") : field("owner_user_id")).focus());
+}
+async function selectCard(card) {
+    if (card?.id === selectedId && !changesPending)
+        return;
+    if (!(await saveBeforeSelectionChange()))
+        return;
+    showCard(card);
+}
+function showEmptyState() {
+    if (form)
+        form.hidden = true;
+    if (emptyState)
+        emptyState.hidden = false;
+    selectedId = "";
+    renderList();
 }
 async function loadData(selectId = selectedId) {
     if (!supabase)
@@ -695,11 +689,11 @@ deleteButton?.addEventListener("click", () => { void (async () => { if (!supabas
     return; const selected = cards.find((item) => item.id === selectedId); if (!selected || !window.confirm(`Delete the Contact Card for ${selected.display_name}? This cannot be undone.`))
     return; setFormStatus("Deleting Contact Card…"); const mediaPaths = [selected.profile_image_path, selected.company_logo_path, selected.background_image_path].filter(Boolean); if (mediaPaths.length)
     await supabase.storage.from("contact-card-media").remove(mediaPaths); const { error } = await supabase.from("contact_card_profiles").delete().eq("id", selectedId); if (error)
-    return setFormStatus(error.message, "error"); selectedId = ""; changesPending = false; closeModalNow(); await loadData(); })(); });
-newButton?.addEventListener("click", () => showCard(null));
+    return setFormStatus(error.message, "error"); changesPending = false; showEmptyState(); await loadData(); })(); });
+newButton?.addEventListener("click", () => void selectCard(null));
 search?.addEventListener("input", renderList);
 list?.addEventListener("click", (event) => { const id = event.target.closest("[data-card-id]")?.dataset.cardId; const selected = cards.find((item) => item.id === id); if (selected)
-    showCard(selected); });
+    void selectCard(selected); });
 addLinkButton?.addEventListener("click", () => { addLinkRow(); markChanged(); });
 document.querySelectorAll("[data-admin-add-contact]").forEach((button) => button.addEventListener("click", () => { addContactRow(button.dataset.adminAddContact); markChanged(); }));
 document.querySelectorAll("[data-admin-media-input]").forEach((control) => control.addEventListener("change", () => { const file = control.files?.[0]; const type = control.dataset.adminMediaInput; if (!file || !(type in MEDIA_CONFIG))
@@ -721,12 +715,6 @@ form?.addEventListener("input", (event) => { if (!event.target.closest("[data-ac
     markChanged(); });
 form?.addEventListener("change", (event) => { if (!event.target.closest("[data-access-controls]"))
     markChanged(); });
-modalClose?.addEventListener("click", () => void requestClose());
-modalBackdrop?.addEventListener("click", () => void requestClose());
-document.addEventListener("keydown", (event) => { if (event.key === "Escape" && modal && !modal.hidden && !scanReview?.open) {
-    event.preventDefault();
-    void requestClose();
-} });
 document.addEventListener("visibilitychange", () => { if (document.visibilityState === "hidden" && changesPending)
     void saveCard(); });
 window.addEventListener("pagehide", () => { if (changesPending)
