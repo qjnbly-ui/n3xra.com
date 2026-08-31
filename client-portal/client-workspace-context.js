@@ -17,6 +17,9 @@ const APP_ROUTES = [
   ...(brandedPortal || String(window.location.pathname).replace(/\/+$/, "") === "/client-portal/communications"
     ? [{ keys: ["communications"], label: "Communications", href: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
+  ...(String(window.location.pathname).replace(/\/+$/, "").startsWith("/client-portal/project-cards")
+    ? [{ keys: ["project-cards", "project-cards-editor", "project-cards-activate"], label: "Project Cards", href: "/client-portal/project-cards/" }]
+    : []),
   { keys: ["support"], label: "Support", href: "/client-portal/#support", feature: "support" },
 ];
 const WEBSITE_ROUTES = [

@@ -4,7 +4,7 @@ import test from "node:test";
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
 
 test("project cards client workspace is tenant-scoped and starts without sample data", async () => {
-  const [page, source, shell, account] = await Promise.all([read("client-portal/project-cards/index.html"), read("src/client-portal/project-cards.ts"), read("client-portal/client-shell.js"), read("account/index.html")]);
+  const [page, source, shell, workspaceContext, account] = await Promise.all([read("client-portal/project-cards/index.html"), read("src/client-portal/project-cards.ts"), read("client-portal/client-shell.js"), read("client-portal/client-workspace-context.js"), read("account/index.html")]);
   assert.match(page, /client-portal\/client-shell\.css/);
   assert.match(page, /id="pc-project-list"/);
   assert.match(page, />Assigned name</);
@@ -16,7 +16,8 @@ test("project cards client workspace is tenant-scoped and starts without sample 
   assert.doesNotMatch(source, /organization:organizations/);
   assert.doesNotMatch(source, /rpc\("is_platform_admin"\)|medford-fire|PREVIEW/);
   assert.match(source, /n3xra\.com\/t\//);
-  assert.match(shell, /Projects & Cards/);
+  assert.match(shell, /Project Cards/);
+  assert.match(workspaceContext, /label: "Project Cards"/);
   assert.match(account, /Open Project Cards/);
 });
 

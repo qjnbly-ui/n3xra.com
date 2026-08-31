@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=22";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=23";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=2";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -19,7 +19,7 @@ const appSections = [
     ? [{ key: "communications", label: "Communications", href: "/client-portal/communications/", path: "/client-portal/communications/", requiresCommunicationsApp: brandedPortal }]
     : []),
   ...(projectCardsRoute
-    ? [{ key: "project-cards", label: "Projects & Cards", href: "/client-portal/project-cards/", path: "/client-portal/project-cards/" }]
+    ? [{ key: "project-cards", label: "Project Cards", href: "/client-portal/project-cards/", path: "/client-portal/project-cards/" }]
     : []),
   { key: "support", label: "Support", href: "/client-portal/#support", path: "/client-portal/", hash: "#support", view: "support", feature: "support" },
 ];
