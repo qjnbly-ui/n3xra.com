@@ -12,7 +12,7 @@ import {
   validateWebsiteAssetRename,
   websiteAssetThumbnailUrl,
   websiteAssetKeyFromLabel,
-} from "/shared/lib/website-asset-utils.js?v=2";
+} from "/shared/lib/website-asset-utils.js?v=3";
 import {
   CDN_BROWSER_CACHE_SECONDS,
   canOptimizeCdnImage,

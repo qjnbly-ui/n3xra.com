@@ -3,7 +3,7 @@ import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/work
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { openAssetPreview } from "/client-portal/asset-preview-modal.js?v=3";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
-import { websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=2";
+import { websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=3";
 import {
   portalLoginUrl,
   portalTenantEmptyMessage,

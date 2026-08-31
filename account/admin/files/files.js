@@ -1,6 +1,6 @@
 import { renderPdfFirstPage } from "/shared/lib/file-preview.js";
 import { promptAdminText } from "/account/admin/admin-dialogs.js";
-import { safeWebsiteAssetFilename, validateWebsiteAssetRename, websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=2";
+import { safeWebsiteAssetFilename, validateWebsiteAssetRename, websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=3";
 import { CDN_BROWSER_CACHE_SECONDS, canOptimizeCdnImage, prepareCdnImage } from "/shared/lib/cdn-image-optimizer.js";
 
 let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
