@@ -4,7 +4,7 @@ import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 const statusScreen = document.getElementById("portal-status");
 const list = document.getElementById("partner-application-list");
 const detail = document.getElementById("partner-application-detail");
-const stats = document.getElementById("partner-stats");
+const count = document.getElementById("partner-count");
 const searchInput = document.getElementById("partner-search");
 const programFilter = document.getElementById("partner-program-filter");
 const statusFilter = document.getElementById("partner-status-filter");
@@ -58,16 +58,6 @@ function safeExternalUrl(value) {
 
 function productsFor(application) {
   return Array.isArray(application.interested_products) ? application.interested_products.filter(Boolean) : [];
-}
-
-function renderStats() {
-  const count = (status) => applications.filter((application) => application.status === status).length;
-  stats.innerHTML = [
-    ["New", count("submitted")],
-    ["Reviewing", count("reviewing")],
-    ["Approved", count("approved")],
-    ["Total", applications.length],
-  ].map(([label, value]) => `<div class="partner-admin-stat"><strong>${value}</strong><span>${label}</span></div>`).join("");
 }
 
 function filteredApplications() {
@@ -178,7 +168,7 @@ async function loadApplications() {
     .order("created_at", { ascending: false });
   if (error) throw error;
   applications = data || [];
-  renderStats();
+  count.textContent = String(applications.length);
   render();
 }
 

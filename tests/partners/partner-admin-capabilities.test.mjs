@@ -20,15 +20,18 @@ test("full partner administrators can manage access and inspect financial activi
   assert.match(endpoint, /partner_referrals\?select=/);
   assert.match(endpoint, /partner_commission_entries\?select=/);
   assert.match(endpoint, /includeDetails \? \{ activity \} : \{\}/);
-  assert.match(html, /manage partner access, and inspect referral and commission activity/i);
+  assert.doesNotMatch(html, /id="partner-admin-title">Review applications/);
   assert.match(html, /class="partner-admin-workbench"/);
+  assert.match(html, /class="partner-admin-pane-head"/);
+  assert.match(html, /id="partner-count"/);
   assert.match(html, /id="partner-application-detail"/);
-  assert.match(html, /partners-admin\.css\?v=8/);
-  assert.match(html, /partners-admin\.js\?v=8/);
+  assert.match(html, /partners-admin\.css\?v=9/);
+  assert.match(html, /partners-admin\.js\?v=9/);
   assert.match(controller, /data-select-partner/);
   assert.match(controller, /async function selectApplication/);
   assert.match(controller, /mainReviewDirty/);
-  assert.match(styles, /grid-template-columns: 320px minmax\(0, 1fr\)/);
+  assert.match(styles, /grid-template-columns: 340px minmax\(0, 1fr\)/);
+  assert.match(styles, /\.partner-admin-workspace \{[^}]*height: 100%[^}]*padding: 0 !important/s);
   assert.doesNotMatch(controller, /<details class="partner-admin-card">/);
 });
 

@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=8">
+  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=9">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
@@ -21,7 +21,7 @@
   <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <script type="module" src="/account/admin/product-shell.js?v=19"></script>
 </head>
-<body class="portal-loading">
+<body class="portal-loading partners-admin-page">
 
   <main class="portal-shell">
     <section class="portal-heading">
@@ -31,20 +31,11 @@
     <div class="portal-layout">
       <nav class="portal-nav" aria-label="N3XRA administration"></nav>
 
-      <section class="portal-workspace partner-admin-workspace" aria-labelledby="partner-admin-title">
-        <div class="portal-workspace-head">
-          <div>
-            <p class="portal-kicker">Partner pipeline</p>
-            <h2 id="partner-admin-title">Review applications</h2>
-            <p>Review applications, manage partner access, and inspect referral and commission activity.</p>
-          </div>
-          <button class="portal-button portal-button-secondary" id="partner-refresh" type="button">Refresh</button>
-        </div>
-
-        <div class="partner-admin-stats" id="partner-stats" aria-label="Application totals"></div>
-
+      <section class="portal-workspace partner-admin-workspace" aria-label="Partner applications">
         <div class="partner-admin-workbench">
           <aside class="partner-admin-list-pane">
+            <div class="partner-admin-pane-head"><div><p class="portal-kicker">Partner pipeline</p><strong>All applications</strong></div><span id="partner-count">0</span></div>
+            <button class="portal-button portal-button-secondary" id="partner-refresh" type="button">Refresh applications</button>
             <div class="partner-admin-filters">
               <label>Search<input id="partner-search" type="search" placeholder="Name, email, organization"></label>
               <label>Program<select id="partner-program-filter"><option value="">All programs</option><option value="website">Website referrals</option><option value="software">Software commissions</option><option value="future">Future opportunities</option></select></label>
@@ -78,6 +69,6 @@
     </div>
   </dialog>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=8"></script>
+  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=9"></script>
 </body>
 </html>

@@ -1,17 +1,14 @@
-.partner-admin-workspace {
-  display: grid;
-  gap: 1.25rem;
-}
+.partners-admin-page { height: 100dvh; min-height: 0; overflow: hidden; background: #edf3f5; }
+.partners-admin-page main.portal-shell,
+.partners-admin-page main.portal-shell > .portal-layout { height: calc(100dvh - 76px); min-height: 0; overflow: hidden; }
+.partner-admin-workspace { min-width: 0; min-height: 0 !important; height: 100%; padding: 0 !important; overflow: hidden; border: 0; border-radius: 0; box-shadow: none; }
 
 .partner-admin-workbench {
   display: grid;
-  grid-template-columns: 320px minmax(0, 1fr);
-  min-height: 620px;
-  height: calc(100dvh - 345px);
+  grid-template-columns: 340px minmax(0, 1fr);
+  min-height: 0;
+  height: 100%;
   overflow: hidden;
-  border: 1px solid var(--portal-line);
-  border-radius: 14px;
-  background: #fff;
 }
 
 .partner-admin-list-pane,
@@ -22,12 +19,17 @@
 }
 
 .partner-admin-list-pane {
-  padding: 0.85rem;
+  padding: 1.1rem;
   border-right: 1px solid var(--portal-line);
-  background: #f8fafb;
+  background: #fbfcfd;
 }
 
 .partner-admin-detail-pane { background: #fff; }
+
+.partner-admin-pane-head { display: flex; justify-content: space-between; gap: .75rem; margin-bottom: .8rem; }
+.partner-admin-pane-head strong { display: block; margin-top: .18rem; }
+.partner-admin-pane-head > span { color: var(--portal-muted); font-size: .75rem; font-weight: 800; }
+.partner-admin-list-pane > .portal-button { width: 100%; }
 
 .partner-admin-empty {
   display: grid;
@@ -40,41 +42,11 @@
 .partner-admin-empty h3 { margin: .2rem 0; font: 700 1.8rem "Fraunces", Georgia, serif; }
 .partner-admin-empty p:not(.portal-kicker) { max-width: 580px; margin: 0; color: var(--portal-muted); }
 
-.partner-admin-stats {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.7rem;
-}
-
-.partner-admin-stat {
-  padding: 0.9rem;
-  border: 1px solid var(--portal-line);
-  border-radius: 12px;
-  background: #fff;
-}
-
-.partner-admin-stat strong {
-  display: block;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.75rem;
-}
-
-.partner-admin-stat span {
-  color: var(--portal-muted);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
 .partner-admin-filters {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 0.75rem;
-  padding: 0.85rem;
-  border: 1px solid var(--portal-line);
-  border-radius: 12px;
-  background: #f7f9fb;
+  gap: .6rem;
+  margin-top: .8rem;
 }
 
 .partner-admin-filters label {
@@ -494,11 +466,10 @@
 }
 
 @media (max-width: 760px) {
-  .partner-admin-workbench { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 40dvh) minmax(0, 1fr); height: 900px; min-height: 0; }
+  .partner-admin-workbench { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 42dvh) minmax(0, 1fr); }
   .partner-admin-list-pane { border-right: 0; border-bottom: 1px solid var(--portal-line); }
   .partner-admin-record > header { align-items: flex-start; flex-direction: column; }
   .partner-admin-record > header .partner-admin-badges { justify-content: flex-start; }
-  .partner-admin-stats,
   .partner-admin-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
