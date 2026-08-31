@@ -48,6 +48,7 @@ let accessCode = sessionStorage.getItem("bonanzaProposalCode") || "";
 let participantName = localStorage.getItem("bonanzaProposalName") || "";
 let participantId = localStorage.getItem("bonanzaProposalParticipantId") || "";
 let responses = [];
+const proposalApiUrl = "https://vdbjlgmbpykjblprqnak.supabase.co/functions/v1/bonanza-proposal";
 if (!participantId) {
     participantId = crypto.randomUUID();
     localStorage.setItem("bonanzaProposalParticipantId", participantId);
@@ -60,7 +61,7 @@ function choiceLabel(sectionKey, choice) {
     return sectionConfig[sectionKey]?.choices.find((item) => item.value === choice)?.label || choice.replaceAll("_", " ");
 }
 async function api(payload) {
-    const response = await fetch("/api/bonanza-proposal", {
+    const response = await fetch(proposalApiUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...payload, accessCode }),

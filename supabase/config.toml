@@ -60,3 +60,6 @@ verify_jwt = true
 
 [functions.admin-notification-email]
 verify_jwt = false
+
+[functions.bonanza-proposal]
+verify_jwt = false
