@@ -1,0 +1,13 @@
+{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "ES2020",
+    "moduleResolution": "Bundler",
+    "lib": ["ES2021", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "rootDir": "src/bonanza-proposal",
+    "outDir": "bonanza"
+  },
+  "include": ["src/bonanza-proposal/**/*.ts"]
+}
