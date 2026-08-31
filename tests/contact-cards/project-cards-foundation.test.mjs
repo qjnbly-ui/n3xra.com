@@ -83,12 +83,22 @@ test("Project Cards has a separate N3XRA admin workspace", async () => {
 
 test("Project Cards has a standalone app entry in addition to the client-website add-on", async () => {
   const [standalone, standaloneStyles, standaloneEditor, standaloneActivation, account, source, addOn] = await Promise.all([read("project-cards/app/index.html"), read("project-cards/app/app-shell.css"), read("project-cards/app/editor/index.html"), read("project-cards/app/activate/index.html"), read("account/account.js"), read("src/client-portal/project-cards.ts"), read("client-portal/project-cards/index.html")]);
-  assert.match(standalone, /Independent N3XRA app/);
+  assert.match(standalone, /class="site-topbar home-topbar account-topbar"/);
+  assert.match(standalone, /Back to dashboard/);
+  assert.doesNotMatch(standalone, /class="portal-heading"/);
   assert.match(standalone, /id="pc-app"/);
-  assert.match(standaloneEditor, /Independent N3XRA app/);
-  assert.match(standaloneActivation, /Independent N3XRA app/);
+  assert.match(standaloneEditor, /class="site-topbar home-topbar account-topbar"/);
+  assert.doesNotMatch(standaloneEditor, /class="portal-heading"/);
+  assert.match(standaloneActivation, /class="site-topbar home-topbar account-topbar"/);
+  assert.doesNotMatch(standaloneActivation, /class="portal-heading"/);
   assert.match(standalone, /One card[.] Any assignment[.]/);
   assert.match(standaloneStyles, /\.project-cards-standalone \.pc-hero\{align-items:center;padding:1[.]35rem/);
+  assert.match(standaloneStyles, /\.portal-shell\{width:100%;max-width:none/);
+  assert.match(standalone, /id="pc-activate-dialog"/);
+  assert.match(source, /activateDialog[?]\.showModal\(\)/);
+  assert.match(source, /rpc\("create_project_card"/);
+  assert.match(source, /"NDEFReader" in window/);
+  assert.doesNotMatch(source, /window[.]location[.]href = `\$\{appBase\}activate/);
   assert.match(account, /\/project-cards\/app\/\?activate=1/);
   assert.match(source, /rpc\("create_owned_organization"/);
   assert.match(source, /const appBase = standaloneApp \? "\/project-cards\/app\/"/);

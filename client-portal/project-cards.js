@@ -8,6 +8,7 @@ let cards = [];
 let selected = new Set();
 let managedCardId = null;
 let pendingAction = null;
+let createdCard = null;
 const standaloneApp = document.body.classList.contains("project-cards-standalone");
 const appBase = standaloneApp ? "/project-cards/app/" : "/client-portal/project-cards/";
 const one = (selector) => document.querySelector(selector);
@@ -27,6 +28,13 @@ const manageDialog = one("#pc-manage-dialog");
 const manageForm = one("#pc-manage-form");
 const manageProject = one("#pc-manage-project");
 const confirmDialog = one("#pc-confirm-dialog");
+const activateDialog = one("#pc-activate-dialog");
+const activateForm = one("#pc-activate-form");
+const activateProject = one("#pc-activate-project");
+const activateFields = one("#pc-activate-fields");
+const activateResult = one("#pc-activate-result");
+const activateStatus = one("#pc-activate-status");
+const writeCardButton = one("#pc-write-card");
 function escape(value) { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
 function projectName(id) { return projects.find((project) => project.id === id)?.name || "Unassigned"; }
 function projectCount(id) { return cards.filter((card) => card.project_id === id).length; }
@@ -50,6 +58,8 @@ function renderProjectOptions() {
         target.innerHTML = options;
     if (manageProject)
         manageProject.innerHTML = options;
+    if (activateProject)
+        activateProject.innerHTML = options;
 }
 function renderProjects() {
     if (!projectList)
@@ -91,6 +101,37 @@ function render() { renderProjectOptions(); renderProjects(); renderCards(); ren
 function switchView(view) {
     document.querySelectorAll("[data-pc-view]").forEach((button) => { const active = button.dataset.pcView === view; button.classList.toggle("is-active", active); button.setAttribute("aria-selected", String(active)); });
     document.querySelectorAll("[data-pc-panel]").forEach((panel) => { panel.hidden = panel.dataset.pcPanel !== view; });
+}
+function nfcWritingAvailable() { return "NDEFReader" in window && window.isSecureContext; }
+function updateNfcSupport() {
+    const available = nfcWritingAvailable();
+    const title = one("#pc-device-title");
+    const copy = one("#pc-device-copy");
+    if (title)
+        title.textContent = available ? "NFC writing is available" : "NFC writing is not available on this device";
+    if (copy)
+        copy.textContent = available ? "After creating the card, this browser can write its permanent address." : "The card will still be added here. Write it later from a compatible Android device or the future N3XRA iPhone app.";
+}
+function resetActivation() {
+    createdCard = null;
+    activateForm?.reset();
+    if (activateFields)
+        activateFields.hidden = false;
+    if (activateResult)
+        activateResult.hidden = true;
+    if (activateStatus)
+        activateStatus.textContent = "";
+    if (writeCardButton) {
+        writeCardButton.disabled = true;
+        writeCardButton.textContent = "Hold NFC card near device to write";
+    }
+    updateNfcSupport();
+}
+function closeActivation() { activateDialog?.close(); }
+function openActivation() {
+    switchView("cards");
+    resetActivation();
+    activateDialog?.showModal();
 }
 async function loadWorkspace() {
     const [{ data: projectRows, error: projectError }, { data: cardRows, error: cardError }] = await Promise.all([
@@ -174,9 +215,61 @@ one("#pc-new-project")?.addEventListener("click", openCreateDialog);
 one("[data-empty-new-project]")?.addEventListener("click", openCreateDialog);
 one("#pc-dialog-close")?.addEventListener("click", () => dialog?.close());
 one("#pc-dialog-cancel")?.addEventListener("click", () => dialog?.close());
-function openActivation() { window.location.href = `${appBase}activate/?organization=${encodeURIComponent(organizationId)}`; }
 one("#pc-activate-card")?.addEventListener("click", openActivation);
 one("[data-empty-activate-card]")?.addEventListener("click", openActivation);
+one("#pc-activate-close")?.addEventListener("click", closeActivation);
+one("#pc-activate-cancel")?.addEventListener("click", closeActivation);
+one("#pc-finish-card")?.addEventListener("click", closeActivation);
+activateForm?.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    if (!activateForm.reportValidity())
+        return;
+    const submit = one("#pc-activate-submit");
+    if (submit)
+        submit.disabled = true;
+    if (activateStatus)
+        activateStatus.textContent = "Creating the permanent card address…";
+    const values = new FormData(activateForm);
+    const { data, error } = await supabase.rpc("create_project_card", { input_organization_id: organizationId, input_assigned_name: String(values.get("assignedName") || "").trim(), input_project_id: String(values.get("projectId") || "") || null });
+    if (submit)
+        submit.disabled = false;
+    if (error) {
+        if (activateStatus)
+            activateStatus.textContent = error.message;
+        return;
+    }
+    createdCard = data;
+    one("#pc-created-card-code").textContent = createdCard.card_code;
+    one("#pc-created-card-address").textContent = createdCard.permanent_url;
+    one("#pc-created-card-copy").textContent = nfcWritingAvailable() ? "The card is in your library. You can write it now or close this window." : "The card is in your library. You can write the NFC card later from a supported device.";
+    if (writeCardButton)
+        writeCardButton.disabled = !nfcWritingAvailable();
+    if (activateFields)
+        activateFields.hidden = true;
+    if (activateResult)
+        activateResult.hidden = false;
+    if (activateStatus)
+        activateStatus.textContent = "";
+    await loadWorkspace();
+    render();
+});
+writeCardButton?.addEventListener("click", async () => {
+    if (!createdCard || !nfcWritingAvailable())
+        return;
+    const Reader = window.NDEFReader;
+    writeCardButton.disabled = true;
+    try {
+        const reader = new Reader();
+        await reader.write({ records: [{ recordType: "url", data: createdCard.permanent_url }] });
+        one("#pc-created-card-copy").textContent = "The permanent N3XRA address was written to the NFC card.";
+        writeCardButton.textContent = "NFC card written";
+    }
+    catch (error) {
+        writeCardButton.disabled = false;
+        if (activateStatus)
+            activateStatus.textContent = errorMessage(error, "Unable to write this NFC card.");
+    }
+});
 projectList?.addEventListener("click", (event) => { const button = event.target.closest("[data-open-project]"); if (button)
     window.location.href = `${appBase}editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
 createForm?.addEventListener("submit", async (event) => {

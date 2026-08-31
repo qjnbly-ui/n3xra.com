@@ -5,6 +5,7 @@ type Status = "live" | "draft" | "archived";
 interface Project { id: string; organization_id: string; slug: string; name: string; description: string; location_text: string; status: Status; updated_at: string }
 interface Card { id: string; card_code: string; token: string; assigned_name: string; project_id: string | null; status: "active" | "inactive" | "retired" }
 interface Access { organization_id: string; role: string }
+interface CreatedCard { card_code: string; permanent_url: string; token: string }
 
 let supabase: any;
 let userId = "";
@@ -14,6 +15,7 @@ let cards: Card[] = [];
 let selected = new Set<string>();
 let managedCardId: string | null = null;
 let pendingAction: "unassign" | "deactivate" | "retire" | null = null;
+let createdCard: CreatedCard | null = null;
 const standaloneApp = document.body.classList.contains("project-cards-standalone");
 const appBase = standaloneApp ? "/project-cards/app/" : "/client-portal/project-cards/";
 
@@ -34,6 +36,13 @@ const manageDialog = one<HTMLDialogElement>("#pc-manage-dialog");
 const manageForm = one<HTMLFormElement>("#pc-manage-form");
 const manageProject = one<HTMLSelectElement>("#pc-manage-project");
 const confirmDialog = one<HTMLDialogElement>("#pc-confirm-dialog");
+const activateDialog = one<HTMLDialogElement>("#pc-activate-dialog");
+const activateForm = one<HTMLFormElement>("#pc-activate-form");
+const activateProject = one<HTMLSelectElement>("#pc-activate-project");
+const activateFields = one<HTMLElement>("#pc-activate-fields");
+const activateResult = one<HTMLElement>("#pc-activate-result");
+const activateStatus = one<HTMLElement>("#pc-activate-status");
+const writeCardButton = one<HTMLButtonElement>("#pc-write-card");
 
 function escape(value: string): string { return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;"); }
 function projectName(id: string | null): string { return projects.find((project) => project.id === id)?.name || "Unassigned"; }
@@ -54,6 +63,7 @@ function renderProjectOptions(): void {
   const options = `${projects.filter((project) => project.status !== "archived").map((project) => `<option value="${escape(project.id)}">${escape(project.name)}</option>`).join("")}<option value="">Unassigned</option>`;
   if (target) target.innerHTML = options;
   if (manageProject) manageProject.innerHTML = options;
+  if (activateProject) activateProject.innerHTML = options;
 }
 
 function renderProjects(): void {
@@ -85,6 +95,30 @@ function render(): void { renderProjectOptions(); renderProjects(); renderCards(
 function switchView(view: string): void {
   document.querySelectorAll<HTMLButtonElement>("[data-pc-view]").forEach((button) => { const active = button.dataset.pcView === view; button.classList.toggle("is-active", active); button.setAttribute("aria-selected", String(active)); });
   document.querySelectorAll<HTMLElement>("[data-pc-panel]").forEach((panel) => { panel.hidden = panel.dataset.pcPanel !== view; });
+}
+
+function nfcWritingAvailable(): boolean { return "NDEFReader" in window && window.isSecureContext; }
+function updateNfcSupport(): void {
+  const available = nfcWritingAvailable();
+  const title = one<HTMLElement>("#pc-device-title");
+  const copy = one<HTMLElement>("#pc-device-copy");
+  if (title) title.textContent = available ? "NFC writing is available" : "NFC writing is not available on this device";
+  if (copy) copy.textContent = available ? "After creating the card, this browser can write its permanent address." : "The card will still be added here. Write it later from a compatible Android device or the future N3XRA iPhone app.";
+}
+function resetActivation(): void {
+  createdCard = null;
+  activateForm?.reset();
+  if (activateFields) activateFields.hidden = false;
+  if (activateResult) activateResult.hidden = true;
+  if (activateStatus) activateStatus.textContent = "";
+  if (writeCardButton) { writeCardButton.disabled = true; writeCardButton.textContent = "Hold NFC card near device to write"; }
+  updateNfcSupport();
+}
+function closeActivation(): void { activateDialog?.close(); }
+function openActivation(): void {
+  switchView("cards");
+  resetActivation();
+  activateDialog?.showModal();
 }
 
 async function loadWorkspace(): Promise<void> {
@@ -148,9 +182,46 @@ one("#pc-new-project")?.addEventListener("click", openCreateDialog);
 one("[data-empty-new-project]")?.addEventListener("click", openCreateDialog);
 one("#pc-dialog-close")?.addEventListener("click", () => dialog?.close());
 one("#pc-dialog-cancel")?.addEventListener("click", () => dialog?.close());
-function openActivation(): void { window.location.href = `${appBase}activate/?organization=${encodeURIComponent(organizationId)}`; }
 one("#pc-activate-card")?.addEventListener("click", openActivation);
 one("[data-empty-activate-card]")?.addEventListener("click", openActivation);
+one("#pc-activate-close")?.addEventListener("click", closeActivation);
+one("#pc-activate-cancel")?.addEventListener("click", closeActivation);
+one("#pc-finish-card")?.addEventListener("click", closeActivation);
+activateForm?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!activateForm.reportValidity()) return;
+  const submit = one<HTMLButtonElement>("#pc-activate-submit");
+  if (submit) submit.disabled = true;
+  if (activateStatus) activateStatus.textContent = "Creating the permanent card address…";
+  const values = new FormData(activateForm);
+  const { data, error } = await supabase.rpc("create_project_card", { input_organization_id: organizationId, input_assigned_name: String(values.get("assignedName") || "").trim(), input_project_id: String(values.get("projectId") || "") || null });
+  if (submit) submit.disabled = false;
+  if (error) { if (activateStatus) activateStatus.textContent = error.message; return; }
+  createdCard = data as CreatedCard;
+  one<HTMLElement>("#pc-created-card-code")!.textContent = createdCard.card_code;
+  one<HTMLElement>("#pc-created-card-address")!.textContent = createdCard.permanent_url;
+  one<HTMLElement>("#pc-created-card-copy")!.textContent = nfcWritingAvailable() ? "The card is in your library. You can write it now or close this window." : "The card is in your library. You can write the NFC card later from a supported device.";
+  if (writeCardButton) writeCardButton.disabled = !nfcWritingAvailable();
+  if (activateFields) activateFields.hidden = true;
+  if (activateResult) activateResult.hidden = false;
+  if (activateStatus) activateStatus.textContent = "";
+  await loadWorkspace();
+  render();
+});
+writeCardButton?.addEventListener("click", async () => {
+  if (!createdCard || !nfcWritingAvailable()) return;
+  const Reader = (window as unknown as { NDEFReader: new () => { write(message: { records: Array<{ recordType: string; data: string }> }): Promise<void> } }).NDEFReader;
+  writeCardButton.disabled = true;
+  try {
+    const reader = new Reader();
+    await reader.write({ records: [{ recordType: "url", data: createdCard.permanent_url }] });
+    one<HTMLElement>("#pc-created-card-copy")!.textContent = "The permanent N3XRA address was written to the NFC card.";
+    writeCardButton.textContent = "NFC card written";
+  } catch (error) {
+    writeCardButton.disabled = false;
+    if (activateStatus) activateStatus.textContent = errorMessage(error, "Unable to write this NFC card.");
+  }
+});
 projectList?.addEventListener("click", (event) => { const button = (event.target as HTMLElement).closest<HTMLButtonElement>("[data-open-project]"); if (button) window.location.href = `${appBase}editor/?project=${encodeURIComponent(button.dataset.openProject || "")}`; });
 createForm?.addEventListener("submit", async (event) => { event.preventDefault(); const values = new FormData(createForm); const name = String(values.get("name") || "").trim(); if (!name) return; const slugBase = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "").slice(0, 60) || "project"; const payload = { organization_id: organizationId, slug: `${slugBase}-${Date.now().toString(36)}`, name, description: String(values.get("description") || "").trim(), status: values.get("status") === "live" ? "live" : "draft", created_by_user_id: userId };
   const { data, error } = await supabase.from("project_card_projects").insert(payload).select("id").single();
