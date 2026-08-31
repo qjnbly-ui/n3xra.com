@@ -33,20 +33,42 @@ test("project editor loads and saves real tenant resources without sample assign
   const [page, source, styles] = await Promise.all([read("client-portal/project-cards/editor/index.html"), read("src/client-portal/project-cards-editor.ts"), read("client-portal/project-cards/editor/editor.css")]);
   assert.match(page, /id="pe-resource-list"/);
   assert.doesNotMatch(page, /Medford|Fire Weather Briefing/);
-  assert.match(source, /type ResourceType = "pdf" \| "radio" \| "image" \| "file" \| "link"/);
+  assert.match(source, /type ResourceType = "pdf" \| "image" \| "file" \| "link" \| "text"/);
+  assert.doesNotMatch(page, /Radio channels/);
+  assert.match(page, /Use a shared URL/);
+  assert.match(page, /Upload to N3XRA/);
+  assert.match(page, /Google Drive, Microsoft OneDrive/);
+  assert.match(page, /name="text_body"/);
   assert.match(source, /can_manage_project_cards/);
   assert.match(source, /project_card_resources/);
+  assert.match(source, /storage\.from\(STORAGE_BUCKET\)\.upload/);
+  assert.match(source, /data-edit/);
+  assert.match(source, /openResourceDialog\(resources\[index\]\)/);
+  assert.match(source, /\?preview=1/);
   assert.doesNotMatch(source, /Medford|assignedCards = \[/);
   assert.match(styles, /--pe-lime:#d9f07a/);
 });
 
 test("public project-card route is scan-ready and does not require authentication", async () => {
   const [page, source, vercel] = await Promise.all([read("project-card/index.html"), read("src/client-portal/project-card-public.ts"), read("vercel.json")]);
-  assert.match(page, /Medford Fire Assignment/);
-  assert.match(page, /data-resource="weather"/);
-  assert.doesNotMatch(source, /createBrowserSupabase|is_platform_admin/);
+  assert.doesNotMatch(page, /Medford Fire Assignment|Radio Channels/);
+  assert.match(page, /id="ph-resource-list"/);
+  assert.match(source, /rpc\("get_project_card_page"/);
+  assert.match(source, /project_card_resources/);
+  assert.match(source, /getPublicUrl/);
+  assert.match(source, /loadPreview/);
+  assert.doesNotMatch(source, /is_platform_admin/);
   assert.match(vercel, /"source": "\/p\/:slug"/);
   assert.match(vercel, /"destination": "\/project-card\?slug=:slug"/);
+});
+
+test("Project Card resource uploads are organization-scoped and publicly resolvable", async () => {
+  const migration = await read("supabase/migrations/20260831234707_project_card_resource_uploads.sql");
+  assert.match(migration, /'project-card-resources'.*true.*52428800/s);
+  assert.match(migration, /owner_id=\(select auth\.uid\(\)\)::text/);
+  assert.match(migration, /public\.can_manage_project_cards\(project\.organization_id\)/);
+  assert.match(migration, /project\.organization_id::text=\(storage\.foldername\(name\)\)\[1\]/);
+  assert.match(migration, /'storage_path',resource\.storage_path/);
 });
 
 test("card activation waits for a secure server-created identity before NFC writing", async () => {
