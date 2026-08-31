@@ -79,6 +79,42 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
+    introducedBy: "42253a10",
+    date: "2026-08-30",
+    title: "Refined N3XRA Communications experience",
+    summary: "The Communications product page now presents dedicated business numbers, permission-based audience growth, consent safeguards, pilot pricing, and activation expectations in a clearer public experience.",
+  },
+  {
+    introducedBy: "82226e91",
+    date: "2026-08-30",
+    title: "Reusable website publishing",
+    summary: "N3XRA can now connect approved website forms to reusable publishing workflows, with administrator-controlled setup, separate submission review, protected asset handling, and safer deletion boundaries.",
+  },
+  {
+    introducedBy: "45fa83eb",
+    date: "2026-08-29",
+    title: "Connected website asset galleries",
+    summary: "Website clients and administrators now share faster gallery and file-preview experiences with live usage visibility, mobile-ready navigation, consistent CDN filenames, and direct account access.",
+  },
+  {
+    introducedBy: "dc0df38b",
+    date: "2026-08-28",
+    title: "Contact Card exchange and Premium",
+    summary: "Contact Cards now include a connected address book for exchanged and scanned contacts, editable contact details, individual vCard downloads, and an optional Premium plan with expanded presentation controls.",
+  },
+  {
+    introducedBy: "08fc7783",
+    date: "2026-08-27",
+    title: "Organization product access controls",
+    summary: "Administrators can review an organization's connected products from one place and grant product-specific access with clearer permission boundaries across shared customer workspaces.",
+  },
+  {
+    introducedBy: "6d4e7e57",
+    date: "2026-08-27",
+    title: "More resilient Build Studio sessions",
+    summary: "Persistent Build Studio workspaces now recover more reliably across restarts and preview preparation, helping active website projects continue without losing protected session context.",
+  },
+  {
     introducedBy: "59dbf69",
     date: "2026-08-26",
     title: "N3XRA Contact Cards",

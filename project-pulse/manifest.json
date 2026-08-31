@@ -2,39 +2,39 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-28T16:14:14.742Z",
-  "updatedAt": "2026-08-28T08:54:10-07:00",
-  "commit": "6e2b5be",
+  "generatedAt": "2026-08-31T12:01:37.942Z",
+  "updatedAt": "2026-08-30T22:31:07-07:00",
+  "commit": "42253a1",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 226,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 898,
-    "sourceLines": 225994,
+    "statement": "N3XRA is a connected technology platform comprising approximately 230,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 918,
+    "sourceLines": 230414,
     "products": 6,
-    "pages": 128,
-    "apiFunctions": 93,
+    "pages": 130,
+    "apiFunctions": 98,
     "edgeFunctions": 28,
-    "databaseMigrations": 220
+    "databaseMigrations": 227
   },
   "sourceBreakdown": {
     "css": {
-      "files": 54,
-      "lines": 40118
+      "files": 56,
+      "lines": 40458
     },
     "html": {
-      "files": 128,
-      "lines": 31758
+      "files": 130,
+      "lines": 32080
     },
     "js": {
-      "files": 280,
-      "lines": 87187
+      "files": 287,
+      "lines": 88993
     },
     "sql": {
-      "files": 349,
-      "lines": 44328
+      "files": 356,
+      "lines": 45489
     },
     "ts": {
-      "files": 86,
-      "lines": 22064
+      "files": 88,
+      "lines": 22855
     },
     "tsx": {
       "files": 1,
@@ -101,6 +101,36 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-08-30",
+      "title": "Refined N3XRA Communications experience",
+      "summary": "The Communications product page now presents dedicated business numbers, permission-based audience growth, consent safeguards, pilot pricing, and activation expectations in a clearer public experience."
+    },
+    {
+      "date": "2026-08-30",
+      "title": "Reusable website publishing",
+      "summary": "N3XRA can now connect approved website forms to reusable publishing workflows, with administrator-controlled setup, separate submission review, protected asset handling, and safer deletion boundaries."
+    },
+    {
+      "date": "2026-08-29",
+      "title": "Connected website asset galleries",
+      "summary": "Website clients and administrators now share faster gallery and file-preview experiences with live usage visibility, mobile-ready navigation, consistent CDN filenames, and direct account access."
+    },
+    {
+      "date": "2026-08-28",
+      "title": "Contact Card exchange and Premium",
+      "summary": "Contact Cards now include a connected address book for exchanged and scanned contacts, editable contact details, individual vCard downloads, and an optional Premium plan with expanded presentation controls."
+    },
+    {
+      "date": "2026-08-27",
+      "title": "Organization product access controls",
+      "summary": "Administrators can review an organization's connected products from one place and grant product-specific access with clearer permission boundaries across shared customer workspaces."
+    },
+    {
+      "date": "2026-08-27",
+      "title": "More resilient Build Studio sessions",
+      "summary": "Persistent Build Studio workspaces now recover more reliably across restarts and preview preparation, helping active website projects continue without losing protected session context."
+    },
     {
       "date": "2026-08-26",
       "title": "N3XRA Contact Cards",

@@ -29,6 +29,11 @@ test("Project Pulse includes the latest released platform work", async () => {
   const manifest = JSON.parse(await repositoryFile("project-pulse/manifest.json"));
   const titles = manifest.recentCapabilities.map(({ title }) => title);
 
+  assert.ok(titles.includes("Refined N3XRA Communications experience"));
+  assert.ok(titles.includes("Reusable website publishing"));
+  assert.ok(titles.includes("Connected website asset galleries"));
+  assert.ok(titles.includes("Contact Card exchange and Premium"));
+  assert.ok(titles.includes("Organization product access controls"));
   assert.ok(titles.includes("N3XRA Contact Cards"));
   assert.ok(titles.includes("Persistent N3XRA Build Studio"));
   assert.ok(titles.includes("Connected Communications provisioning and billing"));
