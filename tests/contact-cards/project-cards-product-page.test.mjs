@@ -21,6 +21,13 @@ test("the Project Cards presentation explains the product and offers signup", as
   assert.match(page, /The destination changes[.]/);
   assert.match(page, /href="\/account\/?[?]signup=signup&amp;product=project_cards"/);
   assert.match(page, /Project Cards is entering early access/);
+  assert.match(page, /class="site-topbar home-topbar"/);
+  assert.match(page, /class="site-brand home-brand"/);
+  assert.match(page, /href="\/assets\/home-shell[.]css[?]v=1"/);
+  assert.match(page, /href="\/projects\/"/);
+  assert.match(page, /href="\/services\/"/);
+  assert.match(page, /href="\/support\/"/);
+  assert.match(page, /href="\/#software"/);
   assert.doesNotMatch(page, /is_platform_admin|client-portal\/project-cards\.js/);
   assert.doesNotMatch(styles, /\.cards-hero:before|background-size:64px 64px/);
 });
