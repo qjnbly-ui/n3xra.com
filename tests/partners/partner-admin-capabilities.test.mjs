@@ -5,10 +5,11 @@ import test from "node:test";
 const read = (relativePath) => readFile(new URL(`../../${relativePath}`, import.meta.url), "utf8");
 
 test("full partner administrators can manage access and inspect financial activity", async () => {
-  const [controller, endpoint, html] = await Promise.all([
+  const [controller, endpoint, html, styles] = await Promise.all([
     read("n3xra-admin/partners/partners-admin.js"),
     read("api/partner-admin-usage.js"),
     read("n3xra-admin/partners/index.html"),
+    read("n3xra-admin/partners/partners-admin.css"),
   ]);
 
   assert.match(controller, /data-partner-code/);
@@ -20,6 +21,15 @@ test("full partner administrators can manage access and inspect financial activi
   assert.match(endpoint, /partner_commission_entries\?select=/);
   assert.match(endpoint, /includeDetails \? \{ activity \} : \{\}/);
   assert.match(html, /manage partner access, and inspect referral and commission activity/i);
+  assert.match(html, /class="partner-admin-workbench"/);
+  assert.match(html, /id="partner-application-detail"/);
+  assert.match(html, /partners-admin\.css\?v=8/);
+  assert.match(html, /partners-admin\.js\?v=8/);
+  assert.match(controller, /data-select-partner/);
+  assert.match(controller, /async function selectApplication/);
+  assert.match(controller, /mainReviewDirty/);
+  assert.match(styles, /grid-template-columns: 320px minmax\(0, 1fr\)/);
+  assert.doesNotMatch(controller, /<details class="partner-admin-card">/);
 });
 
 test("partner commission activity remains read-only in the administrator browser", async () => {

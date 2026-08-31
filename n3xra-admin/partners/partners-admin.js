@@ -3,6 +3,7 @@ import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 
 const statusScreen = document.getElementById("portal-status");
 const list = document.getElementById("partner-application-list");
+const detail = document.getElementById("partner-application-detail");
 const stats = document.getElementById("partner-stats");
 const searchInput = document.getElementById("partner-search");
 const programFilter = document.getElementById("partner-program-filter");
@@ -19,6 +20,9 @@ let supabase;
 let applications = [];
 let resolveDeleteConfirmation = null;
 let accessToken = "";
+let selectedApplicationId = "";
+let mainReviewDirty = false;
+let selectionBusy = false;
 const partnerEmailWorkflow = new Map();
 
 const PARTNER_PROGRAMS = [
@@ -82,22 +86,33 @@ function filteredApplications() {
   });
 }
 
-function render() {
+function renderList() {
   const visible = filteredApplications();
   list.innerHTML = visible.length ? visible.map((application) => {
-    const products = productsFor(application);
-    const websiteUrl = safeExternalUrl(application.website);
     return `
-      <details class="partner-admin-card">
-        <summary>
-          <div>
-            <p class="portal-kicker">${escapeHtml(formatDate(application.created_at))}</p>
-            <h3>${escapeHtml(application.full_name)}</h3>
-            <p>${escapeHtml(application.email)}${application.organization ? ` · ${escapeHtml(application.organization)}` : ""}</p>
-            <div class="partner-admin-badges">${products.map((product) => `<span class="partner-admin-badge">${escapeHtml(product)}</span>`).join("")}</div>
-          </div>
-          <span class="partner-admin-status">${escapeHtml(application.status)}</span>
-        </summary>
+      <button class="partner-admin-card${application.id === selectedApplicationId ? " is-selected" : ""}" type="button" data-select-partner="${escapeHtml(application.id)}">
+        <h3>${escapeHtml(application.full_name)}</h3>
+        <p>${escapeHtml(application.email)}${application.organization ? ` · ${escapeHtml(application.organization)}` : ""}</p>
+        <span class="partner-admin-status">${escapeHtml(application.status)}</span>
+      </button>`;
+  }).join("") : '<div class="portal-empty"><p>No partner applications match these filters.</p></div>';
+}
+
+function renderDetail() {
+  const application = applications.find((item) => item.id === selectedApplicationId);
+  if (!application) {
+    detail.innerHTML = '<div class="partner-admin-empty" id="partner-admin-empty"><p class="portal-kicker">Partner manager</p><h3>Select a partner application</h3><p>Review their application, control access, manage commission terms and contracts, send workflow emails, and preview their account.</p></div>';
+    mainReviewDirty = false;
+    return;
+  }
+  const products = productsFor(application);
+  const websiteUrl = safeExternalUrl(application.website);
+  detail.innerHTML = `
+      <article class="partner-admin-record" data-partner-record="${escapeHtml(application.id)}">
+        <header>
+          <div><p class="portal-kicker">Received ${escapeHtml(formatDate(application.created_at))}</p><h3>${escapeHtml(application.full_name)}</h3><p>${escapeHtml(application.email)}${application.organization ? ` · ${escapeHtml(application.organization)}` : ""}</p></div>
+          <div class="partner-admin-badges"><span class="partner-admin-status">${escapeHtml(application.status)}</span>${products.map((product) => `<span class="partner-admin-badge">${escapeHtml(product)}</span>`).join("")}</div>
+        </header>
         <div class="partner-admin-body">
           <div class="partner-admin-details">
             <dl class="partner-admin-facts">
@@ -146,9 +161,14 @@ function render() {
             </div>
           </div>
         </div>
-      </details>
+      </article>
     `;
-  }).join("") : '<div class="portal-empty"><p>No partner applications match these filters.</p></div>';
+  mainReviewDirty = false;
+}
+
+function render() {
+  renderList();
+  renderDetail();
 }
 
 async function loadApplications() {
@@ -163,12 +183,12 @@ async function loadApplications() {
 }
 
 async function saveApplication(applicationId) {
-  const status = list.querySelector(`[data-partner-status="${applicationId}"]`)?.value;
-  const notes = list.querySelector(`[data-partner-notes="${applicationId}"]`)?.value.trim() || null;
-  const codeInput = list.querySelector(`[data-partner-code="${applicationId}"]`);
-  if (codeInput?.value && !codeInput.reportValidity()) return;
+  const status = detail.querySelector(`[data-partner-status="${applicationId}"]`)?.value;
+  const notes = detail.querySelector(`[data-partner-notes="${applicationId}"]`)?.value.trim() || null;
+  const codeInput = detail.querySelector(`[data-partner-code="${applicationId}"]`);
+  if (codeInput?.value && !codeInput.reportValidity()) return false;
   const referralCode = String(codeInput?.value || "").trim().toUpperCase() || null;
-  const interestedProducts = [...list.querySelectorAll(`[data-partner-program="${applicationId}"]:checked`)].map((input) => input.value);
+  const interestedProducts = [...detail.querySelectorAll(`[data-partner-program="${applicationId}"]:checked`)].map((input) => input.value);
   const existing = applications.find((application) => application.id === applicationId);
   const updates = { status, notes, referral_code: referralCode, interested_products: interestedProducts };
   if (status === "approved" && existing?.status !== "approved") updates.approved_at = new Date().toISOString();
@@ -177,7 +197,9 @@ async function saveApplication(applicationId) {
     .update(updates)
     .eq("id", applicationId);
   if (error) throw error;
+  mainReviewDirty = false;
   await loadApplications();
+  return true;
 }
 
 function activityRows(items, type) {
@@ -190,7 +212,7 @@ function activityRows(items, type) {
 }
 
 async function loadPartnerActivity(applicationId, button) {
-  const target = list.querySelector(`[data-partner-activity="${applicationId}"]`);
+  const target = detail.querySelector(`[data-partner-activity="${applicationId}"]`);
   if (!target) return;
   button.disabled = true;
   target.innerHTML = '<p class="partner-admin-activity-empty">Loading partner activity…</p>';
@@ -252,7 +274,7 @@ function syncTermsRateFields(form) {
 }
 
 async function editPartnerTerms(applicationId, button) {
-  const target = list.querySelector(`[data-partner-terms-editor="${applicationId}"]`);
+  const target = detail.querySelector(`[data-partner-terms-editor="${applicationId}"]`);
   if (!target) return;
   button.disabled = true;
   target.innerHTML = '<p class="partner-admin-activity-empty">Loading commission and contract terms…</p>';
@@ -270,7 +292,7 @@ async function editPartnerTerms(applicationId, button) {
 }
 
 async function savePartnerTerms(applicationId, button) {
-  const form = list.querySelector(`[data-partner-terms-form="${applicationId}"]`);
+  const form = detail.querySelector(`[data-partner-terms-form="${applicationId}"]`);
   if (!form || !form.reportValidity()) return;
   const values = new FormData(form);
   const commissionType = String(values.get("commission_type") || "custom");
@@ -341,7 +363,7 @@ function emailComposer(applicationId, data, selectedStage = recommendedEmailStag
 }
 
 async function loadPartnerEmail(applicationId, button, selectedStage = "") {
-  const target = list.querySelector(`[data-partner-email-editor="${applicationId}"]`);
+  const target = detail.querySelector(`[data-partner-email-editor="${applicationId}"]`);
   if (!target) return;
   button.disabled = true;
   target.innerHTML = '<p class="partner-admin-activity-empty">Loading partner email process…</p>';
@@ -361,12 +383,12 @@ async function loadPartnerEmail(applicationId, button, selectedStage = "") {
 
 function switchPartnerEmailStage(applicationId, stage) {
   const data = partnerEmailWorkflow.get(applicationId);
-  const target = list.querySelector(`[data-partner-email-editor="${applicationId}"]`);
+  const target = detail.querySelector(`[data-partner-email-editor="${applicationId}"]`);
   if (data && target && data.templates?.[stage]) target.innerHTML = emailComposer(applicationId, data, stage);
 }
 
 function previewPartnerEmail(applicationId) {
-  const form = list.querySelector(`[data-partner-email-form="${applicationId}"]`);
+  const form = detail.querySelector(`[data-partner-email-form="${applicationId}"]`);
   if (!form || !form.reportValidity()) return;
   const values = new FormData(form);
   const preview = form.closest("[data-partner-email-workflow]").querySelector("[data-partner-email-preview]");
@@ -375,7 +397,7 @@ function previewPartnerEmail(applicationId) {
 }
 
 async function sendPartnerEmail(applicationId, button) {
-  const form = list.querySelector(`[data-partner-email-form="${applicationId}"]`);
+  const form = detail.querySelector(`[data-partner-email-form="${applicationId}"]`);
   const data = partnerEmailWorkflow.get(applicationId);
   if (!form || !data || !form.reportValidity()) return;
   const values = new FormData(form);
@@ -395,7 +417,7 @@ async function sendPartnerEmail(applicationId, button) {
     if (!response.ok || !result.ok) throw new Error(result.error || "Unable to send partner email.");
     status.textContent = result.already_sent ? "This exact delivery was already sent; no duplicate was created." : `Email sent to ${data.recipient}.`;
     form.dataset.deliveryKey = "";
-    const reload = list.querySelector(`[data-manage-partner-email="${applicationId}"]`);
+    const reload = detail.querySelector(`[data-manage-partner-email="${applicationId}"]`);
     if (reload) await loadPartnerEmail(applicationId, reload);
   } catch (error) {
     status.textContent = error?.message || "Unable to send partner email.";
@@ -457,7 +479,33 @@ async function deleteApplication(applicationId) {
     .select("id");
   if (error) throw error;
   if (!data?.length) throw new Error("The application was not deleted. Refresh the page and verify your admin access.");
+  selectedApplicationId = "";
+  mainReviewDirty = false;
   await loadApplications();
+}
+
+function hasUnsavedExplicitDrafts() {
+  return Boolean(detail.querySelector("[data-partner-terms-form][data-dirty], [data-partner-email-form][data-dirty]"));
+}
+
+async function selectApplication(applicationId) {
+  if (!applicationId || applicationId === selectedApplicationId || selectionBusy) return;
+  if (hasUnsavedExplicitDrafts() && !window.confirm("This partner has unsaved contract or email draft changes. Switch partners and discard those drafts?")) return;
+  selectionBusy = true;
+  try {
+    if (mainReviewDirty && selectedApplicationId) {
+      const saved = await saveApplication(selectedApplicationId);
+      if (!saved) return;
+    }
+    selectedApplicationId = applicationId;
+    renderList();
+    renderDetail();
+    detail.scrollTop = 0;
+  } catch (error) {
+    window.alert(error?.message || "Unable to save this partner before switching.");
+  } finally {
+    selectionBusy = false;
+  }
 }
 
 async function init() {
@@ -477,11 +525,11 @@ async function init() {
   const requestedProgram = new URLSearchParams(window.location.search).get("program");
   if (["website", "software", "future"].includes(requestedProgram)) {
     programFilter.value = requestedProgram;
-    render();
+    renderList();
   }
-  searchInput.addEventListener("input", render);
-  programFilter.addEventListener("change", render);
-  statusFilter.addEventListener("change", render);
+  searchInput.addEventListener("input", renderList);
+  programFilter.addEventListener("change", renderList);
+  statusFilter.addEventListener("change", renderList);
   refreshButton.addEventListener("click", async () => {
     refreshButton.disabled = true;
     try {
@@ -492,7 +540,11 @@ async function init() {
       refreshButton.disabled = false;
     }
   });
-  list.addEventListener("click", async (event) => {
+  list.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-select-partner]");
+    if (button) void selectApplication(button.dataset.selectPartner);
+  });
+  detail.addEventListener("click", async (event) => {
     const button = event.target.closest("[data-save-partner], [data-delete-partner], [data-load-partner-activity], [data-edit-partner-terms], [data-save-partner-terms], [data-manage-partner-email], [data-email-stage], [data-preview-partner-email], [data-send-partner-email]");
     if (!button) return;
     if (button.dataset.loadPartnerActivity) {
@@ -534,13 +586,17 @@ async function init() {
       button.disabled = false;
     }
   });
-  list.addEventListener("change", (event) => {
+  detail.addEventListener("change", (event) => {
     const select = event.target.closest("[data-commission-type]");
     if (select) syncTermsRateFields(select.closest("form"));
+    if (event.target.closest("[data-partner-status], [data-partner-code], [data-partner-program]")) mainReviewDirty = true;
   });
-  list.addEventListener("input", (event) => {
+  detail.addEventListener("input", (event) => {
     const form = event.target.closest("[data-partner-email-form]");
-    if (form) form.dataset.deliveryKey = "";
+    if (form) { form.dataset.deliveryKey = ""; form.dataset.dirty = "true"; }
+    const termsForm = event.target.closest("[data-partner-terms-form]");
+    if (termsForm) termsForm.dataset.dirty = "true";
+    if (event.target.closest("[data-partner-notes], [data-partner-code]")) mainReviewDirty = true;
   });
 
   document.body.classList.remove("portal-loading");

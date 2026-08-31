@@ -11,7 +11,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=7">
+  <link rel="stylesheet" href="/n3xra-admin/partners/partners-admin.css?v=8">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
   <script>
@@ -43,13 +43,19 @@
 
         <div class="partner-admin-stats" id="partner-stats" aria-label="Application totals"></div>
 
-        <div class="partner-admin-filters">
-          <label>Search<input id="partner-search" type="search" placeholder="Name, email, organization"></label>
-          <label>Program<select id="partner-program-filter"><option value="">All programs</option><option value="website">Website referrals</option><option value="software">Software commissions</option><option value="future">Future opportunities</option></select></label>
-          <label>Status<select id="partner-status-filter"><option value="">All active statuses</option><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="approved">Approved</option><option value="waitlisted">Waitlisted</option><option value="rejected">Rejected</option></select></label>
+        <div class="partner-admin-workbench">
+          <aside class="partner-admin-list-pane">
+            <div class="partner-admin-filters">
+              <label>Search<input id="partner-search" type="search" placeholder="Name, email, organization"></label>
+              <label>Program<select id="partner-program-filter"><option value="">All programs</option><option value="website">Website referrals</option><option value="software">Software commissions</option><option value="future">Future opportunities</option></select></label>
+              <label>Status<select id="partner-status-filter"><option value="">All active statuses</option><option value="submitted">Submitted</option><option value="reviewing">Reviewing</option><option value="approved">Approved</option><option value="waitlisted">Waitlisted</option><option value="rejected">Rejected</option></select></label>
+            </div>
+            <div class="partner-admin-list" id="partner-application-list"></div>
+          </aside>
+          <section class="partner-admin-detail-pane" id="partner-application-detail" aria-live="polite">
+            <div class="partner-admin-empty" id="partner-admin-empty"><p class="portal-kicker">Partner manager</p><h3>Select a partner application</h3><p>Review their application, control access, manage commission terms and contracts, send workflow emails, and preview their account.</p></div>
+          </section>
         </div>
-
-        <div class="partner-admin-list" id="partner-application-list"></div>
       </section>
     </div>
   </main>
@@ -72,6 +78,6 @@
     </div>
   </dialog>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=7"></script>
+  <script type="module" src="/n3xra-admin/partners/partners-admin.js?v=8"></script>
 </body>
 </html>

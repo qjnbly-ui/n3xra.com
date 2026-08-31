@@ -3,6 +3,43 @@
   gap: 1.25rem;
 }
 
+.partner-admin-workbench {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  min-height: 620px;
+  height: calc(100dvh - 345px);
+  overflow: hidden;
+  border: 1px solid var(--portal-line);
+  border-radius: 14px;
+  background: #fff;
+}
+
+.partner-admin-list-pane,
+.partner-admin-detail-pane {
+  min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.partner-admin-list-pane {
+  padding: 0.85rem;
+  border-right: 1px solid var(--portal-line);
+  background: #f8fafb;
+}
+
+.partner-admin-detail-pane { background: #fff; }
+
+.partner-admin-empty {
+  display: grid;
+  min-height: 100%;
+  place-content: center;
+  padding: 3rem;
+  text-align: center;
+}
+
+.partner-admin-empty h3 { margin: .2rem 0; font: 700 1.8rem "Fraunces", Georgia, serif; }
+.partner-admin-empty p:not(.portal-kicker) { max-width: 580px; margin: 0; color: var(--portal-muted); }
+
 .partner-admin-stats {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -32,7 +69,7 @@
 
 .partner-admin-filters {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(2, minmax(160px, 0.32fr));
+  grid-template-columns: 1fr;
   gap: 0.75rem;
   padding: 0.85rem;
   border: 1px solid var(--portal-line);
@@ -244,44 +281,43 @@
 
 .partner-admin-list {
   display: grid;
-  gap: 0.8rem;
+  gap: 0.2rem;
+  margin-top: .8rem;
 }
 
 .partner-admin-card {
-  padding: 1.1rem;
-  border: 1px solid var(--portal-line);
-  border-radius: 14px;
-  background: #fff;
-}
-
-.partner-admin-card summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 1rem;
+  gap: .25rem .65rem;
+  width: 100%;
+  padding: .8rem .7rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  color: var(--portal-ink);
+  background: transparent;
+  font: inherit;
+  text-align: left;
   cursor: pointer;
-  list-style: none;
 }
 
-.partner-admin-card summary::-webkit-details-marker {
-  display: none;
-}
+.partner-admin-card:hover,.partner-admin-card.is-selected { border-left-color: #0a7b83; background: #edf6f4; }
 
 .partner-admin-card h3 {
-  margin: 0.15rem 0 0.25rem;
-  font-family: "Fraunces", Georgia, serif;
-  font-size: 1.4rem;
-}
-
-.partner-admin-card p {
   margin: 0;
+  overflow: hidden;
+  font: 700 .85rem "Manrope", Arial, sans-serif;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.partner-admin-card[open] summary {
-  margin-bottom: 1rem;
-  padding-bottom: 1rem;
-  border-bottom: 1px solid var(--portal-line);
-}
+.partner-admin-card p { margin: 0; overflow: hidden; color: var(--portal-muted); font-size: .68rem; text-overflow: ellipsis; white-space: nowrap; }
+.partner-admin-card .partner-admin-status { grid-row: 1 / 3; grid-column: 2; align-self: center; }
+
+.partner-admin-record { min-height: 100%; }
+.partner-admin-record > header { display: flex; align-items: center; justify-content: space-between; gap: 1.25rem; padding: 1.5rem clamp(1.25rem,3vw,2.5rem); border-bottom: 1px solid var(--portal-line); }
+.partner-admin-record > header h3 { margin: .18rem 0 .25rem; font: 700 clamp(1.65rem,2.6vw,2.15rem) "Fraunces", Georgia, serif; }
+.partner-admin-record > header p { margin: 0; color: var(--portal-muted); font-size: .78rem; }
+.partner-admin-record > header .partner-admin-badges { justify-content: flex-end; margin-top: 0; }
 
 .partner-admin-badges {
   display: flex;
@@ -313,6 +349,7 @@
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 0.42fr);
   gap: 1.25rem;
+  padding: 1.5rem clamp(1.25rem,3vw,2.5rem);
 }
 
 .partner-admin-details {
@@ -457,6 +494,10 @@
 }
 
 @media (max-width: 760px) {
+  .partner-admin-workbench { grid-template-columns: 1fr; grid-template-rows: minmax(220px, 40dvh) minmax(0, 1fr); height: 900px; min-height: 0; }
+  .partner-admin-list-pane { border-right: 0; border-bottom: 1px solid var(--portal-line); }
+  .partner-admin-record > header { align-items: flex-start; flex-direction: column; }
+  .partner-admin-record > header .partner-admin-badges { justify-content: flex-start; }
   .partner-admin-stats,
   .partner-admin-facts {
     grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -473,10 +514,6 @@
   .partner-admin-terms-heading,.partner-admin-terms-footer { align-items: stretch; flex-direction: column; }
   .partner-email-composer-actions { align-items: stretch; flex-direction: column; }
   .partner-email-composer-actions .portal-button { width: 100%; }
-
-  .partner-admin-card summary {
-    grid-template-columns: 1fr;
-  }
 
   .partner-delete-actions {
     grid-template-columns: 1fr;
