@@ -72,23 +72,35 @@ async function syncCommunicationsSubscription(admin: ReturnType<typeof createCli
   if (!stripeCustomerId) return false;
   const period = subscriptionPeriod(subscription);
   const firstItem = subscription.items.data[0];
+  const metadataPlanKey = String(subscription.metadata.plan_key || "").trim().toLowerCase();
   const status = mapSubscriptionStatus(subscription.status);
   const entitlementStatus = status === "unpaid" ? "past_due" : status === "incomplete" ? "paused" : status;
   const activePortal = ["active", "trialing", "past_due"].includes(entitlementStatus);
-  const [catalogResult, overrideResult, existingResult] = await Promise.all([
+  let planQuery = admin
+    .from("communications_plan_catalog")
+    .select("plan_key,monthly_price_cents,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents,stripe_price_id");
+  planQuery = metadataPlanKey
+    ? planQuery.eq("plan_key", metadataPlanKey)
+    : planQuery.eq("stripe_price_id", firstItem?.price?.id || "");
+  const [catalogResult, overrideResult, existingResult, planResult] = await Promise.all([
     admin.from("n3xra_product_catalog").select("setup_fee_cents,monthly_price_cents").eq("product_key", productKey).single(),
     admin.from("organization_product_price_overrides").select("setup_fee_cents,monthly_price_cents").eq("organization_id", organizationId).eq("product_key", productKey).maybeSingle(),
-    admin.from("organization_product_subscriptions").select("setup_fee_cents,monthly_price_cents").eq("organization_id", organizationId).eq("product_key", productKey).maybeSingle(),
+    admin.from("organization_product_subscriptions").select("setup_fee_cents,monthly_price_cents,plan_key").eq("organization_id", organizationId).eq("product_key", productKey).maybeSingle(),
+    planQuery.maybeSingle(),
   ]);
   if (catalogResult.error) throw new Error(catalogResult.error.message);
   if (overrideResult.error) throw new Error(overrideResult.error.message);
   if (existingResult.error) throw new Error(existingResult.error.message);
+  if (planResult.error) throw new Error(planResult.error.message);
   const catalog = catalogResult.data;
+  const plan = planResult.data;
+  const planKey = plan?.plan_key || metadataPlanKey || existingResult.data?.plan_key || null;
   const setupFeeCents = Number(existingResult.data?.setup_fee_cents ?? overrideResult.data?.setup_fee_cents ?? catalog.setup_fee_cents ?? 0);
-  const monthlyPriceCents = Number(existingResult.data?.monthly_price_cents ?? overrideResult.data?.monthly_price_cents ?? firstItem?.price?.unit_amount ?? catalog.monthly_price_cents ?? 0);
+  const monthlyPriceCents = Number(plan?.monthly_price_cents ?? existingResult.data?.monthly_price_cents ?? overrideResult.data?.monthly_price_cents ?? firstItem?.price?.unit_amount ?? catalog.monthly_price_cents ?? 0);
   const stored = await admin.from("organization_product_subscriptions").upsert({
     organization_id: organizationId,
     product_key: productKey,
+    plan_key: planKey,
     stripe_customer_id: stripeCustomerId,
     stripe_subscription_id: subscription.id,
     stripe_price_id: firstItem?.price?.id || null,
@@ -123,9 +135,21 @@ async function syncCommunicationsSubscription(admin: ReturnType<typeof createCli
       ...(existingEntitlement?.metadata || {}),
       billing_source: "stripe",
       stripe_customer_id: stripeCustomerId,
+      plan_key: planKey,
     },
   }, { onConflict: "organization_id,product_key" });
   if (entitlement.error) throw new Error(entitlement.error.message);
+  if (plan) {
+    const workspace = await admin.from("communications_workspaces").update({
+      plan_key: plan.plan_key,
+      included_sms_segments: plan.included_sms_segments,
+      included_email_deliveries: plan.included_email_deliveries,
+      sms_overage_cents: plan.sms_overage_cents,
+      mms_unit_cents: plan.mms_unit_cents,
+      email_overage_per_1000_cents: plan.email_overage_per_1000_cents,
+    }).eq("organization_id", organizationId);
+    if (workspace.error) throw new Error(workspace.error.message);
+  }
   await admin.from("organizations").update({ stripe_customer_id: stripeCustomerId }).eq("id", organizationId);
   return true;
 }

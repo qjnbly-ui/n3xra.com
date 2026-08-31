@@ -6,6 +6,22 @@ const APP_KEY = "n3xra_communications";
 
 type BillingAction = "status" | "checkout" | "portal";
 
+type CommunicationsPlan = {
+  plan_key: string;
+  name: string;
+  description: string;
+  monthly_price_cents: number;
+  included_sms_segments: number;
+  included_email_deliveries: number;
+  sms_overage_cents: number;
+  mms_unit_cents: number;
+  email_overage_per_1000_cents: number;
+  stripe_price_id: string;
+  status: string;
+  audience: string;
+  sort_order: number;
+};
+
 function effectiveProduct(product: Record<string, any>, override?: Record<string, any> | null): Record<string, any> {
   if (!override) return product;
   return {
@@ -98,6 +114,7 @@ Deno.serve(async (request) => {
     const input = await request.json().catch(() => ({}));
     const action = String(input.action || "status") as BillingAction;
     const organizationId = String(input.organization_id || "").trim();
+    const requestedPlanKey = String(input.plan_key || "basic").trim().toLowerCase();
     if (!["status", "checkout", "portal"].includes(action)) return response({ error: "Unsupported billing action." }, 400, origin);
 
     const access = await accessibleOrganizations(admin, user, authUser.id, organizationId);
@@ -110,12 +127,24 @@ Deno.serve(async (request) => {
       .single();
     if (productError || !catalogProduct) throw new Error("Communications billing is not configured.");
 
+    const { data: planRows, error: plansError } = await admin
+      .from("communications_plan_catalog")
+      .select("plan_key,name,description,monthly_price_cents,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents,stripe_price_id,status,audience,sort_order")
+      .in("status", ["active", "grandfathered"])
+      .in("audience", ["organization", "all"])
+      .order("sort_order");
+    if (plansError) throw new Error(plansError.message);
+    const plans = (planRows || []) as CommunicationsPlan[];
+    const activePlans = plans.filter((plan) => plan.status === "active");
+    const defaultPlan = activePlans.find((plan) => plan.plan_key === "basic") || activePlans[0];
+    if (!defaultPlan) throw new Error("Communications plans are not configured.");
+
     if (action === "status") {
       const [organizationsResult, subscriptionsResult, entitlementsResult, workspacesResult, overridesResult, onboardingResult] = await Promise.all([
         admin.from("organizations").select("id,name,owner_user_id,stripe_customer_id").in("id", access.ids).order("name"),
         admin.from("organization_product_subscriptions").select("*").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
         admin.from("organization_product_entitlements").select("organization_id,status,source,portal_enabled").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
-        admin.from("communications_workspaces").select("organization_id,id,status,program_name").in("organization_id", access.ids),
+        admin.from("communications_workspaces").select("organization_id,id,status,program_name,plan_key,included_sms_segments,included_email_deliveries,sms_overage_cents,mms_unit_cents,email_overage_per_1000_cents").in("organization_id", access.ids),
         admin.from("organization_product_price_overrides").select("organization_id,setup_fee_cents,monthly_price_cents,stripe_monthly_price_id,stripe_setup_price_id").in("organization_id", access.ids).eq("product_key", PRODUCT_KEY),
         admin.from("communications_carrier_onboarding").select("organization_id,workspace_id,status,submitted_at,updated_at").in("organization_id", access.ids),
       ]);
@@ -124,7 +153,11 @@ Deno.serve(async (request) => {
       return response({
         products: (organizationsResult.data || []).map((organization) => ({
           organization,
-          product: effectiveProduct(catalogProduct, (overridesResult.data || []).find((row) => row.organization_id === organization.id)),
+          product: {
+            ...effectiveProduct(catalogProduct, (overridesResult.data || []).find((row) => row.organization_id === organization.id)),
+            monthly_price_cents: defaultPlan.monthly_price_cents,
+          },
+          plans: activePlans,
           subscription: (subscriptionsResult.data || []).find((row) => row.organization_id === organization.id) || null,
           entitlement: (entitlementsResult.data || []).find((row) => row.organization_id === organization.id) || null,
           workspace: (workspacesResult.data || []).find((row) => row.organization_id === organization.id) || null,
@@ -152,6 +185,8 @@ Deno.serve(async (request) => {
       .maybeSingle();
     if (overrideError) throw new Error(overrideError.message);
     const product = effectiveProduct(catalogProduct, override);
+    const selectedPlan = activePlans.find((plan) => plan.plan_key === requestedPlanKey);
+    if (!selectedPlan) return response({ error: "Select an available Communications plan." }, 400, origin);
 
     const stripe = stripeClient();
     const customerId = await customerForOrganization(admin, stripe, organization);
@@ -176,18 +211,22 @@ Deno.serve(async (request) => {
     if (["active", "trialing", "past_due", "unpaid", "paused"].includes(String(existing?.status || ""))) {
       return response({ error: "Communications billing is already active. Open billing management to review it." }, 409, origin);
     }
-    if (existing?.checkout_url && existing.checkout_expires_at && new Date(existing.checkout_expires_at) > new Date()) {
+    if (existing?.plan_key === selectedPlan.plan_key && existing.checkout_url && existing.checkout_expires_at && new Date(existing.checkout_expires_at) > new Date()) {
       return response({ url: existing.checkout_url, reused: true }, 200, origin);
     }
-    if (!product.stripe_monthly_price_id || !product.stripe_setup_price_id) throw new Error("Communications Stripe prices are missing.");
+    if (!selectedPlan.stripe_price_id || !product.stripe_setup_price_id) throw new Error("Communications Stripe prices are missing.");
 
-    const checkoutMetadata = metadata({ organization_id: organization.id, n3xra_user_id: organization.owner_user_id });
+    const checkoutMetadata = metadata({
+      organization_id: organization.id,
+      n3xra_user_id: organization.owner_user_id,
+      plan_key: selectedPlan.plan_key,
+    });
     const session = await stripe.checkout.sessions.create({
       mode: "subscription",
       customer: customerId,
       client_reference_id: organization.id,
       line_items: [
-        { price: product.stripe_monthly_price_id, quantity: 1 },
+        { price: selectedPlan.stripe_price_id, quantity: 1 },
         { price: product.stripe_setup_price_id, quantity: 1 },
       ],
       allow_promotion_codes: false,
@@ -197,12 +236,13 @@ Deno.serve(async (request) => {
       cancel_url: `${origin}/client-portal/billing/?billing=canceled&product=${PRODUCT_KEY}`,
       metadata: checkoutMetadata,
       subscription_data: { metadata: checkoutMetadata },
-    }, { idempotencyKey: `communications-checkout-${organization.id}-${Math.floor(Date.now() / 60000)}` });
+    }, { idempotencyKey: `communications-checkout-${organization.id}-${selectedPlan.plan_key}-${Math.floor(Date.now() / 60000)}` });
 
     const checkoutExpiresAt = unixDate(session.expires_at);
     const stored = await admin.from("organization_product_subscriptions").upsert({
       organization_id: organization.id,
       product_key: PRODUCT_KEY,
+      plan_key: selectedPlan.plan_key,
       stripe_customer_id: customerId,
       stripe_checkout_session_id: session.id,
       checkout_url: session.url,
@@ -210,7 +250,7 @@ Deno.serve(async (request) => {
       status: "checkout_pending",
       currency: "usd",
       setup_fee_cents: product.setup_fee_cents,
-      monthly_price_cents: product.monthly_price_cents,
+      monthly_price_cents: selectedPlan.monthly_price_cents,
     }, { onConflict: "organization_id,product_key" });
     if (stored.error) throw new Error(stored.error.message);
     return response({ url: session.url }, 200, origin);

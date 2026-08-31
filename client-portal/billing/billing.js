@@ -31,7 +31,7 @@ const label = (value = "") => String(value).replaceAll("_", " ").replace(/\b\w/g
 const localInput = (value) => value ? new Date(new Date(value).getTime() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16) : "";
 
 function productBillingCard(record) {
-  const { organization, product, subscription, entitlement, workspace, onboarding, can_manage: canManage } = record;
+  const { organization, product, plans = [], subscription, entitlement, workspace, onboarding, can_manage: canManage } = record;
   const subscriptionStatus = subscription?.status || "not_started";
   const activeBilling = ["active", "trialing", "past_due", "unpaid", "paused"].includes(subscriptionStatus);
   const checkoutPending = subscriptionStatus === "checkout_pending";
@@ -42,14 +42,24 @@ function productBillingCard(record) {
   const onboardingAction = activeBilling && !["active"].includes(onboardingStatus)
     ? `<a class="portal-button portal-button-secondary" href="/client-portal/communications/onboarding/">${onboardingStatus === "submitted" ? "Review texting submission" : onboardingStatus === "needs_changes" ? "Update texting onboarding" : ["approved", "provisioning", "carrier_pending"].includes(onboardingStatus) ? "View texting status" : "Finish texting onboarding"}</a>`
     : "";
+  const currentPlanKey = subscription?.plan_key || workspace?.plan_key || "";
+  const currentPlan = plans.find((plan) => plan.plan_key === currentPlanKey);
+  const planOptions = plans.map((plan) => {
+    const pendingPlan = checkoutPending && subscription?.plan_key === plan.plan_key;
+    return `<section class="billing-communications-plan${pendingPlan ? " is-selected" : "}">
+      <div><p class="portal-kicker">${escape(plan.name)}</p><strong>${money(plan.monthly_price_cents)}<small>/month</small></strong><p>${escape(plan.description)}</p></div>
+      <ul><li>${Number(plan.included_sms_segments).toLocaleString()} outbound SMS segments</li><li>${Number(plan.included_email_deliveries).toLocaleString()} email deliveries</li><li>${money(plan.sms_overage_cents)} per additional SMS segment</li><li>${money(plan.mms_unit_cents)} per outbound MMS</li><li>${money(plan.email_overage_per_1000_cents)} per additional 1,000 emails</li></ul>
+      <button class="portal-button" type="button" data-product-checkout="${organization.id}" data-plan-key="${escape(plan.plan_key)}">${pendingPlan ? "Continue secure checkout" : `Choose ${escape(plan.name.replace("Communications ", ""))}`}</button>
+    </section>`;
+  }).join("");
   const action = activeBilling
     ? `<button class="portal-button" type="button" data-product-portal="${organization.id}">Manage all payments in Stripe</button>${onboardingAction}`
     : canManage
-      ? `<button class="portal-button" type="button" data-product-checkout="${organization.id}">${checkoutPending ? "Continue secure checkout" : "Activate Communications"}</button>`
+      ? `<div class="billing-communications-plans">${planOptions}</div>`
       : `<p class="billing-product-note">An account administrator can activate this service.</p>`;
   return `<article class="billing-card billing-product-card" data-organization="${organization.id}">
     <div class="billing-card-head"><div><p class="portal-kicker">${escape(organization.name)}</p><h3>${escape(product.name)}</h3><p>${escape(product.description)}</p></div><span class="portal-badge" data-billing-state="${escape(state)}">${escape(stateLabel)}</span></div>
-    <div class="billing-product-price"><div><span>Due at activation</span><strong>${money(product.setup_fee_cents)}</strong><small>One-time setup</small></div><b>+</b><div><span>Ongoing plan</span><strong>${money(product.monthly_price_cents)}</strong><small>Per month · 500 SMS segments included</small></div></div>
+    <div class="billing-product-price"><div><span>Due at activation</span><strong>${money(product.setup_fee_cents)}</strong><small>One-time setup</small></div>${activeBilling ? `<b>+</b><div><span>Current plan</span><strong>${money(currentPlan?.monthly_price_cents || subscription?.monthly_price_cents)}</strong><small>${escape(currentPlan?.name || label(currentPlanKey || "Communications"))}</small></div>` : ""}</div>
     <div class="billing-product-summary"><p>${workspace ? `${escape(workspace.program_name)} is connected to this account.` : "Your Communications workspace will be connected after activation."}</p>${subscription?.current_period_end ? `<p>Next billing date: <strong>${date(subscription.current_period_end)}</strong></p>` : ""}</div>
     <div class="portal-form-actions billing-primary-actions">${action}</div>
   </article>`;
@@ -541,6 +551,7 @@ productContent?.addEventListener("click", async (event) => {
     const result = await invoke("communications-billing", {
       action: checkout ? "checkout" : "portal",
       organization_id: checkout?.dataset.productCheckout || portal.dataset.productPortal,
+      plan_key: checkout?.dataset.planKey || undefined,
     });
     location.href = result.url;
   } catch (error) {
