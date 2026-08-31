@@ -4684,16 +4684,18 @@ body.site-menu-is-open .home-topbar {
 
 .software-project-links {
   width: min(100%, 860px);
+  display: grid;
+  gap: 1rem;
   margin: 0 auto;
 }
 
 .software-project-links a {
-  min-height: 108px;
+  min-height: 128px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  padding: 1.4rem 1.6rem;
+  padding: 1.65rem 1.8rem;
   border: 1px solid rgba(168, 239, 255, 0.24);
   border-radius: 6px;
   color: rgba(255, 255, 255, 0.82);
