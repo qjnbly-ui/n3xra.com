@@ -30,7 +30,13 @@ function projectName(id) { return projects.find((project) => project.id === id)?
 function projectCount(id) { return cards.filter((card) => card.project_id === id).length; }
 function message(text) { if (!toast)
     return; toast.textContent = `✓ ${text}`; toast.hidden = false; window.setTimeout(() => { toast.hidden = true; }, 2800); }
-function organization(access) { return Array.isArray(access.organization) ? access.organization[0] || null : access.organization; }
+function errorMessage(error, fallback) {
+    if (error instanceof Error)
+        return error.message;
+    if (error && typeof error === "object" && "message" in error)
+        return String(error.message || fallback);
+    return fallback;
+}
 function renderSummary() {
     const values = { "#pc-project-total": projects.length, "#pc-card-total": cards.length, "#pc-assigned-total": cards.filter((card) => card.project_id).length, "#pc-tab-count": cards.length };
     Object.entries(values).forEach(([selector, value]) => { const node = one(selector); if (node)
@@ -106,19 +112,33 @@ async function authorize() {
         return;
     }
     userId = session.user.id;
-    const { data, error } = await supabase.from("organization_product_member_access").select("organization_id,role,organization:organizations(id,name)").eq("user_id", userId).eq("product_key", "project_cards").eq("status", "active");
+    const parameters = new URLSearchParams(window.location.search);
+    const requested = parameters.get("organization") || getStoredActiveOrganizationId();
+    if (parameters.get("activate") === "1") {
+        if (!requested)
+            throw new Error("Choose an organization before activating Project Cards.");
+        const { error: activationError } = await supabase.rpc("activate_project_cards", { input_organization_id: requested });
+        if (activationError)
+            throw activationError;
+        parameters.delete("activate");
+        const nextQuery = parameters.toString();
+        window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
+    }
+    const { data, error } = await supabase.from("organization_product_member_access").select("organization_id,role").eq("user_id", userId).eq("product_key", "project_cards").eq("status", "active");
     if (error)
         throw error;
     const accesses = (data || []);
-    const requested = new URLSearchParams(window.location.search).get("organization") || getStoredActiveOrganizationId();
     const access = accesses.find((row) => row.organization_id === requested) || accesses[0];
     if (!access)
         throw new Error("Project Cards has not been activated for your organization yet.");
     organizationId = access.organization_id;
     setStoredActiveOrganizationId(organizationId);
+    const { data: organizationRow, error: organizationError } = await supabase.from("organizations").select("id,name").eq("id", organizationId).maybeSingle();
+    if (organizationError)
+        throw organizationError;
     const workspaceName = one("#pc-workspace-name");
     if (workspaceName)
-        workspaceName.innerHTML = `${escape(organization(access)?.name || "Your workspace")}<small>Private to your organization</small>`;
+        workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>Private to your organization</small>`;
     await loadWorkspace();
     render();
     if (status)
@@ -189,4 +209,4 @@ confirmDialog?.addEventListener("close", async () => { if (confirmDialog.returnV
 if (new URLSearchParams(window.location.search).get("view") === "cards")
     switchView("cards");
 void authorize().catch((error) => { if (status)
-    status.textContent = error instanceof Error ? error.message : "Unable to open the Project Cards workspace."; document.body.classList.remove("portal-loading"); });
+    status.textContent = errorMessage(error, "Unable to open the Project Cards workspace."); document.body.classList.remove("portal-loading"); });

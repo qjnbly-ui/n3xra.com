@@ -11,7 +11,9 @@ test("project cards client workspace is tenant-scoped and starts without sample 
   assert.match(page, /Create your first project/);
   assert.doesNotMatch(page, /Internal preview|Medford Fire Assignment/);
   assert.match(source, /organization_product_member_access/);
+  assert.match(source, /rpc\("activate_project_cards"/);
   assert.match(source, /project_card_projects/);
+  assert.doesNotMatch(source, /organization:organizations/);
   assert.doesNotMatch(source, /rpc\("is_platform_admin"\)|medford-fire|PREVIEW/);
   assert.match(source, /n3xra\.com\/t\//);
   assert.match(shell, /Projects & Cards/);
@@ -61,10 +63,12 @@ test("card activation waits for a secure server-created identity before NFC writ
 
 test("Project Cards has a separate N3XRA admin workspace", async () => {
   const [page, source, navigation] = await Promise.all([read("n3xra-admin/project-cards/index.html"), read("src/client-portal/project-cards-admin.ts"), read("account/admin/admin-navigation.js")]);
-  assert.match(page, /N3XRA MASTER ADMINISTRATION/);
-  assert.match(page, /No Project Cards customers yet/);
+  assert.match(page, /Master administration/);
+  assert.match(page, /id="pca-organization-list"/);
+  assert.match(page, /id="pca-detail"/);
   assert.match(source, /rpc\("is_platform_admin"\)/);
   assert.match(source, /organization_product_entitlements/);
+  assert.match(source, /rpc\("activate_project_cards"/);
   assert.match(navigation, /key: "project-cards"[\s\S]*\/n3xra-admin\/project-cards\//);
   assert.doesNotMatch(page, /Medford Fire Assignment|Internal preview/);
 });
@@ -88,4 +92,13 @@ test("project cards migration keeps tenant data private and permanent tokens non
   assert.match(migration, /grant execute on function public\.get_project_card_page\(text\) to anon, authenticated/);
   assert.match(verification, /Viewer incorrectly created a project/);
   assert.match(verification, /Card lifecycle audit events were not recorded/);
+});
+
+test("Project Cards self-activation is organization-admin scoped", async () => {
+  const migration = await read("supabase/migrations/20260831151302_project_cards_self_activation.sql");
+  assert.match(migration, /create or replace function public\.activate_project_cards/);
+  assert.match(migration, /not public\.can_manage_members\(input_organization_id\)/);
+  assert.match(migration, /organization_product_member_access/);
+  assert.match(migration, /revoke all on function public\.activate_project_cards\(uuid\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.activate_project_cards\(uuid\) to authenticated/);
 });

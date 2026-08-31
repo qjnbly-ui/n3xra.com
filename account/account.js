@@ -62,6 +62,8 @@ const communicationsProductCard = document.getElementById("communications-produc
 const communicationsProductSummary = document.getElementById("communications-product-summary");
 const communicationsProductLink = document.getElementById("communications-product-link");
 const projectCardsProductCard = document.getElementById("project-cards-product-card");
+const projectCardsProductSummary = document.getElementById("project-cards-product-summary");
+const projectCardsProductLink = document.getElementById("project-cards-product-link");
 const openAdminViralsButton = document.getElementById("open-admin-virals-button");
 const openAdminMusicButton = document.getElementById("open-admin-music-button");
 const openMusicButton = document.getElementById("open-music-button");
@@ -108,6 +110,7 @@ let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
 let communicationsEntitlement = null;
+let projectCardsEntitlement = null;
 let organizationAdminAccess = null;
 let contactCardProfile = null;
 let contactCardEntitlement = null;
@@ -609,6 +612,40 @@ async function loadCommunicationsEntitlement() {
   communicationsEntitlement = data || null;
 }
 
+async function loadProjectCardsEntitlement() {
+  const [membershipResult, ownedResult] = await Promise.all([
+    supabase
+      .from("organization_memberships")
+      .select("organization_id")
+      .eq("user_id", currentSession.user.id),
+    supabase
+      .from("organizations")
+      .select("id")
+      .eq("owner_user_id", currentSession.user.id),
+  ]);
+  if (membershipResult.error) throw membershipResult.error;
+  if (ownedResult.error) throw ownedResult.error;
+  const organizationIds = [...new Set([
+    ...(membershipResult.data || []).map((row) => row.organization_id),
+    ...(ownedResult.data || []).map((row) => row.id),
+  ].filter(Boolean))];
+  if (!organizationIds.length) {
+    projectCardsEntitlement = null;
+    return;
+  }
+  const { data, error } = await supabase
+    .from("organization_product_entitlements")
+    .select("organization_id,status,portal_enabled")
+    .in("organization_id", organizationIds)
+    .eq("product_key", "project_cards")
+    .eq("portal_enabled", true)
+    .in("status", ["trialing", "active", "past_due"])
+    .limit(1)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  projectCardsEntitlement = data || null;
+}
+
 async function loadLoanAccount() {
   const { data, error } = await supabase
     .from("loan_accounts")
@@ -780,6 +817,7 @@ async function renderDashboard(message = "") {
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
     loadCommunicationsEntitlement(),
+    loadProjectCardsEntitlement(),
     loadOrganizationAdminAccess(),
     loadContactCardProfile(),
   ]);
@@ -818,6 +856,22 @@ async function renderDashboard(message = "") {
     communicationsProductLink.textContent = hasCommunicationsAccess
       ? "Open Communications"
       : "Activate Communications";
+  }
+
+  const hasProjectCardsAccess = Boolean(projectCardsEntitlement?.organization_id);
+  const projectCardsOrganizationId = projectCardsEntitlement?.organization_id || organizationAdminAccess?.id || "";
+  if (projectCardsProductSummary && projectCardsProductLink) {
+    projectCardsProductSummary.textContent = hasProjectCardsAccess
+      ? "Build project pages, activate physical cards, and change their destinations at any time."
+      : "Activate a blank Project Cards workspace for your organization.";
+    projectCardsProductLink.href = hasProjectCardsAccess
+      ? `/client-portal/project-cards/?organization=${encodeURIComponent(projectCardsOrganizationId)}`
+      : projectCardsOrganizationId
+        ? `/client-portal/project-cards/?organization=${encodeURIComponent(projectCardsOrganizationId)}&activate=1`
+        : "/project-cards/#signup";
+    projectCardsProductLink.textContent = hasProjectCardsAccess
+      ? "Open Project Cards"
+      : "Activate Project Cards";
   }
 
 
@@ -874,7 +928,7 @@ async function renderDashboard(message = "") {
   [
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
-    [projectCardsProductCard, false],
+    [projectCardsProductCard, hasProjectCardsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
     [organizationAdminCard, hasOrganizationAdminAccess],
     [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],

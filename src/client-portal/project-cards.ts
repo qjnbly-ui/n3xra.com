@@ -4,7 +4,7 @@ import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/s
 type Status = "live" | "draft" | "archived";
 interface Project { id: string; organization_id: string; slug: string; name: string; description: string; location_text: string; status: Status; updated_at: string }
 interface Card { id: string; card_code: string; token: string; assigned_name: string; project_id: string | null; status: "active" | "inactive" | "retired" }
-interface Access { organization_id: string; role: string; organization: { id: string; name: string } | Array<{ id: string; name: string }> | null }
+interface Access { organization_id: string; role: string }
 
 let supabase: any;
 let userId = "";
@@ -37,7 +37,11 @@ function escape(value: string): string { return value.replaceAll("&", "&amp;").r
 function projectName(id: string | null): string { return projects.find((project) => project.id === id)?.name || "Unassigned"; }
 function projectCount(id: string): number { return cards.filter((card) => card.project_id === id).length; }
 function message(text: string): void { if (!toast) return; toast.textContent = `✓ ${text}`; toast.hidden = false; window.setTimeout(() => { toast.hidden = true; }, 2800); }
-function organization(access: Access): { id: string; name: string } | null { return Array.isArray(access.organization) ? access.organization[0] || null : access.organization; }
+function errorMessage(error: unknown, fallback: string): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === "object" && "message" in error) return String((error as { message?: unknown }).message || fallback);
+  return fallback;
+}
 
 function renderSummary(): void {
   const values: Record<string, number> = { "#pc-project-total": projects.length, "#pc-card-total": cards.length, "#pc-assigned-total": cards.filter((card) => card.project_id).length, "#pc-tab-count": cards.length };
@@ -98,16 +102,27 @@ async function authorize(): Promise<void> {
   const session = await getSessionOrNull(supabase);
   if (!session?.user) { window.location.replace(`/client-portal/login/?next=${encodeURIComponent(window.location.pathname + window.location.search)}`); return; }
   userId = session.user.id;
-  const { data, error } = await supabase.from("organization_product_member_access").select("organization_id,role,organization:organizations(id,name)").eq("user_id", userId).eq("product_key", "project_cards").eq("status", "active");
+  const parameters = new URLSearchParams(window.location.search);
+  const requested = parameters.get("organization") || getStoredActiveOrganizationId();
+  if (parameters.get("activate") === "1") {
+    if (!requested) throw new Error("Choose an organization before activating Project Cards.");
+    const { error: activationError } = await supabase.rpc("activate_project_cards", { input_organization_id: requested });
+    if (activationError) throw activationError;
+    parameters.delete("activate");
+    const nextQuery = parameters.toString();
+    window.history.replaceState({}, "", `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ""}`);
+  }
+  const { data, error } = await supabase.from("organization_product_member_access").select("organization_id,role").eq("user_id", userId).eq("product_key", "project_cards").eq("status", "active");
   if (error) throw error;
   const accesses = (data || []) as Access[];
-  const requested = new URLSearchParams(window.location.search).get("organization") || getStoredActiveOrganizationId();
   const access = accesses.find((row) => row.organization_id === requested) || accesses[0];
   if (!access) throw new Error("Project Cards has not been activated for your organization yet.");
   organizationId = access.organization_id;
   setStoredActiveOrganizationId(organizationId);
+  const { data: organizationRow, error: organizationError } = await supabase.from("organizations").select("id,name").eq("id", organizationId).maybeSingle();
+  if (organizationError) throw organizationError;
   const workspaceName = one<HTMLElement>("#pc-workspace-name");
-  if (workspaceName) workspaceName.innerHTML = `${escape(organization(access)?.name || "Your workspace")}<small>Private to your organization</small>`;
+  if (workspaceName) workspaceName.innerHTML = `${escape(String(organizationRow?.name || "Your workspace"))}<small>Private to your organization</small>`;
   await loadWorkspace();
   render();
   if (status) status.hidden = true;
@@ -143,4 +158,4 @@ document.querySelectorAll<HTMLButtonElement>("[data-card-action]").forEach((butt
 confirmDialog?.addEventListener("close", async () => { if (confirmDialog.returnValue !== "confirm" || !pendingAction || !managedCardId) { pendingAction = null; return; } const update = pendingAction === "unassign" ? { project_id: null } : pendingAction === "deactivate" ? { status: "inactive" } : { status: "retired", retired_at: new Date().toISOString() }; const { error } = await supabase.from("project_card_devices").update(update).eq("id", managedCardId).eq("organization_id", organizationId); pendingAction = null; if (error) { message(error.message); return; } manageDialog?.close(); await loadWorkspace(); render(); message("Card updated."); });
 
 if (new URLSearchParams(window.location.search).get("view") === "cards") switchView("cards");
-void authorize().catch((error: unknown) => { if (status) status.textContent = error instanceof Error ? error.message : "Unable to open the Project Cards workspace."; document.body.classList.remove("portal-loading"); });
+void authorize().catch((error: unknown) => { if (status) status.textContent = errorMessage(error, "Unable to open the Project Cards workspace."); document.body.classList.remove("portal-loading"); });

@@ -40,7 +40,7 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   assert.equal(adminCards.length, 9);
   assert.doesNotMatch(html, /id="(?:music|virals)-app-card"/);
   assert.doesNotMatch(adminSection, /Utilities Admin|\/n3xra-admin\/utilities/);
-  assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Projects &amp; Physical Cards[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
+  assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Project Cards[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
   assert.match(adminSection, /Open all admin tools/);
   assert.match(adminSection, /Retired products[\s\S]*N3XRA Virals[\s\S]*N3XRA AI Music Generator/);
   assert.doesNotMatch(adminSection, /N3XRA Internal Records|open-admin-records-button/);
@@ -128,13 +128,15 @@ test("customer app cards use consistent N3XRA product names and clear access sta
   assert.match(html, /My products[\s\S]*Your products[\s\S]*Explore N3XRA products[\s\S]*More from N3XRA/);
   assert.match(html, /id="communications-product-link" href="\/client-portal\/billing\/\?product=communications"/);
   assert.match(html, /id="project-cards-product-link" href="\/client-portal\/project-cards\/">Activate Project Cards<\/a>/);
+  assert.match(html, /href="\/n3xra-admin\/project-cards\/">Open Project Cards<\/a>/);
   assert.match(html, /id="website-portal-link" href="\/website-request\/"/);
   assert.match(html, /id="partner-portal-link" href="\/partners\/#apply"/);
   assert.match(html, /id="investment-interest-link" href="\/invest\/#ownership-updates"/);
   assert.match(script, /communicationsProductLink\.href = hasCommunicationsAccess[\s\S]*organization=\$\{encodeURIComponent\(communicationsEntitlement\.organization_id\)\}[\s\S]*"\/client-portal\/billing\/\?product=communications"/);
   assert.match(script, /websitePortalLink\.href = "\/client-portal\/"[\s\S]*websitePortalLink\.href = "\/website-request\/"/);
   assert.match(script, /placeMoreFromN3xraCard\(partnerPortalCard, isApprovedPartner\)/);
-  assert.match(script, /\[projectCardsProductCard, false\]/);
+  assert.match(script, /\[projectCardsProductCard, hasProjectCardsAccess\]/);
+  assert.match(script, /activate=1/);
   assert.match(script, /ownershipUpdateStatus = !interest[\s\S]*"Withdrawn"[\s\S]*"Submitted"/);
   assert.match(script, /placeMoreFromN3xraCard\(investmentInterestCard, ownershipUpdateStatus === "Submitted", ownershipUpdateStatus\)/);
   assert.match(script, /investmentInterestLink\.href = "\/invest\/#ownership-updates"/);

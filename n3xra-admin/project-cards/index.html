@@ -1,19 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>N3XRA | Project Cards Administration</title><meta name="robots" content="noindex,nofollow,noarchive">
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>N3XRA | Project Cards</title><meta name="robots" content="noindex,nofollow,noarchive">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/account/admin/admin.css?v=34"><link rel="stylesheet" href="/n3xra-admin/project-cards/project-cards-admin.css?v=1">
-  <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script><script type="module" src="/account/admin/product-shell.js?v=19"></script>
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=17"><link rel="stylesheet" href="/account/admin/admin.css?v=34"><link rel="stylesheet" href="/n3xra-admin/project-cards/project-cards-admin.css?v=2">
+  <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script><script type="module" src="/account/admin/product-shell.js?v=20"></script>
 </head>
 <body class="portal-loading project-cards-admin-page">
-  <main class="portal-shell account-admin-page"><div class="portal-layout"><nav class="portal-nav" aria-label="N3XRA administration"></nav><section class="portal-workspace">
-    <p class="pc-gate" id="pca-status" role="status">Opening Project Cards administration…</p>
-    <div class="pca-app" id="pca-app" hidden>
-      <header class="pca-hero"><div><p>N3XRA MASTER ADMINISTRATION</p><h1>Project Cards</h1><span>Manage the product across customer organizations without entering a customer’s workspace.</span></div><a href="/project-cards/" target="_blank">View product page ↗</a></header>
-      <section class="pca-summary"><article><strong id="pca-org-total">0</strong><span>Organizations</span></article><article><strong id="pca-project-total">0</strong><span>Projects</span></article><article><strong id="pca-card-total">0</strong><span>Physical cards</span></article><article><strong id="pca-assigned-total">0</strong><span>Assigned cards</span></article></section>
-      <section class="pca-content"><div class="pca-section-head"><div><p>CUSTOMER WORKSPACES</p><h2>Organizations using Project Cards</h2><span>This is the N3XRA operational view. Client projects remain inside their own organization workspace.</span></div></div><div id="pca-organizations"></div><div class="pca-empty" id="pca-empty" hidden><span>ADMIN</span><h2>No Project Cards customers yet</h2><p>Activated organizations, their project totals, and physical-card inventory will appear here.</p></div></section>
-    </div>
-  </section></div></main>
-  <script type="module" src="/client-portal/project-cards-admin.js?v=1"></script>
+  <main class="portal-shell"><section class="portal-heading"><div><p class="portal-kicker">Master administration</p><h1>Project Cards</h1></div></section>
+    <div class="portal-layout"><nav class="portal-nav" aria-label="N3XRA administration"></nav><section class="portal-workspace project-cards-admin-workspace">
+      <div class="pca-workbench">
+        <aside class="pca-list-pane">
+          <div class="pca-pane-head"><div><p class="portal-kicker">N3XRA Project Cards</p><strong>Organizations</strong></div><span id="pca-organization-count">0</span></div>
+          <label class="pca-search"><span>Find an organization</span><input id="pca-search" type="search" placeholder="Name or account status"></label>
+          <div class="pca-organization-list" id="pca-organization-list"></div>
+        </aside>
+        <section class="pca-detail-pane">
+          <p class="pca-gate" id="pca-status" role="status">Opening Project Cards administration…</p>
+          <div class="pca-empty" id="pca-empty" hidden><p class="portal-kicker">Project Cards manager</p><h2>Select an organization</h2><p>Activate Project Cards, review customer projects, and manage physical-card inventory from this product workspace.</p></div>
+          <div class="pca-detail" id="pca-detail" hidden>
+            <header><div><p class="portal-kicker" id="pca-detail-kicker">Customer organization</p><h2 id="pca-detail-title">Organization</h2><p id="pca-detail-summary"></p></div><div class="pca-detail-actions"><a class="portal-button portal-button-secondary" id="pca-client-link" href="#" target="_blank" hidden>Open client workspace</a><button class="portal-button" id="pca-activate" type="button">Activate Project Cards</button></div></header>
+            <section class="pca-facts" aria-label="Organization Project Cards summary"><article><span>Product status</span><strong id="pca-entitlement-status">Not activated</strong></article><article><span>Projects</span><strong id="pca-project-total">0</strong></article><article><span>Physical cards</span><strong id="pca-card-total">0</strong></article><article><span>Assigned cards</span><strong id="pca-assigned-total">0</strong></article></section>
+            <section class="pca-section"><div class="pca-section-head"><div><p class="portal-kicker">Projects</p><h3>Resource hubs</h3></div></div><div class="pca-record-list" id="pca-project-list"></div></section>
+            <section class="pca-section"><div class="pca-section-head"><div><p class="portal-kicker">Physical cards</p><h3>Card inventory</h3></div></div><div class="pca-record-list" id="pca-card-list"></div></section>
+          </div>
+        </section>
+      </div>
+    </section></div>
+  </main>
+  <script type="module" src="/client-portal/project-cards-admin.js?v=2"></script>
 </body></html>
