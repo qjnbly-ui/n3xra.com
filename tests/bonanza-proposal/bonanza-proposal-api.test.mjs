@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
@@ -19,4 +20,16 @@ test("constant-time comparison rejects a different hash", () => {
   assert.equal(_test.safeEqual("abc", "abc"), true);
   assert.equal(_test.safeEqual("abc", "abd"), false);
   assert.equal(_test.safeEqual("abc", "abcd"), false);
+});
+
+test("approved presentation introduces costs only in the closing service section", async () => {
+  const html = await readFile(new URL("../../bonanza/index.html", import.meta.url), "utf8");
+  const investmentStart = html.indexOf('id="investment"');
+  assert.ok(investmentStart > 0);
+  assert.equal(html.slice(0, investmentStart).includes("$"), false);
+  assert.match(html.slice(investmentStart), /\$2,500/);
+  assert.match(html.slice(investmentStart), /Baseline service/);
+  assert.match(html.slice(investmentStart), /Month-to-month control/);
+  assert.equal(html.includes("response-controls-template"), false);
+  assert.match(html, /proposal-v6\.js/);
 });
