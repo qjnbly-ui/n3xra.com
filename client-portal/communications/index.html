@@ -4,11 +4,11 @@
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Communications | Client Portal</title><meta name="robots" content="noindex, nofollow, noarchive">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=18"><link rel="stylesheet" href="/client-portal/client-shell.css?v=10"><link rel="stylesheet" href="/client-portal/communications.css?v=6">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=18"><link rel="stylesheet" href="/client-portal/client-shell.css?v=10"><link rel="stylesheet" href="/client-portal/communications.css?v=7">
   <script src="/shared/config.js"></script><script src="/assets/site-nav.js?v=5"></script>
 </head>
 <body class="communications-loading" data-disable-site-assistant>
-  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand communications-app-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span><i aria-hidden="true"></i><strong>N3XRA Communications</strong></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
   <main class="portal-shell communications-shell">
     <section class="portal-heading"><div><p class="portal-kicker">Business portal</p><h1>Communications</h1></div></section>
     <div class="portal-layout">
@@ -17,6 +17,18 @@
         <section class="communications-head"><div><p class="portal-kicker">N3XRA Communications</p><h1 id="communications-title">Communications</h1><p id="communications-summary">Your number, audience preferences, consent history, and usage in one place.</p></div><div class="communications-number"><span>Dedicated number</span><strong id="communications-number">Provisioning</strong><small id="communications-number-status">Loading status…</small></div></section>
         <section class="communications-onboarding-card" id="communications-onboarding-card" hidden><div><p class="portal-kicker">Texting setup</p><h2 id="communications-onboarding-title">Complete carrier onboarding</h2><p id="communications-onboarding-copy">Provide the verified business, consent, and campaign details N3XRA needs to prepare carrier registration.</p></div><a class="portal-button" id="communications-onboarding-link" href="/client-portal/communications/onboarding/">Open secure onboarding</a></section>
         <div class="communications-alert" id="communications-usage-alert" hidden></div>
+        <section class="communications-panel communications-compose" id="communications-compose-panel">
+          <div class="communications-panel-head"><div><p class="portal-kicker">N3XRA Communications</p><h2>Send an update from <span id="communications-organization-name">your organization</span></h2><p>Only subscribers with active consent for each selected channel will receive this update.</p></div><span class="communications-ready" id="communications-delivery-readiness">Checking delivery readiness…</span></div>
+          <form class="communications-compose-form" id="communications-compose-form">
+            <div class="communications-compose-options">
+              <fieldset><legend>Send by</legend><label><input type="checkbox" name="channel" value="sms"> Text message</label><label><input type="checkbox" name="channel" value="email"> Email</label></fieldset>
+              <label><span>Audience</span><select id="communications-audience" name="topicId"><option value="">All subscribed people</option></select></label>
+              <label id="communications-subject-field" hidden><span>Email subject</span><input id="communications-subject" name="subject" maxlength="300" placeholder="What is this update about?"></label>
+            </div>
+            <label class="communications-message-field"><span>Message</span><textarea id="communications-message" name="message" rows="6" maxlength="1600" placeholder="Write the update your subscribers asked to receive." required></textarea><small><span id="communications-character-count">0</span> / 1,600 characters</small></label>
+            <div class="communications-compose-footer"><p id="communications-send-status" role="status">Choose a channel and audience to see who can receive this update.</p><button class="portal-button" id="communications-send-button" type="submit">Send update</button></div>
+          </form>
+        </section>
         <section class="communications-metrics" aria-label="Communications summary"><article><span>Current plan</span><strong id="metric-plan">—</strong><small id="metric-plan-detail">Loading plan allowances</small></article><article><span>SMS usage</span><strong id="metric-sms">—</strong><small id="metric-sms-detail">Current month</small></article><article><span>Email usage</span><strong id="metric-email">—</strong><small id="metric-email-detail">Current month</small></article><article><span>Outbound MMS</span><strong id="metric-mms">—</strong><small>Billed separately per message</small></article><article><span>Total subscribers</span><strong id="metric-subscribers">—</strong><small id="metric-subscribers-detail">Across text and email</small></article><article><span>Active topics</span><strong id="metric-topics">—</strong><small>Subscriber preference options</small></article><article><span>Consent events</span><strong id="metric-consent">—</strong><small>Recorded audit history</small></article></section>
         <section class="communications-grid"><article class="communications-panel communications-tools"><div class="communications-panel-head"><div><p class="portal-kicker">Audience tools</p><h2>Ways to join</h2></div></div><div class="communications-join-tools"><div><span>Website signup</span><strong id="signup-url">—</strong><button type="button" id="copy-signup-url">Copy link</button></div><div><span>QR code</span><img id="signup-qr" alt="QR code for the subscriber signup page"><a id="download-qr" href="#" download>Download QR</a></div><div><span>Text-to-join</span><strong id="keyword-list">Not configured</strong><small id="keyword-instruction"></small></div></div></article>
           <article class="communications-panel"><div class="communications-panel-head"><div><p class="portal-kicker">Topics</p><h2>Subscriber interests</h2></div></div><div class="communications-topic-list" id="communications-topics"></div></article>
@@ -27,5 +39,5 @@
     </div>
   </main>
   <div class="communications-status" id="communications-status" role="status">Opening Communications…</div>
-  <script type="module" src="/client-portal/client-shell.js?v=27"></script><script type="module" src="/client-portal/portal-shell.js?v=6"></script><script type="module" src="/client-portal/communications-app.js?v=6"></script>
+  <script type="module" src="/client-portal/client-shell.js?v=28"></script><script type="module" src="/client-portal/portal-shell.js?v=6"></script><script type="module" src="/client-portal/communications-app.js?v=7"></script>
 </body></html>

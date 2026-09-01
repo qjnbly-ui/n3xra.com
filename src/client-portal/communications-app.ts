@@ -16,6 +16,7 @@ interface MessageEvent { channel: string; direction: string; status: string; sms
 interface WorkspaceMetrics { total_subscribers: number; sms_subscribers: number; email_subscribers: number; active_topics: number; consent_events: number; message_events: number; sms_segments_current_month: number; email_deliveries_current_month: number; outbound_mms_current_month: number; }
 interface SignupSource { source_type: string; public_token: string; metadata?: Record<string, unknown> | null; }
 interface TopicMetric { topic_id: string; subscriber_count: number; }
+interface ChannelState { channel: "sms" | "email"; status: string; }
 
 const statusLayer = document.querySelector<HTMLElement>("#communications-status");
 
@@ -116,6 +117,114 @@ function renderJoinTools(workspace: Workspace, number: any, keywords: any[], sou
   });
 }
 
+function setupComposer(
+  session: any,
+  workspace: Workspace,
+  organizationName: string,
+  topics: Topic[],
+  topicMetrics: TopicMetric[],
+  metrics: WorkspaceMetrics,
+  number: any,
+  channelStates: ChannelState[],
+  emailDomain: any,
+  senderRole: string,
+  isPlatformAdmin: boolean,
+): void {
+  setText("#communications-organization-name", organizationName || workspace.sender_name || workspace.program_name);
+  const form = document.querySelector<HTMLFormElement>("#communications-compose-form");
+  const audience = document.querySelector<HTMLSelectElement>("#communications-audience");
+  const subjectField = document.querySelector<HTMLElement>("#communications-subject-field");
+  const subject = document.querySelector<HTMLInputElement>("#communications-subject");
+  const message = document.querySelector<HTMLTextAreaElement>("#communications-message");
+  const status = document.querySelector<HTMLElement>("#communications-send-status");
+  const readiness = document.querySelector<HTMLElement>("#communications-delivery-readiness");
+  const button = document.querySelector<HTMLButtonElement>("#communications-send-button");
+  const channelInputs = [...document.querySelectorAll<HTMLInputElement>('input[name="channel"]')];
+  if (!form || !audience || !subjectField || !subject || !message || !status || !readiness || !button) return;
+
+  const topicCounts = new Map(topicMetrics.map((metric) => [metric.topic_id, Number(metric.subscriber_count || 0)]));
+  audience.innerHTML = `<option value="">All subscribed people (${Number(metrics.total_subscribers || 0)})</option>${topics.map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.name)} (${topicCounts.get(topic.id) || 0})</option>`).join("")}`;
+  const smsState = channelStates.find((channel) => channel.channel === "sms");
+  const emailState = channelStates.find((channel) => channel.channel === "email");
+  const smsReady = smsState?.status === "active" && number?.status === "active" && Boolean(number?.texting_activated_at) && ["approved", "registered"].includes(number?.carrier_registration_status);
+  const emailReady = emailState?.status === "active" && emailDomain?.status === "verified";
+  channelInputs.forEach((input) => {
+    input.disabled = input.value === "sms" ? !smsReady : !emailReady;
+    input.closest("label")?.toggleAttribute("title", input.disabled);
+  });
+  readiness.textContent = smsReady && emailReady ? "Text and email ready" : smsReady ? "Text ready · Email setup pending" : emailReady ? "Email ready · Text setup pending" : "Delivery setup is still pending";
+  readiness.classList.toggle("is-limited", !smsReady || !emailReady);
+
+  if (!isPlatformAdmin && !["account_admin", "editor"].includes(senderRole)) {
+    form.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement | HTMLButtonElement>("input,select,textarea,button").forEach((control) => { control.disabled = true; });
+    status.textContent = "Ask an organization account administrator to give you editor access before sending updates.";
+    return;
+  }
+
+  const updateFormState = (): void => {
+    const selectedChannels = channelInputs.filter((input) => input.checked).map((input) => input.value);
+    const includesEmail = selectedChannels.includes("email");
+    subjectField.hidden = !includesEmail;
+    subject.required = includesEmail;
+    const selectedTopic = audience.selectedOptions[0]?.textContent || "this audience";
+    status.className = "";
+    status.textContent = selectedChannels.length
+      ? `Ready to send by ${selectedChannels.map((channel) => channel === "sms" ? "text" : "email").join(" and ")} to eligible subscribers in ${selectedTopic}.`
+      : "Choose a channel and audience to see who can receive this update.";
+  };
+  channelInputs.forEach((input) => input.addEventListener("change", updateFormState));
+  audience.addEventListener("change", updateFormState);
+  message.addEventListener("input", () => setText("#communications-character-count", String(message.value.length)));
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const channels = channelInputs.filter((input) => input.checked && !input.disabled).map((input) => input.value);
+    if (!channels.length) {
+      status.className = "is-error";
+      status.textContent = "Choose at least one delivery channel that is ready.";
+      return;
+    }
+    if (!form.reportValidity()) return;
+    const confirmed = window.confirm(`Send this update now to every eligible subscriber in ${audience.selectedOptions[0]?.textContent || "the selected audience"}?`);
+    if (!confirmed) return;
+    button.disabled = true;
+    button.textContent = "Sending…";
+    status.className = "";
+    status.textContent = "Preparing the consent-eligible audience and sending your update…";
+    try {
+      const response = await fetch("/api/communications-send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({
+          workspaceId: workspace.id,
+          topicId: audience.value || null,
+          channels,
+          subject: subject.value.trim(),
+          message: message.value.trim(),
+          idempotencyKey: crypto.randomUUID(),
+        }),
+      });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok || !result.ok) throw new Error(result.error || "This update could not be sent.");
+      status.className = result.failedCount ? "is-error" : "is-success";
+      status.textContent = result.failedCount
+        ? `${result.sentCount} deliveries were sent; ${result.failedCount} could not be delivered. Review setup and try those subscribers again later.`
+        : `${result.sentCount} ${result.sentCount === 1 ? "delivery was" : "deliveries were"} sent successfully.`;
+      form.reset();
+      subjectField.hidden = true;
+      setText("#communications-character-count", "0");
+      window.setTimeout(() => window.location.reload(), 1800);
+    } catch (error) {
+      status.className = "is-error";
+      status.textContent = error instanceof Error ? error.message : "This update could not be sent.";
+    } finally {
+      button.disabled = false;
+      button.textContent = "Send update";
+    }
+  });
+  updateFormState();
+}
+
 async function initialize(): Promise<void> {
   document.body.classList.add(isBrandedPortalHostname() ? "communications-tenant-surface" : "communications-n3xra-surface");
   await initializePortalBrandShell();
@@ -138,7 +247,7 @@ async function initialize(): Promise<void> {
 
   const subscriberPage = Math.max(0, Number.parseInt(new URLSearchParams(window.location.search).get("subscriber_page") || "0", 10) || 0);
   const pageSize = 50;
-  const [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult] = await Promise.all([
+  const [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult, organizationResult, channelsResult, emailDomainResult, senderAccessResult, platformAdminResult] = await Promise.all([
     supabase.from("communications_numbers").select("id,phone_e164,status,carrier_registration_status,texting_activated_at").eq("workspace_id", workspace.id).order("created_at", { ascending: true }).limit(1).maybeSingle(),
     supabase.from("communications_topics").select("id,name,description,active").eq("workspace_id", workspace.id).eq("active", true).order("sort_order"),
     supabase.from("communications_topic_metrics").select("topic_id,subscriber_count").eq("workspace_id", workspace.id),
@@ -148,8 +257,13 @@ async function initialize(): Promise<void> {
     supabase.from("communications_message_events").select("channel,direction,status,sms_segment_count,billable_units,body_preview,occurred_at").eq("workspace_id", workspace.id).order("occurred_at", { ascending: false }).limit(20),
     supabase.from("communications_signup_sources").select("source_type,public_token,metadata").eq("workspace_id", workspace.id).eq("status", "active").in("source_type", ["website_embed", "hosted_signup", "qr_campaign"]),
     supabase.from("communications_carrier_onboarding").select("status,review_notes,updated_at").eq("workspace_id", workspace.id).maybeSingle(),
+    supabase.from("organizations").select("name").eq("id", organizationId).maybeSingle(),
+    supabase.from("communications_channels").select("channel,status").eq("workspace_id", workspace.id),
+    supabase.from("communications_sending_domains").select("status").eq("workspace_id", workspace.id).eq("provider", "resend").eq("status", "verified").limit(1).maybeSingle(),
+    supabase.from("organization_product_member_access").select("role,status").eq("organization_id", organizationId).eq("product_key", "communications").eq("user_id", session.user.id).eq("status", "active").maybeSingle(),
+    supabase.rpc("is_platform_admin"),
   ]);
-  for (const result of [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult]) if (result.error) throw result.error;
+  for (const result of [numberResult, topicsResult, topicMetricsResult, keywordsResult, subscribersResult, metricsResult, messagesResult, sourcesResult, onboardingResult, organizationResult, channelsResult, emailDomainResult, senderAccessResult, platformAdminResult]) if (result.error) throw result.error;
 
   const number = numberResult.data;
   const topics = (topicsResult.data || []) as Topic[];
@@ -216,6 +330,19 @@ async function initialize(): Promise<void> {
   renderTopics(topics, (topicMetricsResult.data || []) as TopicMetric[]);
   renderSubscribers(subscribers, topics, choices, Number(metrics.total_subscribers || 0));
   renderActivity(messages);
+  setupComposer(
+    session,
+    workspace,
+    String(organizationResult.data?.name || ""),
+    topics,
+    (topicMetricsResult.data || []) as TopicMetric[],
+    metrics,
+    number,
+    (channelsResult.data || []) as ChannelState[],
+    emailDomainResult.data,
+    String(senderAccessResult.data?.role || ""),
+    platformAdminResult.data === true,
+  );
   document.body.classList.remove("communications-loading");
 
 }

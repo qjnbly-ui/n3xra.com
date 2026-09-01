@@ -13,6 +13,9 @@ body { min-width: 320px; min-height: 100svh; margin: 0; overflow-x: hidden; colo
 .skip-link:focus { transform: translateY(0); }
 .eyebrow { margin: 0; color: #0b667a; font-size: .72rem; font-weight: 800; letter-spacing: .19em; text-transform: uppercase; }
 h1, h2, h3 { font-family: var(--page-display); letter-spacing: -.045em; }
+.communications-product-brand { display: inline-flex; align-items: center; gap: .65rem; }
+.communications-product-brand i { width: 1px; height: 1.45rem; background: currentColor; opacity: .35; }
+.communications-product-brand strong { font-size: .86rem; letter-spacing: .035em; }
 
 .communications-hero { position: relative; overflow: hidden; min-height: 760px; display: grid; align-items: center; color: #fff; background: radial-gradient(620px 520px at 75% 43%,rgba(35,199,244,.2),transparent 67%), radial-gradient(500px 360px at 10% 20%,rgba(45,99,255,.2),transparent 65%), linear-gradient(140deg,#0a3657 0%,#0a2036 52%,#050a12 100%); }
 .communications-hero-inner { position: relative; z-index: 1; display: flex; gap: clamp(3rem,7vw,6.5rem); align-items: center; padding: 9.5rem 0 6rem; }
@@ -53,6 +56,11 @@ h1, h2, h3 { font-family: var(--page-display); letter-spacing: -.045em; }
 .demo-message-meta strong { color: #0b2730; }
 .demo-footer { display: flex; justify-content: space-between; gap: 1rem; padding: 1rem 1.15rem; color: #708083; background: #f3f6f7; font-size: .62rem; }
 .demo-footer strong { color: #14725c; }
+
+@media (max-width: 540px) {
+  .communications-product-brand i,
+  .communications-product-brand strong { display: none; }
+}
 
 .communications-statement { position: relative; overflow: hidden; padding: clamp(4.5rem,9vw,8rem) 0; background: #dff5f7; }
 .statement-flow { position: relative; display: flex; flex-direction: column; align-items: center; text-align: center; }
