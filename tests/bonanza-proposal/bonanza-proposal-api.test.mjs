@@ -13,6 +13,7 @@ test("proposal access codes are normalized before hashing", () => {
 
 test("proposal sections expose only their supported choices", () => {
   assert.deepEqual(_test.SECTION_CHOICES.addon_communications, ["basic", "plus", "later", "question"]);
+  assert.deepEqual(_test.SECTION_CHOICES.presentation_comments, ["comment"]);
   assert.equal(_test.SECTION_CHOICES.included_website.includes("add_now"), false);
 });
 
@@ -22,7 +23,7 @@ test("constant-time comparison rejects a different hash", () => {
   assert.equal(_test.safeEqual("abc", "abcd"), false);
 });
 
-test("approved presentation introduces costs only in the closing service section", async () => {
+test("presentation introduces costs late and provides a shared comment area", async () => {
   const html = await readFile(new URL("../../bonanza/index.html", import.meta.url), "utf8");
   const investmentStart = html.indexOf('id="investment"');
   assert.ok(investmentStart > 0);
@@ -31,5 +32,10 @@ test("approved presentation introduces costs only in the closing service section
   assert.match(html.slice(investmentStart), /Baseline service/);
   assert.match(html.slice(investmentStart), /Month-to-month control/);
   assert.equal(html.includes("response-controls-template"), false);
-  assert.match(html, /proposal-v6\.js/);
+  assert.equal(html.includes("Approved project direction"), false);
+  assert.equal(html.includes("See the first phase"), false);
+  assert.equal(html.includes("View service structure"), false);
+  assert.match(html, /id="participant-name"/);
+  assert.match(html, /id="comment-form"/);
+  assert.match(html, /proposal-v7\.js/);
 });

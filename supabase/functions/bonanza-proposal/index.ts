@@ -18,6 +18,7 @@ const SECTION_CHOICES: Record<string, string[]> = {
   later_grant: ["interested", "later", "question"],
   later_workspace: ["interested", "later", "question"],
   overall: ["comfortable", "discuss"],
+  presentation_comments: ["comment"],
 };
 
 function corsHeaders(request: Request) {
@@ -79,7 +80,7 @@ Deno.serve(async (request) => {
       .eq("slug", PROPOSAL_SLUG)
       .maybeSingle();
     if (proposalError) throw proposalError;
-    if (!proposal || proposal.status !== "open") return json(request, { error: "This planning page is not available." }, 404);
+    if (!proposal || proposal.status !== "open") return json(request, { error: "This presentation is not available." }, 404);
     if (!safeEqual(await codeHash(accessCode), String(proposal.access_code_hash || ""))) {
       return json(request, { error: "That access code is not correct." }, 401);
     }
@@ -95,7 +96,7 @@ Deno.serve(async (request) => {
       }
       if (participantName.length < 2) return json(request, { error: "Enter your name before responding." }, 400);
       if (!SECTION_CHOICES[sectionKey]?.includes(choice)) return json(request, { error: "Choose one of the available responses." }, 400);
-      if (choice === "question" && note.length < 2) return json(request, { error: "Add your question before saving." }, 400);
+      if (["question", "comment"].includes(choice) && note.length < 2) return json(request, { error: "Add your comment before saving." }, 400);
 
       const { error: saveError } = await admin.from("collaborative_proposal_responses").upsert({
         proposal_id: proposal.id,
@@ -122,6 +123,6 @@ Deno.serve(async (request) => {
     });
   } catch (error) {
     console.error("bonanza-proposal", error);
-    return json(request, { error: "The planning page could not be updated. Please try again." }, 500);
+    return json(request, { error: "The presentation could not be updated. Please try again." }, 500);
   }
 });

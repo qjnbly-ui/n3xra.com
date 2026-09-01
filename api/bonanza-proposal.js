@@ -13,6 +13,7 @@ const SECTION_CHOICES = Object.freeze({
   later_grant: ["interested", "later", "question"],
   later_workspace: ["interested", "later", "question"],
   overall: ["comfortable", "discuss"],
+  presentation_comments: ["comment"],
 });
 
 function normalizeCode(value) {
@@ -39,7 +40,7 @@ async function loadProposal(code) {
     `collaborative_proposals?select=id,slug,title,status,access_code_hash&slug=eq.${PROPOSAL_SLUG}&limit=1`,
   );
   const proposal = Array.isArray(rows) ? rows[0] : null;
-  if (!proposal || proposal.status !== "open") throw apiError("This planning page is not available.", 404);
+  if (!proposal || proposal.status !== "open") throw apiError("This presentation is not available.", 404);
   if (!safeEqual(codeHash(code), proposal.access_code_hash)) throw apiError("That access code is not correct.", 401);
   return proposal;
 }
@@ -53,7 +54,7 @@ async function readResponses(proposalId) {
 function sendError(res, error) {
   const status = Number(error?.status || 500);
   res.status(status >= 400 && status < 600 ? status : 500).json({
-    error: status >= 500 ? "The planning page could not be updated. Please try again." : error.message,
+    error: status >= 500 ? "The presentation could not be updated. Please try again." : error.message,
   });
 }
 
@@ -81,7 +82,7 @@ async function handler(req, res) {
     if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(participantId)) throw apiError("Refresh the page and try again.", 400);
     if (participantName.length < 2) throw apiError("Enter your name before responding.", 400);
     if (!SECTION_CHOICES[sectionKey]?.includes(choice)) throw apiError("Choose one of the available responses.", 400);
-    if (choice === "question" && note.length < 2) throw apiError("Add your question before saving.", 400);
+    if (["question", "comment"].includes(choice) && note.length < 2) throw apiError("Add your comment before saving.", 400);
 
     await serviceRequest("collaborative_proposal_responses?on_conflict=proposal_id,participant_id,section_key", {
       method: "POST",

@@ -127,6 +127,25 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .scope-boundary h3 { margin: 0 0 10px; font-family: var(--serif); font-size: clamp(1.7rem, 3vw, 2.4rem); font-weight: 500; line-height: 1.05; }
 .scope-boundary > p:last-child { max-width: 980px; margin: 0; color: #5f5843; }
 
+.comments-section { padding-top: clamp(72px, 9vw, 112px); }
+.comments-layout { display: grid; grid-template-columns: minmax(320px, .72fr) minmax(0, 1.28fr); gap: 20px; align-items: start; }
+.comment-form, .comment-thread { border: 1px solid var(--line); border-radius: 20px; background: #fff; }
+.comment-form { display: grid; gap: 14px; padding: 28px; }
+.comment-form label { font-size: .88rem; }
+.comment-form textarea { width: 100%; padding: 15px; border: 1px solid #b9cac8; border-radius: 12px; background: #fbfcfb; resize: vertical; }
+.comment-form > div { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.comment-form button { border: 0; border-radius: 11px; background: var(--navy); color: #fff; padding: 12px 17px; font-weight: 700; cursor: pointer; }
+.comment-form button:hover { transform: translateY(-1px); background: var(--teal-dark); }
+.comment-form button:disabled { opacity: .6; cursor: wait; }
+.comment-form .form-status { flex: 1; color: var(--teal-dark); }
+.comment-thread { min-height: 180px; padding: 12px; }
+.comment-empty { margin: 0; padding: 40px 24px; color: var(--muted); text-align: center; }
+.comment-list { display: grid; gap: 10px; }
+.comment-card { padding: 20px; border: 1px solid #dce6e5; border-radius: 14px; background: #fbfcfb; }
+.comment-card header { display: flex; justify-content: space-between; gap: 18px; align-items: baseline; }
+.comment-card time { color: var(--muted); font-size: .75rem; }
+.comment-card p { margin: 12px 0 0; color: #405257; white-space: pre-wrap; }
+
 .later-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
 .later-card { background: #fbfaf6; }
 .comparison { margin-top: 20px; border: 1px solid var(--line); border-radius: 16px; background: #fff; }
@@ -188,6 +207,7 @@ footer p { margin: 0; color: #a9c0bf; font-size: .82rem; }
   .launch-investment, .baseline-card, .service-intro { grid-template-columns: 1fr; }
   .baseline-price { padding: 22px 0 0; border-top: 1px solid var(--line); border-left: 0; }
   .addon-grid, .later-grid, .tier-details, .monthly-control > div { grid-template-columns: 1fr; }
+  .comments-layout { grid-template-columns: 1fr; }
   .monthly-control > div p, .monthly-control > div p:first-child, .monthly-control > div p:last-child { padding: 18px 0; border-top: 1px solid rgba(255,255,255,.15); border-left: 0; }
   .monthly-control > div p:first-child { border-top: 0; }
   .person-feedback li { grid-template-columns: 1fr; gap: 5px; }
@@ -204,4 +224,5 @@ footer p { margin: 0; color: #a9c0bf; font-size: .82rem; }
   .choice-button { width: 100%; }
   .notice-strip { justify-content: flex-start; }
   .gate-card { padding: 28px 22px; border-radius: 20px; }
+  .comment-card header { align-items: flex-start; flex-direction: column; gap: 4px; }
 }

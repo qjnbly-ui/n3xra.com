@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow, noarchive">
   <meta name="theme-color" content="#06141c">
-  <title>Town of Bonanza Website Proposal | N3XRA</title>
+  <title>Town of Bonanza Website Presentation | N3XRA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/bonanza/bonanza.css?v=5">
+  <link rel="stylesheet" href="/bonanza/bonanza.css?v=6">
   <script>window.va=window.va||function(){(window.vaq=window.vaq||[]).push(arguments)};</script>
   <script defer src="/_vercel/insights/script.js"></script>
 </head>
@@ -19,9 +19,10 @@
       <img src="/assets/n3xra_logo_transparent_small.png" alt="N3XRA" class="gate-logo">
       <p class="eyebrow">Private project presentation</p>
       <h1>Town of Bonanza</h1>
-      <p>Enter the shared code to view the approved website direction and service structure.</p>
+      <p>Enter the shared code and your name to view the website presentation and service structure.</p>
       <form id="access-form" class="gate-form">
         <label>Shared access code<input id="access-code" type="password" autocomplete="current-password" required></label>
+        <label>Your name<input id="participant-name" autocomplete="name" maxlength="80" required></label>
         <button type="submit">View the presentation</button>
         <p class="form-status" id="access-status" role="status"></p>
       </form>
@@ -31,16 +32,15 @@
   <div id="proposal-app" hidden>
     <header class="topbar">
       <a class="brand" href="https://n3xra.com" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
-      <div class="viewer"><span>Town of Bonanza website project</span><button type="button" id="lock-page">Lock page</button></div>
+      <div class="viewer"><span>Viewing as <strong id="viewer-name"></strong></span><button type="button" id="change-viewer">Change</button></div>
     </header>
 
     <main>
       <section class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Approved project direction</p>
+          <p class="eyebrow">Town website presentation</p>
           <h1>A municipal website designed to grow with <em>Bonanza.</em></h1>
           <p class="hero-intro">The first phase creates a custom public website and one familiar place for Town staff to manage information, services, requests, and future systems.</p>
-          <div class="hero-actions"><a href="#included" class="primary-link">See the first phase</a><a href="#investment" class="text-link">View service structure</a></div>
         </div>
         <aside class="project-card" aria-label="Project foundation">
           <p class="eyebrow">The foundation</p>
@@ -133,11 +133,26 @@
           <aside class="scope-boundary"><p class="eyebrow">Clear starting scope</p><h3>This is the beginning of a longer municipal system.</h3><p>The initial build and selected monthly services cover the items described here. Larger systems, major integrations, extensive data migration, higher usage, or grant requirements that are not yet known may require additional services. N3XRA will explain and review any added scope with the Town before work or charges begin.</p></aside>
         </div>
       </section>
+
+      <section class="section comments-section" id="comments">
+        <div class="section-heading"><div><p class="eyebrow">Shared discussion</p><h2>Comments and questions</h2></div><p>Leave a thought or question for Quentin and the Town. Everyone viewing this presentation can see the same conversation.</p></div>
+        <div class="comments-layout">
+          <form class="comment-form" id="comment-form">
+            <label for="comment-text">Commenting as <strong id="commenter-name"></strong></label>
+            <textarea id="comment-text" maxlength="1200" rows="6" placeholder="Add a comment or question…" required></textarea>
+            <div><button type="submit">Save comment</button><p class="form-status" id="comment-status" role="status"></p></div>
+          </form>
+          <div class="comment-thread" aria-live="polite">
+            <p class="comment-empty" id="comment-empty">No comments yet.</p>
+            <div class="comment-list" id="comment-list"></div>
+          </div>
+        </div>
+      </section>
     </main>
 
-    <footer><div class="brand"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></div><p>Prepared for the Town of Bonanza · Approved project direction</p></footer>
+    <footer><div class="brand"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></div><p>Prepared for the Town of Bonanza · Website presentation</p></footer>
   </div>
 
-  <script type="module" src="/bonanza/proposal-v6.js"></script>
+  <script type="module" src="/bonanza/proposal-v7.js"></script>
 </body>
 </html>
