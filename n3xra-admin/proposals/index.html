@@ -50,7 +50,20 @@
         </div>
 
         <div class="portal-empty" id="proposal-empty">
-          <p>Choose a website request to begin.</p>
+          <div id="proposal-empty-message">
+            <h3>No proposal selected</h3>
+            <p>Choose a website request to begin.</p>
+          </div>
+          <div id="proposal-direct-project-actions" hidden>
+            <h3 id="proposal-direct-project-name">Current website project</h3>
+            <p>Create the agreement now, or send the client an optional project-details form already connected to this website and project.</p>
+            <div class="portal-form-actions">
+              <button class="portal-button" id="create-direct-project-proposal" type="button">Create proposal</button>
+              <button class="portal-button portal-button-secondary" id="send-project-details-form" type="button">Send details form</button>
+              <a class="portal-button portal-button-secondary" id="open-project-details-form" href="/n3xra-admin/onboarding/" hidden>Review submitted details</a>
+            </div>
+            <p class="portal-inline-status" id="proposal-direct-project-status" role="status"></p>
+          </div>
         </div>
 
         <form class="portal-form portal-proposal-form" id="proposal-form" hidden>
@@ -235,6 +248,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying proposal access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=25"></script>
+  <script type="module" src="/n3xra-admin/proposals/proposals-admin.js?v=26"></script>
 </body>
 </html>

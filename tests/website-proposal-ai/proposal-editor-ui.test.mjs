@@ -8,6 +8,7 @@ const script = await readFile(new URL("n3xra-admin/proposals/proposals-admin.js"
 const api = await readFile(new URL("api/website-proposal-ai.js", root), "utf8");
 const clientHtml = await readFile(new URL("proposals/index.html", root), "utf8");
 const clientScript = await readFile(new URL("proposals/proposals.js", root), "utf8");
+const onboardingEmail = await readFile(new URL("api/send-website-onboarding.js", root), "utf8");
 
 test("Proposal AI opens before the editor sections and exposes one action per section", () => {
   assert.ok(html.indexOf('id="proposal-copilot"') < html.indexOf('data-proposal-section="overview"'));
@@ -82,6 +83,19 @@ test("the editor is a professional Proposal & Agreement workspace, not a step wi
   assert.match(html, /Billing arrangement/);
   assert.match(script, /Unit price \(\$\)/);
   assert.doesNotMatch(html, /Annual renewal total/);
+});
+
+test("direct website projects can start an agreement or request connected details", () => {
+  assert.match(html, /id="create-direct-project-proposal"/);
+  assert.match(html, /id="send-project-details-form"/);
+  assert.match(script, /action: "create-existing-website-proposal"/);
+  assert.match(script, /action: "open-existing-website-onboarding"/);
+  assert.match(onboardingEmail, /website-onboarding\/\?onboarding=/);
+  assert.match(onboardingEmail, /platform_admins/);
+  assert.match(onboardingEmail, /status=eq.active/);
+  assert.match(onboardingEmail, /auth\/v1\/admin\/users/);
+  assert.match(onboardingEmail, /portal.n3xra.com\/website-onboarding/);
+  assert.match(onboardingEmail, /RESEND_API_KEY/);
 });
 
 test("the client accepts the same agreement version used for billing", () => {

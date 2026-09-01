@@ -36,6 +36,13 @@ const copilotReview = document.getElementById("proposal-ai-review");
 const copilotHistory = document.getElementById("proposal-ai-history");
 const copilotStatus = document.getElementById("proposal-ai-status");
 const copilotGlobalResult = document.getElementById("proposal-ai-global-result");
+const emptyMessage = document.getElementById("proposal-empty-message");
+const directProjectActions = document.getElementById("proposal-direct-project-actions");
+const directProjectName = document.getElementById("proposal-direct-project-name");
+const directProjectStatus = document.getElementById("proposal-direct-project-status");
+const createDirectProposalButton = document.getElementById("create-direct-project-proposal");
+const sendProjectDetailsButton = document.getElementById("send-project-details-form");
+const openProjectDetailsLink = document.getElementById("open-project-details-form");
 
 let supabase;
 let currentUser;
@@ -46,6 +53,8 @@ let lineItems = [];
 let billingSnapshots = [];
 let projects = [];
 let selectedRequest;
+let selectedProject;
+let selectedOnboarding;
 let selectedProposal;
 let editingVersion;
 let copilotLoadSequence = 0;
@@ -443,6 +452,83 @@ function renderRequestOptions() {
     : '<option value="">No website requests</option>';
 }
 
+function projectWebsite(project = selectedProject) {
+  return Array.isArray(project?.client_websites) ? project.client_websites[0] : project?.client_websites;
+}
+
+function setDirectProjectStatus(message = "", error = false) {
+  directProjectStatus.textContent = message;
+  directProjectStatus.classList.toggle("is-error", error);
+}
+
+function renderDirectProjectActions() {
+  const available = !selectedRequest && selectedProject?.source === "existing_website";
+  directProjectActions.hidden = !available;
+  emptyMessage.hidden = available;
+  if (!available) return;
+  directProjectName.textContent = selectedProject.name || "Current website project";
+  sendProjectDetailsButton.textContent = selectedOnboarding ? "Resend details form" : "Send details form";
+  openProjectDetailsLink.hidden = !selectedOnboarding;
+  if (selectedOnboarding) {
+    openProjectDetailsLink.href = `/n3xra-admin/onboarding/?onboarding=${encodeURIComponent(selectedOnboarding.id)}`;
+  }
+}
+
+async function invokeProjectAdmin(body) {
+  const { data, error } = await supabase.functions.invoke("website-project-admin", { body });
+  if (error || data?.error) throw new Error(data?.error || error?.message || "Website project request failed.");
+  return data;
+}
+
+async function createDirectProjectProposal() {
+  if (!selectedProject) return;
+  createDirectProposalButton.disabled = true;
+  setDirectProjectStatus("Creating the connected proposal draft…");
+  try {
+    const data = await invokeProjectAdmin({
+      action: "create-existing-website-proposal",
+      projectId: selectedProject.id,
+      proposalTitle: `${selectedProject.name} Proposal & Agreement`,
+    });
+    await loadData(data.proposal?.request_id);
+    setStatus("Proposal draft created and connected to this project.");
+  } catch (error) {
+    setDirectProjectStatus(error?.message || "Unable to create the proposal.", true);
+    createDirectProposalButton.disabled = false;
+  }
+}
+
+async function sendOnboardingEmail(onboardingId) {
+  const { data } = await supabase.auth.getSession();
+  const token = data?.session?.access_token;
+  if (!token) throw new Error("Your session expired. Sign in again before sending.");
+  const response = await fetch("/api/send-website-onboarding", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ onboardingId }),
+  });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || "The details form was opened, but its email could not be sent.");
+  return result;
+}
+
+async function sendProjectDetailsForm() {
+  if (!selectedProject) return;
+  sendProjectDetailsButton.disabled = true;
+  setDirectProjectStatus(selectedOnboarding ? "Resending the connected details form…" : "Opening and sending the connected details form…");
+  try {
+    const data = await invokeProjectAdmin({ action: "open-existing-website-onboarding", projectId: selectedProject.id });
+    selectedOnboarding = data.onboarding;
+    const email = await sendOnboardingEmail(selectedOnboarding.id);
+    renderDirectProjectActions();
+    setDirectProjectStatus(`Details form sent to ${email.recipient}.`);
+  } catch (error) {
+    setDirectProjectStatus(error?.message || "Unable to send the details form.", true);
+  } finally {
+    sendProjectDetailsButton.disabled = false;
+  }
+}
+
 function renderRequestSummary() {
   if (!selectedRequest) {
     requestSummary.hidden = true;
@@ -517,6 +603,7 @@ function renderEditor() {
   clearProposalAiInlineReview();
   renderRequestSummary();
   emptyState.hidden = Boolean(selectedRequest);
+  renderDirectProjectActions();
   form.hidden = !selectedRequest;
   if (!selectedRequest) return;
 
@@ -631,14 +718,15 @@ function collectVersion() {
 }
 
 async function loadData(preferredRequestId) {
-  const [requestResult, proposalResult, versionResult, lineItemResult, billingResult, projectResult, memberResult] = await Promise.all([
+  const [requestResult, proposalResult, versionResult, lineItemResult, billingResult, projectResult, memberResult, onboardingResult] = await Promise.all([
     supabase.from("website_service_requests").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposals").select("*").order("created_at", { ascending: false }),
     supabase.from("website_proposal_versions").select("*").order("version_number", { ascending: false }),
     supabase.from("website_proposal_line_items").select("*").order("sort_order"),
     supabase.from("website_billing_snapshots").select("id,proposal_id,project_id,status"),
-    supabase.from("website_projects").select("id,request_id,proposal_id,managed_website_id,client_user_id"),
+    supabase.from("website_projects").select("id,request_id,proposal_id,managed_website_id,client_user_id,name,source,client_websites(name,portal_slug,slug)"),
     supabase.from("website_members").select("website_id,user_id,status"),
+    supabase.from("website_onboardings").select("id,project_id,status"),
   ]);
   if (requestResult.error) throw requestResult.error;
   if (proposalResult.error) throw proposalResult.error;
@@ -647,11 +735,15 @@ async function loadData(preferredRequestId) {
   if (billingResult.error) throw billingResult.error;
   if (projectResult.error) throw projectResult.error;
   if (memberResult.error) throw memberResult.error;
+  if (onboardingResult.error) throw onboardingResult.error;
   projects = projectResult.data || [];
   const context = readWorkspaceContext("admin", currentUser.id);
   const organizationProjects = context.websiteId
     ? projects.filter((project) => project.managed_website_id === context.websiteId)
     : projects;
+  selectedProject = projects.find((project) => project.id === context.projectId)
+    || (organizationProjects.length === 1 ? organizationProjects[0] : undefined);
+  selectedOnboarding = (onboardingResult.data || []).find((onboarding) => onboarding.project_id === selectedProject?.id);
   const organizationProjectIds = new Set(organizationProjects.map((project) => project.id));
   const organizationRequestIds = new Set(organizationProjects.map((project) => project.request_id).filter(Boolean));
   const organizationClientIds = new Set([
@@ -678,7 +770,7 @@ async function loadData(preferredRequestId) {
     || contextualProposal?.request_id;
   selectedRequest = requests.find((request) => request.id === requested)
     || requests.find((request) => request.id === contextualProposal?.request_id)
-    || (requests.length === 1 ? requests[0] : undefined)
+    || (!context.projectId && requests.length === 1 ? requests[0] : undefined)
     || (!context.websiteId && !context.projectId ? requests[0] : undefined);
   if (selectedRequest) requestSelect.value = selectedRequest.id;
   else requestSelect.selectedIndex = -1;
@@ -1312,6 +1404,8 @@ async function init() {
     });
     renderEditor();
   });
+  createDirectProposalButton.addEventListener("click", createDirectProjectProposal);
+  sendProjectDetailsButton.addEventListener("click", sendProjectDetailsForm);
   refreshButton.addEventListener("click", () => loadData(selectedRequest?.id).catch((error) => setStatus(error.message, true)));
   copilotPanel.addEventListener("toggle", () => {
     syncCopilotOpenState();
