@@ -45,10 +45,11 @@ test("manual website creation supplies tenant identity and opens one flexible bu
 });
 
 test("direct builds remain attachable to later client work without bypassing trusted provisioning", async () => {
-  const [migration, edgeFunction, projectController] = await Promise.all([
+  const [migration, edgeFunction, projectController, ownerClaimMigration] = await Promise.all([
     read("supabase/migrations/20260826011524_direct_website_build_provisioning.sql"),
     read("supabase/functions/website-project-admin/index.ts"),
     read("n3xra-admin/projects/projects-admin.js"),
+    read("supabase/migrations/20260901165615_allow_direct_website_project_owner_claim.sql"),
   ]);
 
   assert.match(migration, /alter column client_user_id drop not null/);
