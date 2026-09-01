@@ -48,9 +48,17 @@ test("the browser sends only a signed-in request while providers and consent che
   assert.match(page, /communications-compose-form/);
   assert.match(page, /communications-preview-dialog/);
   assert.match(page, /communications-test-email/);
+  assert.match(page, /communications-preview-send/);
+  assert.match(page, /Send a test only/);
+  assert.match(page, /Subscribers are not contacted/);
+  assert.match(page, /Send the live update/);
+  assert.doesNotMatch(page, /communications-preview-button/);
   assert.match(browser, /operation: "preview"/);
   assert.match(browser, /operation: "test"/);
   assert.match(browser, /previewFrame\.srcdoc = result\.html/);
+  assert.match(browser, /if \(channels\.includes\("email"\) && !liveSendApproved\)[\s\S]*await openEmailPreview\(\)/);
+  assert.match(browser, /previewSend\.addEventListener\("click"[\s\S]*liveSendApproved = true;[\s\S]*form\.requestSubmit\(\)/);
+  assert.match(browser, /Test sent only to[\s\S]*No subscribers were contacted/);
   assert.match(browser, /Authorization: `Bearer \$\{session\.access_token\}`/);
   assert.match(browser, /crypto\.randomUUID\(\)/);
   assert.doesNotMatch(browser, /TWILIO_AUTH_TOKEN|COMMUNICATIONS_RESEND_API_KEY|SUPABASE_SERVICE_ROLE_KEY/);

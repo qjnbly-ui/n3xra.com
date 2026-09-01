@@ -41,6 +41,7 @@ body.communications-loading.client-portal-shell main { visibility: visible; }
 .communications-compose-options legend, .communications-compose-options > label > span, .communications-message-field > span { color: var(--communications-muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .communications-compose-options fieldset label { display: flex; align-items: center; gap: .4rem; font-size: .86rem; font-weight: 700; }
 .communications-compose-options > label, .communications-message-field { display: grid; gap: .45rem; }
+.communications-compose-options > label[hidden] { display: none; }
 .communications-compose-options select, .communications-compose-options input, .communications-message-field textarea { width: 100%; box-sizing: border-box; padding: .75rem .8rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--communications-line); border-radius: 8px; font: inherit; }
 .communications-message-field textarea { resize: vertical; line-height: 1.55; }
 .communications-message-field small { justify-self: end; color: var(--communications-muted); }
@@ -49,7 +50,6 @@ body.communications-loading.client-portal-shell main { visibility: visible; }
 .communications-compose-footer p.is-error { color: #9a352c; }
 .communications-compose-footer p.is-success { color: var(--communications-green); font-weight: 800; }
 .communications-compose-actions { display: flex; flex: 0 0 auto; gap: .65rem; }
-.communications-preview-button { color: var(--portal-deep); background: #fff; border: 1px solid var(--communications-line); }
 .communications-preview-dialog { width: min(920px, calc(100% - 2rem)); max-height: calc(100vh - 2rem); padding: 0; border: 0; color: var(--portal-ink); background: #eef2f0; box-shadow: 0 28px 90px rgba(10,28,24,.3); }
 .communications-preview-dialog::backdrop { background: rgba(9,24,20,.68); backdrop-filter: blur(5px); }
 .communications-preview-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 1.15rem 1.35rem; background: #fff; border-bottom: 1px solid var(--communications-line); }
@@ -61,13 +61,22 @@ body.communications-loading.client-portal-shell main { visibility: visible; }
 .communications-preview-browser > div span { width: 8px; height: 8px; background: #c8d0cc; border-radius: 50%; }
 .communications-preview-browser > div strong { overflow: hidden; margin-left: .4rem; text-overflow: ellipsis; white-space: nowrap; }
 .communications-preview-browser iframe { display: block; width: 100%; height: min(680px, calc(100vh - 190px)); background: #f2f4f3; border: 0; }
-.communications-test-email { display: grid; grid-template-columns: minmax(220px,1fr) auto; align-items: end; gap: .7rem 1rem; padding: 0 1.2rem 1.2rem; }
-.communications-test-email > div { display: grid; gap: .4rem; }
+.communications-review-actions { display: grid; grid-template-columns: minmax(0,1.35fr) minmax(240px,.65fr); gap: 1rem; padding: 0 1.2rem 1.2rem; }
+.communications-test-email, .communications-live-send { display: grid; gap: .8rem; padding: 1rem; background: #fff; border: 1px solid var(--communications-line); }
+.communications-test-email { grid-template-columns: minmax(220px,1fr) auto; align-items: end; }
+.communications-test-email > div, .communications-live-send > div { display: grid; gap: .4rem; }
+.communications-test-email h3, .communications-live-send h3 { margin: 0; font-family: var(--portal-heading-font),Georgia,serif; font-size: 1.25rem; }
+.communications-test-email > div > p, .communications-live-send p { margin: 0 0 .3rem; color: var(--communications-muted); font-size: .78rem; line-height: 1.45; }
 .communications-test-email label { color: var(--communications-muted); font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
 .communications-test-email input { width: 100%; box-sizing: border-box; padding: .75rem .8rem; color: var(--portal-ink); background: #fff; border: 1px solid var(--communications-line); border-radius: 8px; font: inherit; }
 .communications-test-email p { grid-column: 1 / -1; margin: 0; color: var(--communications-muted); font-size: .78rem; }
 .communications-test-email p.is-error { color: #9a352c; }
 .communications-test-email p.is-success { color: var(--communications-green); font-weight: 800; }
+.communications-test-button { color: var(--portal-deep); background: #fff; border: 1px solid var(--communications-line); white-space: nowrap; }
+.communications-live-send { align-content: space-between; color: #fff; background: var(--portal-deep); }
+.communications-live-send h3 { color: #fff; }
+.communications-live-send p { color: rgba(255,255,255,.72); }
+.communications-live-send .portal-button { color: var(--portal-deep); background: #fff; }
 .communications-join-tools { display: grid; grid-template-columns: 1.3fr .7fr 1fr; gap: .8rem; }
 .communications-join-tools > div { min-width: 0; padding: 1rem; background: #f6f8f7; border-radius: 10px; }
 .communications-join-tools span, .communications-join-tools small { display: block; color: var(--communications-muted); font-size: .72rem; }
@@ -228,4 +237,5 @@ body.communications-tenant-surface {
 .client-portal-shell .communications-message-field textarea { border-color: var(--client-workspace-border); }
 
 @media (max-width: 850px) { .communications-metrics { grid-template-columns: repeat(2, 1fr); } .communications-grid, .communications-head, .communications-compose-options { grid-template-columns: 1fr; } .communications-number { min-width: 0; } .communications-join-tools { grid-template-columns: 1fr; } }
-@media (max-width: 540px) { .communications-app-brand strong, .communications-app-brand i, .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-onboarding-card, .communications-compose-footer { align-items: stretch; flex-direction: column; } .communications-compose-actions { display: grid; grid-template-columns: 1fr 1fr; } .communications-panel-head { align-items: start; flex-direction: column; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } .communications-preview-dialog { width: calc(100% - 1rem); max-height: calc(100vh - 1rem); } .communications-preview-browser { margin: .5rem; } .communications-test-email { grid-template-columns: 1fr; padding: .5rem; } .communications-test-email p { grid-column: 1; } }
+@media (max-width: 700px) { .communications-review-actions { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .communications-app-brand strong, .communications-app-brand i, .communications-dashboard-link { display: none; } .communications-metrics { grid-template-columns: 1fr; } .communications-onboarding-card, .communications-compose-footer { align-items: stretch; flex-direction: column; } .communications-compose-actions { display: grid; grid-template-columns: 1fr; } .communications-panel-head { align-items: start; flex-direction: column; } .communications-activity-row { grid-template-columns: 80px minmax(0, 1fr); } .communications-activity-row > :last-child { grid-column: 2; } .communications-preview-dialog { width: calc(100% - 1rem); max-height: calc(100vh - 1rem); } .communications-preview-browser { margin: .5rem; } .communications-review-actions { padding: .5rem; } .communications-test-email { grid-template-columns: 1fr; } .communications-test-email p { grid-column: 1; } }
