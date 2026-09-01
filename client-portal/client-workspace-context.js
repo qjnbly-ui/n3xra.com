@@ -24,7 +24,7 @@ const APP_ROUTES = [
 ];
 const WEBSITE_ROUTES = [
   { keys: ["proposals", "progress", "onboarding"], label: "Progress", href: "/project-workspace/", feature: "progress", projectProgress: true },
-  { keys: ["assets"], label: "Files & Assets", href: "/client-portal/#files-assets", feature: "files_assets" },
+  { keys: ["assets"], label: "Files & Assets", href: "/client-portal/files/", feature: "files_assets" },
   { keys: ["publishing"], label: "Website Publishing", href: "/client-portal/publishing/", feature: "publishing" },
   { keys: ["services"], label: "Services & Ownership", href: "/client-portal/services/", feature: "services" },
   { keys: ["analytics"], label: "Analytics", href: "/client-portal/analytics/", feature: "analytics" },
@@ -55,7 +55,7 @@ function featureMap(rows, websiteId) {
 function defaultWebsiteRoute(features = {}) {
   const routes = [
     ["progress", "/project-workspace/", features.progress !== false],
-    ["files_assets", "/client-portal/#files-assets", features.files_assets !== false],
+    ["files_assets", "/client-portal/files/", features.files_assets !== false],
     ["publishing", "/client-portal/publishing/", features.publishing === true],
     ["services", "/client-portal/services/", features.services !== false],
     ["analytics", "/client-portal/analytics/", features.analytics === true],

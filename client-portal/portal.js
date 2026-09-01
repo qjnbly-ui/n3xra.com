@@ -11,6 +11,13 @@ import {
   scopeWebsitesToPortalTenant,
 } from "/client-portal/tenant-context.js";
 
+if (window.location.hash === "#files-assets") {
+  const websiteId = new URLSearchParams(window.location.search).get("website") || "";
+  const destination = new URL("/client-portal/files/", window.location.origin);
+  if (websiteId) destination.searchParams.set("website", websiteId);
+  window.location.replace(`${destination.pathname}${destination.search}`);
+}
+
 const PRIVATE_BUCKET = "website-assets-private";
 const statusScreen = document.getElementById("portal-status");
 const websiteSelect = document.getElementById("website-select");

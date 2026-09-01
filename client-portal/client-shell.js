@@ -25,7 +25,7 @@ const appSections = [
 ];
 const websiteSections = [
   { key: "project", label: "Progress", href: "/project-workspace/", path: "/project-workspace/", feature: "progress" },
-  { key: "assets", label: "Files & Assets", href: "/client-portal/#files-assets", path: "/client-portal/", hash: "#files-assets", view: "files", feature: "files_assets" },
+  { key: "assets", label: "Files & Assets", href: "/client-portal/files/", path: "/client-portal/files/", view: "files", feature: "files_assets" },
   { key: "publishing", label: "Website Publishing", href: "/client-portal/publishing/", path: "/client-portal/publishing/", feature: "publishing" },
   { key: "services", label: "Services & Ownership", href: "/client-portal/services/", path: "/client-portal/services/", feature: "services" },
   { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
@@ -45,10 +45,11 @@ const routeDetails = {
   "/client-portal/analytics/": { key: "analytics", kicker: "Website performance", title: "Analytics", description: "A clear view of traffic, popular content, referrals, audience, and devices." },
   "/client-portal/publishing/": { key: "publishing", kicker: "Website publishing", title: "From the Greenhouse", description: "Create and publish new pieces, farm stories, updates, and customer moments." },
   "/client-portal/team/": { key: "team", kicker: "Owner controls", title: "Organization Admin", description: "Invite people, assign organization roles, and manage access from one shared control center." },
-  "/client-portal/communications/": { key: "communications", kicker: "Organization workspace", title: "N3XRA Communications", description: "Send permission-based text and email updates, manage subscribers, and review delivery activity." },
+  "/client-portal/communications/": { key: "communications", kicker: "Business portal", title: "Communications", description: "Manage subscriber preferences, consent history, signup tools, and messaging readiness." },
   "/client-portal/project-cards/": { key: "project-cards", kicker: "Your workspace", title: "Project Cards", description: "Build reusable resource hubs and control where every physical NFC card opens." },
   "/client-portal/project-cards/editor/": { key: "project-cards-editor", kicker: "Project cards", title: "Project Editor", description: "Arrange the resources people see when they scan a card assigned to this project." },
   "/client-portal/project-cards/activate/": { key: "project-cards-activate", kicker: "Project cards", title: "Activate a Card", description: "Create a permanent card identity and prepare a physical NFC card for use." },
+  "/client-portal/files/": { key: "assets", kicker: "Organization workspace", title: "Files & Assets", description: "One secure file library shared across your N3XRA products." },
   "/project-workspace/": { key: "progress", kicker: "Website workspace", title: "Progress", description: "Current stage, milestones, timing, and the next step for this website." },
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
   "/website-onboarding/": { key: "onboarding", kicker: "Website workspace", title: "Onboarding", description: "Provide the information and files needed to move this website forward." },

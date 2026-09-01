@@ -9,6 +9,7 @@ let memberships = [];
 let entitlements = [];
 let projects = [];
 let cards = [];
+let fileUsage = [];
 let selectedAccountId = "";
 async function invoke(action, details = {}) {
     const { data, error } = await supabase.functions.invoke("platform-admin", { body: { action, ...details } });
@@ -18,6 +19,10 @@ async function invoke(action, details = {}) {
 }
 function entitlementFor(organizationId) { return entitlements.find((row) => row.organization_id === organizationId); }
 function activeEntitlement(organizationId) { const entitlement = entitlementFor(organizationId); return Boolean(entitlement?.portal_enabled && ["active", "trialing", "past_due"].includes(entitlement.status)); }
+function formatBytes(value) { const bytes = Number(value || 0); if (bytes < 1024)
+    return `${bytes} B`; if (bytes < 1024 ** 2)
+    return `${(bytes / 1024).toFixed(1)} KB`; if (bytes < 1024 ** 3)
+    return `${(bytes / 1024 ** 2).toFixed(1)} MB`; return `${(bytes / 1024 ** 3).toFixed(1)} GB`; }
 function assignmentsFor(accountId) {
     const result = new Map();
     organizations.filter((organization) => organization.owner_user_id === accountId).forEach((organization) => result.set(organization.id, { organization, role: "account_admin" }));
@@ -48,11 +53,12 @@ function assignmentRow(account, assignment) {
     const active = activeEntitlement(organization.id);
     const projectCount = projects.filter((project) => project.organization_id === organization.id).length;
     const cardCount = cards.filter((card) => card.organization_id === organization.id).length;
+    const usage = fileUsage.find((row) => row.organization_id === organization.id);
     const accountQuery = new URLSearchParams({ user: account.id, email: account.email }).toString();
     const action = active
         ? `<a class="portal-button portal-button-secondary" href="/client-portal/project-cards/?organization=${encodeURIComponent(organization.id)}">Open workspace</a>`
         : `<button class="portal-button" type="button" data-activate-organization="${escape(organization.id)}">Assign Project Cards</button>`;
-    return `<article class="pca-assignment"><div><span class="pca-state${active ? " is-active" : ""}">${active ? "Project Cards active" : "Available to assign"}</span><h4>${escape(organization.name)}</h4><p>${escape(label(assignment.role))} · ${escape(label(organization.account_status))}</p></div><dl><div><dt>Projects</dt><dd>${projectCount}</dd></div><div><dt>Cards</dt><dd>${cardCount}</dd></div></dl><div class="pca-assignment-actions">${action}<a href="/account/admin/accounts/?${escape(accountQuery)}">Account details</a></div></article>`;
+    return `<article class="pca-assignment"><div><span class="pca-state${active ? " is-active" : ""}">${active ? "Project Cards active" : "Available to assign"}</span><h4>${escape(organization.name)}</h4><p>${escape(label(assignment.role))} · ${escape(label(organization.account_status))}</p><p>Private library: ${escape(String(usage?.private_file_count || 0))} files · ${escape(formatBytes(usage?.private_storage_bytes || 0))}. Contents hidden from N3XRA; ${escape(String(usage?.shared_with_n3xra_count || 0))} explicitly shared.</p></div><dl><div><dt>Projects</dt><dd>${projectCount}</dd></div><div><dt>Cards</dt><dd>${cardCount}</dd></div></dl><div class="pca-assignment-actions">${action}<a href="/account/admin/accounts/?${escape(accountQuery)}">Account details</a></div></article>`;
 }
 function renderDetail() {
     const account = accounts.find((row) => row.id === selectedAccountId);
@@ -90,15 +96,16 @@ function renderDetail() {
     renderAccountList();
 }
 async function loadData() {
-    const [accountResponse, organizationResult, membershipResult, entitlementResult, projectResult, cardResult] = await Promise.all([
+    const [accountResponse, organizationResult, membershipResult, entitlementResult, projectResult, cardResult, fileUsageResult] = await Promise.all([
         invoke("list-platform-accounts"),
         supabase.from("organizations").select("id,name,account_status,owner_user_id").order("name"),
         supabase.from("organization_memberships").select("organization_id,user_id,role"),
         supabase.from("organization_product_entitlements").select("organization_id,status,portal_enabled").eq("product_key", "project_cards"),
         supabase.from("project_card_projects").select("id,organization_id"),
         supabase.from("project_card_devices").select("id,organization_id,project_id").neq("status", "retired"),
+        supabase.rpc("admin_organization_file_usage"),
     ]);
-    const error = organizationResult.error || membershipResult.error || entitlementResult.error || projectResult.error || cardResult.error;
+    const error = organizationResult.error || membershipResult.error || entitlementResult.error || projectResult.error || cardResult.error || fileUsageResult.error;
     if (error)
         throw error;
     accounts = Array.isArray(accountResponse.accounts) ? accountResponse.accounts : [];
@@ -107,6 +114,7 @@ async function loadData() {
     entitlements = (entitlementResult.data || []);
     projects = (projectResult.data || []);
     cards = (cardResult.data || []);
+    fileUsage = (fileUsageResult.data || []);
 }
 async function start() {
     if (!hasConfig())

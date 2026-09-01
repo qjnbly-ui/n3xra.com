@@ -1,5 +1,4 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
-const STORAGE_BUCKET = "project-card-resources";
 const icons = { pdf: "PDF", image: "IMG", file: "DOC", link: "↗", text: "TXT" };
 const labels = { pdf: "PDF OR BRIEFING", image: "IMAGE", file: "DOCUMENT OR FILE", link: "WEB LINK", text: "TEXT" };
 const supabase = hasConfig() ? createBrowserSupabase() : null;
@@ -12,8 +11,7 @@ const toast = document.querySelector("#ph-toast");
 let page = null;
 const escape = (value) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 function slugFromLocation() { return new URLSearchParams(location.search).get("slug") || location.pathname.split("/").filter(Boolean).at(-1) || ""; }
-function publicFileUrl(path) { return path && supabase ? supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl : ""; }
-function resourceUrl(resource) { return resource.external_url || publicFileUrl(resource.storage_path); }
+function resourceUrl(resource) { return resource.external_url || resource.preview_url || (resource.has_file || resource.organization_file_id || resource.storage_path ? `/api/project-card-file?slug=${encodeURIComponent(page?.slug || slugFromLocation())}&resource=${encodeURIComponent(resource.id)}` : ""); }
 async function loadPreview(slug) {
     if (!supabase || new URLSearchParams(location.search).get("preview") !== "1")
         return null;
@@ -23,19 +21,37 @@ async function loadPreview(slug) {
     const { data: project, error } = await supabase.from("project_card_projects").select("id,slug,name,description,location_text,updated_at").eq("slug", slug).maybeSingle();
     if (error || !project)
         return null;
-    const { data: resources, error: resourceError } = await supabase.from("project_card_resources").select("id,resource_type,title,detail,content,external_url,storage_path,sort_order").eq("project_id", project.id).eq("is_visible", true).order("sort_order");
+    const { data: resources, error: resourceError } = await supabase.from("project_card_resources").select("id,resource_type,title,detail,content,external_url,storage_path,organization_file_id,sort_order").eq("project_id", project.id).eq("is_visible", true).order("sort_order");
     if (resourceError)
         return null;
-    return { ...project, resources: resources || [] };
+    const rows = (resources || []);
+    const fileIds = rows.map((resource) => resource.organization_file_id).filter((id) => Boolean(id));
+    const { data: files } = fileIds.length ? await supabase.from("organization_files").select("id,storage_bucket,storage_path").in("id", fileIds) : { data: [] };
+    const fileById = new Map((files || []).map((file) => [file.id, file]));
+    await Promise.all(rows.map(async (resource) => {
+        const stored = resource.organization_file_id ? fileById.get(resource.organization_file_id) : null;
+        const bucket = stored?.storage_bucket || (resource.storage_path ? "project-card-resources" : "");
+        const path = stored?.storage_path || resource.storage_path;
+        if (!bucket || !path)
+            return;
+        const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 600);
+        resource.preview_url = data?.signedUrl || "";
+    }));
+    return { ...project, resources: rows };
 }
 async function loadPage() {
     if (!supabase)
         throw new Error("This Project Card is not configured.");
     const slug = slugFromLocation();
+    if (new URLSearchParams(location.search).get("preview") === "1") {
+        const preview = await loadPreview(slug);
+        if (preview)
+            return preview;
+    }
     const { data, error } = await supabase.rpc("get_project_card_page", { input_slug: slug });
     if (error)
         throw error;
-    return data || loadPreview(slug);
+    return data;
 }
 function renderPage(project) {
     page = project;

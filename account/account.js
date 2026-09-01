@@ -64,6 +64,9 @@ const communicationsProductLink = document.getElementById("communications-produc
 const projectCardsProductCard = document.getElementById("project-cards-product-card");
 const projectCardsProductSummary = document.getElementById("project-cards-product-summary");
 const projectCardsProductLink = document.getElementById("project-cards-product-link");
+const filesAssetsProductCard = document.getElementById("files-assets-product-card");
+const filesAssetsProductSummary = document.getElementById("files-assets-product-summary");
+const filesAssetsProductLink = document.getElementById("files-assets-product-link");
 const openAdminViralsButton = document.getElementById("open-admin-virals-button");
 const openAdminMusicButton = document.getElementById("open-admin-music-button");
 const openMusicButton = document.getElementById("open-music-button");
@@ -111,6 +114,7 @@ let websiteServiceRequest = null;
 let loanAccount = null;
 let communicationsEntitlement = null;
 let projectCardsEntitlement = null;
+let filesAssetsEntitlement = null;
 let organizationAdminAccess = null;
 let contactCardProfile = null;
 let contactCardEntitlement = null;
@@ -646,6 +650,30 @@ async function loadProjectCardsEntitlement() {
   projectCardsEntitlement = data || null;
 }
 
+async function loadFilesAssetsEntitlement() {
+  const [membershipResult, ownedResult] = await Promise.all([
+    supabase.from("organization_memberships").select("organization_id").eq("user_id", currentSession.user.id),
+    supabase.from("organizations").select("id").eq("owner_user_id", currentSession.user.id),
+  ]);
+  if (membershipResult.error) throw membershipResult.error;
+  if (ownedResult.error) throw ownedResult.error;
+  const organizationIds = [...new Set([
+    ...(membershipResult.data || []).map((row) => row.organization_id),
+    ...(ownedResult.data || []).map((row) => row.id),
+  ].filter(Boolean))];
+  if (!organizationIds.length) { filesAssetsEntitlement = null; return; }
+  const { data, error } = await supabase.from("organization_product_entitlements")
+    .select("organization_id,status,portal_enabled")
+    .in("organization_id", organizationIds)
+    .eq("product_key", "files_assets")
+    .eq("portal_enabled", true)
+    .in("status", ["trialing", "active", "past_due"])
+    .limit(1)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  filesAssetsEntitlement = data || null;
+}
+
 async function loadLoanAccount() {
   const { data, error } = await supabase
     .from("loan_accounts")
@@ -818,6 +846,7 @@ async function renderDashboard(message = "") {
     loadLoanAccount(),
     loadCommunicationsEntitlement(),
     loadProjectCardsEntitlement(),
+    loadFilesAssetsEntitlement(),
     loadOrganizationAdminAccess(),
     loadContactCardProfile(),
   ]);
@@ -872,6 +901,18 @@ async function renderDashboard(message = "") {
     projectCardsProductLink.textContent = hasProjectCardsAccess
       ? "Open Project Cards"
       : "Activate Project Cards";
+  }
+
+  const hasFilesAssetsAccess = Boolean(filesAssetsEntitlement?.organization_id);
+  const filesAssetsOrganizationId = filesAssetsEntitlement?.organization_id || organizationAdminAccess?.id || "";
+  if (filesAssetsProductSummary && filesAssetsProductLink) {
+    filesAssetsProductSummary.textContent = hasFilesAssetsAccess
+      ? "Open the same secure file library from websites, Project Cards, or your N3XRA dashboard."
+      : "Activate a private organization library. It also turns on automatically when another N3XRA product stores a file.";
+    filesAssetsProductLink.href = filesAssetsOrganizationId
+      ? `/client-portal/files/?organization=${encodeURIComponent(filesAssetsOrganizationId)}`
+      : "/client-portal/files/";
+    filesAssetsProductLink.textContent = hasFilesAssetsAccess ? "Open Files & Assets" : "Activate Files & Assets";
   }
 
 
@@ -929,6 +970,7 @@ async function renderDashboard(message = "") {
     [recordsAppCard, hasRecordsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
     [projectCardsProductCard, hasProjectCardsAccess],
+    [filesAssetsProductCard, hasFilesAssetsAccess],
     [websitePortalCard, hasWebsiteService, hasWebsiteService ? websiteAppState(websiteServiceRequest.status) : "available"],
     [organizationAdminCard, hasOrganizationAdminAccess],
     [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],

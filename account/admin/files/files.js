@@ -77,7 +77,7 @@ async function hydrateFilePreview(preview) {
   const type = fileType(file);
   if (!["image", "pdf"].includes(type.tone)) return;
   try {
-    const data = file.source === "website" ? await websiteFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
+    const data = file.source === "website" ? await websiteFileUrl(file) : file.source === "client_shared" ? await sharedOrganizationFileUrl(file) : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
     const image = preview.querySelector("img");
     const canvas = preview.querySelector("canvas");
     const fallback = preview.querySelector(":scope > span");
@@ -242,6 +242,9 @@ function renderFolderTree() {
   const businessRecordsRoot = folders.get("Business Records") || { name: "Business Records", path: "Business Records", depth: 0, count: 0, protected: true };
   businessRecordsRoot.protected = true;
   folders.set("Business Records", businessRecordsRoot);
+  const clientSharesRoot = folders.get("Client shares") || { name: "Client shares", path: "Client shares", depth: 0, count: 0, protected: true };
+  clientSharesRoot.protected = true;
+  folders.set("Client shares", clientSharesRoot);
   fileState.websites.forEach((website) => {
     const existing = folders.get(website.folder_path) || { name: website.name, path: website.folder_path, depth: 1, count: 0 };
     existing.protected = true;
@@ -270,16 +273,17 @@ function renderFolderTree() {
 function syncFileActions() {
   const website = currentWebsite();
   const websiteRoot = currentFolderPath === "Websites";
+  const clientShares = currentFolderPath === "Client shares" || currentFolderPath.startsWith("Client shares/");
   const statusFilter = document.getElementById("n3xra-file-status-filter");
   const uploadFilesLabel = document.querySelector('label[for="n3xra-file-input"]');
   const uploadFolderButton = document.getElementById("n3xra-folder-button");
   const fileInput = document.getElementById("n3xra-file-input");
   const folderInput = document.getElementById("n3xra-folder-input");
-  [uploadFilesLabel, uploadFolderButton].forEach((element) => element?.classList.toggle("is-disabled", websiteRoot));
-  if (fileInput) fileInput.disabled = websiteRoot;
-  if (folderInput) folderInput.disabled = websiteRoot;
-  if (uploadFolderButton) uploadFolderButton.disabled = websiteRoot;
-  if (uploadFilesLabel) uploadFilesLabel.title = websiteRoot ? "Choose a website folder before uploading." : website ? `Upload to ${website.name}` : "Upload files";
+  [uploadFilesLabel, uploadFolderButton].forEach((element) => element?.classList.toggle("is-disabled", websiteRoot || clientShares));
+  if (fileInput) fileInput.disabled = websiteRoot || clientShares;
+  if (folderInput) folderInput.disabled = websiteRoot || clientShares;
+  if (uploadFolderButton) uploadFolderButton.disabled = websiteRoot || clientShares;
+  if (uploadFilesLabel) uploadFilesLabel.title = clientShares ? "Clients control this shared folder." : websiteRoot ? "Choose a website folder before uploading." : website ? `Upload to ${website.name}` : "Upload files";
   if (statusFilter) {
     statusFilter.disabled = !website;
     if (!website) statusFilter.value = "all";
@@ -358,11 +362,12 @@ function renderFiles() {
   previewFiles = sortedFiles;
   const fileMarkup = sortedFiles.map((file) => {
     const websiteFile = file.source === "website";
-    const access = websiteFile ? new Set() : accessFor(file.id);
+    const clientSharedFile = file.source === "client_shared";
+    const access = websiteFile || clientSharedFile ? new Set() : accessFor(file.id);
     const type = fileType(file);
     const libraryState = websiteLibraryState(file);
-    const accessLabel = websiteFile ? libraryState.label : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
-    const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : `${file.mime_type || "File"}${file.cdn_url ? " · CDN published" : ""}`;
+    const accessLabel = websiteFile ? libraryState.label : clientSharedFile ? "Shared by client" : access.size ? `${access.size} admin${access.size === 1 ? "" : "s"}` : "Private";
+    const fileMeta = websiteFile ? `${file.asset_key} · Version ${file.version_number}` : clientSharedFile ? `${file.organization_name} · Client-controlled private library` : `${file.mime_type || "File"}${file.cdn_url ? " · CDN published" : ""}`;
     const asset = websiteFile ? fileState.websiteAssets.find((item) => String(item.id) === String(file.asset_id)) : null;
     const websiteActions = websiteFile ? [
       file.status === "pending_review" ? `<button type="button" data-website-file-approve="${fileEscape(file.id)}">Approve</button><button type="button" data-website-file-reject="${fileEscape(file.id)}">Reject</button>` : "",
@@ -371,18 +376,18 @@ function renderFiles() {
       file.public_url ? `<button type="button" data-website-file-copy="${fileEscape(file.id)}">Copy published URL</button>` : "",
       file.public_url && canOptimizeCdnImage(asset, file) ? `<button type="button" data-website-file-optimize="${fileEscape(file.id)}">Optimize CDN file</button><button type="button" data-website-file-original="${fileEscape(file.id)}">Use full-quality CDN file</button>` : file.public_url && String(file.mime_type || "").startsWith("image/") ? `<button type="button" data-website-file-optimize="${fileEscape(file.id)}">Refresh CDN cache</button>` : "",
     ].join("") : "";
-    const cdnActions = !websiteFile && file.cdn_url
+    const cdnActions = clientSharedFile ? "" : !websiteFile && file.cdn_url
       ? `<button type="button" data-file-open-cdn="${fileEscape(file.id)}">Open CDN URL</button><button type="button" data-file-copy-cdn="${fileEscape(file.id)}">Copy CDN link</button><button type="button" data-file-unpublish="${fileEscape(file.id)}">Unpublish from CDN</button>`
       : !websiteFile ? `<button type="button" data-file-publish="${fileEscape(file.id)}">Publish to CDN</button>` : websiteActions;
     const selectionKey = fileSelectionKey(file);
-    return `<article class="n3xra-file-row is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}" data-selectable-file="${fileEscape(selectionKey)}">
-      <label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>
+    return `<article class="n3xra-file-row${clientSharedFile ? "" : ` is-selectable${selectedFileKeys.has(selectionKey) ? " is-selected" : ""}`}"${clientSharedFile ? "" : ` data-selectable-file="${fileEscape(selectionKey)}"`}>
+      ${clientSharedFile ? "<span></span>" : `<label class="n3xra-file-select"><input type="checkbox" data-file-select="${fileEscape(selectionKey)}"${selectedFileKeys.has(selectionKey) ? " checked" : ""} aria-label="Select ${fileEscape(pathParts(file.name).at(-1))}"></label>`}
       <button class="n3xra-file-name" type="button" data-file-open="${fileEscape(file.id)}">${filePreviewMarkup(file, type)}<span><strong>${fileEscape(pathParts(file.name).at(-1))}</strong><small>${fileEscape(fileMeta)}</small></span></button>
-      ${websiteFile ? `<span class="n3xra-file-access is-status is-${fileEscape(libraryState.key)}"${libraryState.title ? ` title="${fileEscape(libraryState.title)}"` : ""}><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
+      ${websiteFile ? `<span class="n3xra-file-access is-status is-${fileEscape(libraryState.key)}"${libraryState.title ? ` title="${fileEscape(libraryState.title)}"` : ""}><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : clientSharedFile ? `<span class="n3xra-file-access is-status"><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
       <time datetime="${fileEscape(file.created_at)}">${fileEscape(fileDate(file.created_at))}</time>
       <span class="n3xra-file-size">${fileEscape(fileSize(file.size_bytes))}</span>
-      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button></div></details>
-      ${websiteFile ? "" : `<section class="n3xra-access-panel" id="file-access-${fileEscape(file.id)}" hidden><div class="n3xra-access-head"><div><strong>Manage access</strong><span>Choose the administrators who can open this file.</span></div><button type="button" data-file-close-access="${fileEscape(file.id)}" aria-label="Close access controls">×</button></div><div class="n3xra-access-options">${fileState.admins.map((admin) => `<label><input type="checkbox" data-file-access="${fileEscape(file.id)}" value="${fileEscape(admin.user_id)}"${access.has(String(admin.user_id)) ? " checked" : ""}>${fileEscape(admin.email)}${admin.role === "owner" ? " (owner)" : ""}</label>`).join("")}</div><div class="n3xra-access-actions"><button class="portal-button portal-button-secondary" type="button" data-file-close-access="${fileEscape(file.id)}">Cancel</button><button class="portal-button" type="button" data-file-save-access="${fileEscape(file.id)}">Save access</button></div></section>`}
+      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile || clientSharedFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}${clientSharedFile ? "" : `<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button>`}</div></details>
+      ${websiteFile || clientSharedFile ? "" : `<section class="n3xra-access-panel" id="file-access-${fileEscape(file.id)}" hidden><div class="n3xra-access-head"><div><strong>Manage access</strong><span>Choose the administrators who can open this file.</span></div><button type="button" data-file-close-access="${fileEscape(file.id)}" aria-label="Close access controls">×</button></div><div class="n3xra-access-options">${fileState.admins.map((admin) => `<label><input type="checkbox" data-file-access="${fileEscape(file.id)}" value="${fileEscape(admin.user_id)}"${access.has(String(admin.user_id)) ? " checked" : ""}>${fileEscape(admin.email)}${admin.role === "owner" ? " (owner)" : ""}</label>`).join("")}</div><div class="n3xra-access-actions"><button class="portal-button portal-button-secondary" type="button" data-file-close-access="${fileEscape(file.id)}">Cancel</button><button class="portal-button" type="button" data-file-save-access="${fileEscape(file.id)}">Save access</button></div></section>`}
     </article>`;
   }).join("");
   list.innerHTML = listHeader + fileMarkup;
@@ -437,9 +442,24 @@ async function loadWebsiteFiles() {
   return { websites, assets, versions: versionResult.data || [], files };
 }
 
+async function loadSharedOrganizationFiles() {
+  const { data, error } = await fileSupabase.from("organization_files").select("id,organization_id,display_name,original_filename,storage_bucket,storage_path,mime_type,size_bytes,created_at,updated_at").eq("shared_with_n3xra", true).order("updated_at", { ascending: false });
+  if (error) throw error;
+  const rows = data || [];
+  const organizationIds = [...new Set(rows.map((file) => file.organization_id).filter(Boolean))];
+  const organizationResult = organizationIds.length ? await fileSupabase.from("organizations").select("id,name").in("id", organizationIds) : { data: [], error: null };
+  if (organizationResult.error) throw organizationResult.error;
+  const organizationById = new Map((organizationResult.data || []).map((organization) => [String(organization.id), organization]));
+  return rows.map((file) => {
+    const organization = organizationById.get(String(file.organization_id));
+    const organizationName = organization?.name || "Client organization";
+    return { ...file, source: "client_shared", organization_name: organizationName, name: `Client shares/${websiteFolderSegment(organizationName)}/${file.original_filename}` };
+  });
+}
+
 async function loadFiles() {
-  const [data, websiteData] = await Promise.all([fileInvoke("list-n3xra-files"), loadWebsiteFiles()]);
-  fileState = { files: [...(data.files || []).map((file) => ({ ...file, source: "n3xra" })), ...websiteData.files], access: data.access || [], admins: data.admins || [], websites: websiteData.websites, websiteAssets: websiteData.assets, websiteVersions: websiteData.versions };
+  const [data, websiteData, sharedFiles] = await Promise.all([fileInvoke("list-n3xra-files"), loadWebsiteFiles(), loadSharedOrganizationFiles()]);
+  fileState = { files: [...(data.files || []).map((file) => ({ ...file, source: "n3xra" })), ...websiteData.files, ...sharedFiles], access: data.access || [], admins: data.admins || [], websites: websiteData.websites, websiteAssets: websiteData.assets, websiteVersions: websiteData.versions };
   renderFiles();
   fileStatus();
 }
@@ -762,6 +782,13 @@ async function websiteFileUrl(file, { download = false, preferOriginal = false }
   return { url: data.signedUrl, name: file.original_filename, mimeType: file.mime_type };
 }
 
+async function sharedOrganizationFileUrl(file, { download = false } = {}) {
+  const options = download ? { download: file.original_filename } : undefined;
+  const { data, error } = await fileSupabase.storage.from(file.storage_bucket).createSignedUrl(file.storage_path, 60 * 10, options);
+  if (error || !data?.signedUrl) throw new Error(error?.message || "The client has stopped sharing this file.");
+  return { url: data.signedUrl, name: file.original_filename, mimeType: file.mime_type };
+}
+
 async function downloadFile(id) {
   fileStatus("Preparing download…");
   try {
@@ -781,6 +808,8 @@ async function downloadFile(id) {
 async function fileDownloadData(file) {
   return file.source === "website"
     ? websiteFileUrl(file, { download: true })
+    : file.source === "client_shared"
+      ? sharedOrganizationFileUrl(file, { download: true })
     : fileInvoke("get-n3xra-file-url", { fileId: file.id });
 }
 
@@ -962,6 +991,8 @@ async function fullQualityFilePreviewData(file) {
   if (cached?.expiresAt > Date.now()) return cached.data;
   const data = file.source === "website"
     ? await websiteFileUrl(file, { preferOriginal: true })
+    : file.source === "client_shared"
+      ? await sharedOrganizationFileUrl(file)
     : await fileInvoke("get-n3xra-file-url", { fileId: file.id });
   fullQualityFilePreviewCache.set(key, { data, expiresAt: Date.now() + 8 * 60 * 1000 });
   return data;

@@ -1,10 +1,9 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 
 type ResourceType = "pdf" | "image" | "file" | "link" | "text";
-interface Resource { id: string; resource_type: ResourceType; title: string; detail: string; content: Record<string, unknown>; external_url: string | null; storage_path: string | null; sort_order: number }
+interface Resource { id: string; resource_type: ResourceType; title: string; detail: string; content: Record<string, unknown>; external_url: string | null; storage_path: string | null; organization_file_id?: string | null; has_file?: boolean; preview_url?: string; sort_order: number }
 interface ProjectPage { slug: string; name: string; description: string; location_text: string; updated_at: string; resources: Resource[] }
 
-const STORAGE_BUCKET = "project-card-resources";
 const icons: Record<ResourceType, string> = { pdf: "PDF", image: "IMG", file: "DOC", link: "↗", text: "TXT" };
 const labels: Record<ResourceType, string> = { pdf: "PDF OR BRIEFING", image: "IMAGE", file: "DOCUMENT OR FILE", link: "WEB LINK", text: "TEXT" };
 const supabase = hasConfig() ? createBrowserSupabase() : null;
@@ -18,8 +17,7 @@ let page: ProjectPage | null = null;
 
 const escape = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 function slugFromLocation(): string { return new URLSearchParams(location.search).get("slug") || location.pathname.split("/").filter(Boolean).at(-1) || ""; }
-function publicFileUrl(path: string | null): string { return path && supabase ? supabase.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl : ""; }
-function resourceUrl(resource: Resource): string { return resource.external_url || publicFileUrl(resource.storage_path); }
+function resourceUrl(resource: Resource): string { return resource.external_url || resource.preview_url || (resource.has_file || resource.organization_file_id || resource.storage_path ? `/api/project-card-file?slug=${encodeURIComponent(page?.slug || slugFromLocation())}&resource=${encodeURIComponent(resource.id)}` : ""); }
 
 async function loadPreview(slug: string): Promise<ProjectPage | null> {
   if (!supabase || new URLSearchParams(location.search).get("preview") !== "1") return null;
@@ -27,17 +25,33 @@ async function loadPreview(slug: string): Promise<ProjectPage | null> {
   if (!session?.user) return null;
   const { data: project, error } = await supabase.from("project_card_projects").select("id,slug,name,description,location_text,updated_at").eq("slug", slug).maybeSingle();
   if (error || !project) return null;
-  const { data: resources, error: resourceError } = await supabase.from("project_card_resources").select("id,resource_type,title,detail,content,external_url,storage_path,sort_order").eq("project_id", project.id).eq("is_visible", true).order("sort_order");
+  const { data: resources, error: resourceError } = await supabase.from("project_card_resources").select("id,resource_type,title,detail,content,external_url,storage_path,organization_file_id,sort_order").eq("project_id", project.id).eq("is_visible", true).order("sort_order");
   if (resourceError) return null;
-  return { ...project, resources: resources || [] } as ProjectPage;
+  const rows = (resources || []) as Resource[];
+  const fileIds = rows.map((resource) => resource.organization_file_id).filter((id): id is string => Boolean(id));
+  const { data: files } = fileIds.length ? await supabase.from("organization_files").select("id,storage_bucket,storage_path").in("id", fileIds) : { data: [] };
+  const fileById = new Map<string, { id: string; storage_bucket: string; storage_path: string }>((files || []).map((file: { id: string; storage_bucket: string; storage_path: string }) => [file.id, file]));
+  await Promise.all(rows.map(async (resource) => {
+    const stored = resource.organization_file_id ? fileById.get(resource.organization_file_id) : null;
+    const bucket = stored?.storage_bucket || (resource.storage_path ? "project-card-resources" : "");
+    const path = stored?.storage_path || resource.storage_path;
+    if (!bucket || !path) return;
+    const { data } = await supabase.storage.from(bucket).createSignedUrl(path, 600);
+    resource.preview_url = data?.signedUrl || "";
+  }));
+  return { ...project, resources: rows } as ProjectPage;
 }
 
 async function loadPage(): Promise<ProjectPage | null> {
   if (!supabase) throw new Error("This Project Card is not configured.");
   const slug = slugFromLocation();
+  if (new URLSearchParams(location.search).get("preview") === "1") {
+    const preview = await loadPreview(slug);
+    if (preview) return preview;
+  }
   const { data, error } = await supabase.rpc("get_project_card_page", { input_slug: slug });
   if (error) throw error;
-  return data as ProjectPage | null || loadPreview(slug);
+  return data as ProjectPage | null;
 }
 
 function renderPage(project: ProjectPage): void {

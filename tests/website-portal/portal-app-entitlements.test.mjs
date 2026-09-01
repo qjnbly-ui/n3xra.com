@@ -69,7 +69,7 @@ test("the website app lands on the first enabled section when Progress is off", 
 
   assert.match(apps, /function defaultWebsiteHref\(features = \{\}\)/);
   assert.match(apps, /features\.progress !== false[\s\S]*return "\/project-workspace\/"/);
-  assert.match(apps, /features\.files_assets !== false[\s\S]*return "\/client-portal\/#files-assets"/);
+  assert.match(apps, /features\.files_assets !== false[\s\S]*return "\/client-portal\/files\/"/);
   assert.doesNotMatch(apps, /features\.overview/);
   assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", tenant\.website_id\)/);
   assert.match(workspaceContext, /const currentFeature = PAGE_FEATURES\[pageKey\]/);

@@ -55,20 +55,23 @@ test("public project-card route is scan-ready and does not require authenticatio
   assert.match(page, /id="ph-resource-list"/);
   assert.match(source, /rpc\("get_project_card_page"/);
   assert.match(source, /project_card_resources/);
-  assert.match(source, /getPublicUrl/);
+  assert.match(source, /\/api\/project-card-file/);
+  assert.match(source, /createSignedUrl/);
   assert.match(source, /loadPreview/);
   assert.doesNotMatch(source, /is_platform_admin/);
   assert.match(vercel, /"source": "\/p\/:slug"/);
   assert.match(vercel, /"destination": "\/project-card\?slug=:slug"/);
 });
 
-test("Project Card resource uploads are organization-scoped and publicly resolvable", async () => {
-  const migration = await read("supabase/migrations/20260831234707_project_card_resource_uploads.sql");
-  assert.match(migration, /'project-card-resources'.*true.*52428800/s);
-  assert.match(migration, /owner_id=\(select auth\.uid\(\)\)::text/);
-  assert.match(migration, /public\.can_manage_project_cards\(project\.organization_id\)/);
-  assert.match(migration, /project\.organization_id::text=\(storage\.foldername\(name\)\)\[1\]/);
-  assert.match(migration, /'storage_path',resource\.storage_path/);
+test("Project Card resource uploads are organization-scoped and privately delivered", async () => {
+  const [foundation, privacy, endpoint] = await Promise.all([read("supabase/migrations/20260831234707_project_card_resource_uploads.sql"), read("supabase/migrations/20260901001302_organization_files_assets_privacy.sql"), read("api/project-card-file.js")]);
+  assert.match(foundation, /'project-card-resources'.*true.*52428800/s);
+  assert.match(privacy, /set public = false[\s\S]*where id = 'project-card-resources'/);
+  assert.match(privacy, /organization-files-private/);
+  assert.match(privacy, /share_on_project_card/);
+  assert.match(endpoint, /get_public_project_card_file/);
+  assert.match(endpoint, /storage\/v1\/object\/sign/);
+  assert.match(foundation, /owner_id=\(select auth\.uid\(\)\)::text/);
 });
 
 test("card activation waits for a secure server-created identity before NFC writing", async () => {

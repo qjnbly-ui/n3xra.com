@@ -122,7 +122,7 @@ function routeOrRenderApps(apps: PortalApp[], { preferWebsite = false } = {}): v
 
 function defaultWebsiteHref(features: Record<string, boolean> = {}): string {
   if (features.progress !== false) return "/project-workspace/";
-  if (features.files_assets !== false) return "/client-portal/#files-assets";
+  if (features.files_assets !== false) return "/client-portal/files/";
   if (features.publishing === true) return "/client-portal/publishing/";
   if (features.services !== false) return "/client-portal/services/";
   if (features.analytics === true) return "/client-portal/analytics/";

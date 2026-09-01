@@ -2,10 +2,11 @@ import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/
 
 type ResourceType = "pdf" | "image" | "file" | "link" | "text";
 interface Project { id: string; organization_id: string; slug: string; name: string; location_text: string; status: "draft" | "live" | "archived"; access_level: "public" | "private" }
-interface Resource { id: string; resource_type: ResourceType; title: string; detail: string; sort_order: number; content: Record<string, unknown>; external_url: string | null; storage_path: string | null }
+interface Resource { id: string; resource_type: ResourceType; title: string; detail: string; sort_order: number; content: Record<string, unknown>; external_url: string | null; storage_path: string | null; organization_file_id: string | null; share_on_project_card: boolean }
 interface Card { card_code: string; assigned_name: string }
+interface StoredFile { id: string; bucket: string; path: string }
 
-const STORAGE_BUCKET = "project-card-resources";
+const STORAGE_BUCKET = "organization-files-private";
 const MAX_UPLOAD_BYTES = 50 * 1024 * 1024;
 const icons: Record<ResourceType, string> = { pdf: "PDF", image: "IMG", file: "DOC", link: "↗", text: "TXT" };
 let supabase: any;
@@ -22,6 +23,13 @@ const toast = one<HTMLElement>("#pe-toast");
 const formStatus = one<HTMLElement>("#pe-resource-form-status");
 const escape = (value: string): string => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 
+if (form && formStatus && !form.elements.namedItem("share_on_project_card")) {
+  const share = document.createElement("label");
+  share.className = "pe-share-control";
+  share.innerHTML = '<input type="checkbox" name="share_on_project_card" checked><span><strong>Share on Project Card</strong><small>Include this item on the live page. Turn this off to keep it as a private draft.</small></span>';
+  form.insertBefore(share, formStatus);
+}
+
 function notify(text: string): void {
   if (!toast) return;
   toast.textContent = `✓ ${text}`;
@@ -31,7 +39,7 @@ function notify(text: string): void {
 
 function sourceLabel(resource: Resource): string {
   if (resource.resource_type === "text") return "Text shown directly on the page";
-  if (resource.storage_path) return "Stored securely by N3XRA";
+  if (resource.organization_file_id || resource.storage_path) return "Stored privately in Files & Assets";
   if (resource.external_url) {
     try { return `Linked from ${new URL(resource.external_url).hostname.replace(/^www\./, "")}`; } catch { return "Shared URL"; }
   }
@@ -44,7 +52,7 @@ function renderResources(): void {
     <article class="pe-resource" data-type="${resource.resource_type}">
       <button class="pe-resource-main" type="button" data-edit data-id="${resource.id}" aria-label="Edit ${escape(resource.title)}">
         <span class="pe-resource-icon">${icons[resource.resource_type]}</span>
-        <span><h4>${escape(resource.title)}</h4><p>${escape(resource.detail || "No description")}</p><small>${escape(sourceLabel(resource))} · Click to edit</small></span>
+        <span><h4>${escape(resource.title)}</h4><p>${escape(resource.detail || "No description")}</p><small>${escape(sourceLabel(resource))} · ${resource.share_on_project_card ? "Shared on live page" : "Private draft"} · Click to edit</small></span>
       </button>
       <div class="pe-resource-actions">
         <button type="button" data-move="up" data-id="${resource.id}" aria-label="Move up"${index === 0 ? " disabled" : ""}>↑</button>
@@ -98,7 +106,8 @@ function openResourceDialog(resource?: Resource): void {
     (form.elements.namedItem("detail") as HTMLInputElement).value = resource.detail;
     (form.elements.namedItem("external_url") as HTMLInputElement).value = resource.external_url || "";
     (form.elements.namedItem("text_body") as HTMLTextAreaElement).value = String(resource.content?.text || "");
-    const source = resource.storage_path ? "upload" : "url";
+    (form.elements.namedItem("share_on_project_card") as HTMLInputElement).checked = resource.share_on_project_card;
+    const source = resource.organization_file_id || resource.storage_path ? "upload" : "url";
     const sourceRadio = form.querySelector<HTMLInputElement>(`input[name="source"][value="${source}"]`);
     if (sourceRadio) sourceRadio.checked = true;
   }
@@ -107,18 +116,33 @@ function openResourceDialog(resource?: Resource): void {
   dialog.showModal();
 }
 
-async function uploadFile(file: File): Promise<string> {
+async function uploadFile(file: File): Promise<StoredFile> {
   if (file.size > MAX_UPLOAD_BYTES) throw new Error("Choose a file smaller than 50 MB.");
+  const { data: folderId, error: folderError } = await supabase.rpc("ensure_project_card_file_folder", { input_project_id: project.id });
+  if (folderError || !folderId) throw new Error(folderError?.message || "Unable to prepare the private Project Cards folder.");
   const safeName = file.name.normalize("NFKD").replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/^-+|-+$/g, "") || "resource";
-  const path = `${project.organization_id}/${project.id}/${crypto.randomUUID()}-${safeName}`;
+  const fileId = crypto.randomUUID();
+  const path = `${project.organization_id}/files/${fileId}-${safeName}`;
   const { error } = await supabase.storage.from(STORAGE_BUCKET).upload(path, file, { cacheControl: "3600", upsert: false, contentType: file.type || undefined });
   if (error) throw error;
-  return path;
+  const user = (await supabase.auth.getUser()).data.user;
+  const { error: recordError } = await supabase.from("organization_files").insert({ id: fileId, organization_id: project.organization_id, folder_id: folderId, display_name: file.name.replace(/\.[^.]+$/, "") || file.name, original_filename: file.name, source_kind: "upload", provider: "n3xra", storage_bucket: STORAGE_BUCKET, storage_path: path, mime_type: file.type || null, size_bytes: file.size, shared_with_n3xra: false, created_by_user_id: user.id });
+  if (recordError) { await supabase.storage.from(STORAGE_BUCKET).remove([path]); throw recordError; }
+  return { id: fileId, bucket: STORAGE_BUCKET, path };
 }
 
-async function removeStoredFile(path: string | null): Promise<void> {
+async function removeStoredFile(resource: Pick<Resource, "organization_file_id" | "storage_path"> | null): Promise<void> {
+  if (!resource) return;
+  let bucket = resource.organization_file_id ? STORAGE_BUCKET : "project-card-resources";
+  let path = resource.storage_path;
+  if (resource.organization_file_id) {
+    const { data } = await supabase.from("organization_files").select("storage_bucket,storage_path").eq("id", resource.organization_file_id).maybeSingle();
+    bucket = data?.storage_bucket || bucket;
+    path = data?.storage_path || path;
+    await supabase.from("organization_files").delete().eq("id", resource.organization_file_id);
+  }
   if (!path) return;
-  const { error } = await supabase.storage.from(STORAGE_BUCKET).remove([path]);
+  const { error } = await supabase.storage.from(bucket).remove([path]);
   if (error) console.warn("Unable to remove the replaced Project Card resource.", error);
 }
 
@@ -147,7 +171,7 @@ async function authorize(): Promise<void> {
   const { data: canManage, error: accessError } = await supabase.rpc("can_manage_project_cards", { target_organization_id: project.organization_id });
   if (accessError || canManage !== true) throw new Error("You do not have permission to edit this project.");
   const [{ data: resourceRows, error: resourceError }, { data: cardRows, error: cardError }] = await Promise.all([
-    supabase.from("project_card_resources").select("id,resource_type,title,detail,sort_order,content,external_url,storage_path").eq("project_id", project.id).order("sort_order"),
+    supabase.from("project_card_resources").select("id,resource_type,title,detail,sort_order,content,external_url,storage_path,organization_file_id,share_on_project_card").eq("project_id", project.id).order("sort_order"),
     supabase.from("project_card_devices").select("card_code,assigned_name").eq("project_id", project.id).neq("status", "retired").order("card_code"),
   ]);
   if (resourceError) throw resourceError;
@@ -188,14 +212,15 @@ form?.addEventListener("submit", async (event) => {
   if (!title || !(type in icons)) return;
   if (type === "text" && !textBody) { if (formStatus) formStatus.textContent = "Add the text you want shown on the page."; return; }
   if (type !== "text" && source === "url" && !externalUrl) { if (formStatus) formStatus.textContent = "Paste a shared URL for this resource."; return; }
-  if (type !== "text" && type !== "link" && source === "upload" && !file && !existing?.storage_path) { if (formStatus) formStatus.textContent = "Choose a file to upload."; return; }
+  if (type !== "text" && type !== "link" && source === "upload" && !file && !existing?.storage_path && !existing?.organization_file_id) { if (formStatus) formStatus.textContent = "Choose a file to upload."; return; }
   const submit = one<HTMLButtonElement>("#pe-resource-submit");
   if (submit) { submit.disabled = true; submit.textContent = file ? "Uploading…" : "Saving…"; }
   if (formStatus) formStatus.textContent = "";
-  let newStoragePath: string | null = null;
+  let newFile: StoredFile | null = null;
   try {
-    if (file) newStoragePath = await uploadFile(file);
-    const storagePath = type !== "text" && source === "upload" ? newStoragePath || existing?.storage_path || null : null;
+    if (file) newFile = await uploadFile(file);
+    const organizationFileId = type !== "text" && source === "upload" ? newFile?.id || existing?.organization_file_id || null : null;
+    const storagePath = organizationFileId ? null : type !== "text" && source === "upload" ? existing?.storage_path || null : null;
     const payload = {
       resource_type: type,
       title,
@@ -203,21 +228,23 @@ form?.addEventListener("submit", async (event) => {
       content: type === "text" ? { text: textBody } : file ? { file_name: file.name, file_size: file.size, mime_type: file.type } : {},
       external_url: type !== "text" && (type === "link" || source === "url") ? externalUrl : null,
       storage_path: storagePath,
+      organization_file_id: organizationFileId,
+      share_on_project_card: Boolean(values.get("share_on_project_card")),
     };
     if (existing) {
-      const { data, error } = await supabase.from("project_card_resources").update(payload).eq("id", existing.id).select("id,resource_type,title,detail,sort_order,content,external_url,storage_path").single();
+      const { data, error } = await supabase.from("project_card_resources").update(payload).eq("id", existing.id).select("id,resource_type,title,detail,sort_order,content,external_url,storage_path,organization_file_id,share_on_project_card").single();
       if (error) throw error;
       resources[resources.indexOf(existing)] = data as Resource;
-      if (existing.storage_path && existing.storage_path !== storagePath) await removeStoredFile(existing.storage_path);
+      if ((existing.organization_file_id || existing.storage_path) && (existing.organization_file_id !== organizationFileId || existing.storage_path !== storagePath)) await removeStoredFile(existing);
     } else {
       const user = (await supabase.auth.getUser()).data.user;
-      const { data, error } = await supabase.from("project_card_resources").insert({ ...payload, project_id: project.id, sort_order: resources.length * 10, created_by_user_id: user.id }).select("id,resource_type,title,detail,sort_order,content,external_url,storage_path").single();
+      const { data, error } = await supabase.from("project_card_resources").insert({ ...payload, project_id: project.id, sort_order: resources.length * 10, created_by_user_id: user.id }).select("id,resource_type,title,detail,sort_order,content,external_url,storage_path,organization_file_id,share_on_project_card").single();
       if (error) throw error;
       resources.push(data as Resource);
     }
     form.reset(); dialog?.close(); renderResources(); saved(); notify(`${title} ${existing ? "updated" : "added"}.`);
   } catch (error) {
-    if (newStoragePath) await removeStoredFile(newStoragePath);
+    if (newFile) await removeStoredFile({ organization_file_id: newFile.id, storage_path: newFile.path });
     if (formStatus) formStatus.textContent = error instanceof Error ? error.message : "Unable to save this resource.";
   } finally {
     if (submit) { submit.disabled = false; submit.textContent = editingResourceId ? "Save changes" : "Add to page"; }
@@ -235,7 +262,7 @@ list?.addEventListener("click", async (event) => {
     if (!window.confirm(`Remove “${resources[index]!.title}” from this page?`)) return;
     const { error } = await supabase.from("project_card_resources").delete().eq("id", id);
     if (error) { notify(error.message); return; }
-    await removeStoredFile(resources[index]!.storage_path);
+    await removeStoredFile(resources[index]!);
     resources.splice(index, 1);
   } else {
     const next = button.dataset.move === "up" ? index - 1 : index + 1;
