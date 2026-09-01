@@ -218,6 +218,10 @@
   ],
   "rewrites": [
     {
+      "source": "/t/:token",
+      "destination": "/api/project-card-resolve?token=:token"
+    },
+    {
       "source": "/p/:slug",
       "destination": "/project-card?slug=:slug"
     },

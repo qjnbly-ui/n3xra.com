@@ -63,6 +63,16 @@ test("public project-card route is scan-ready and does not require authenticatio
   assert.match(vercel, /"destination": "\/project-card\?slug=:slug"/);
 });
 
+test("permanent NFC card addresses resolve through a live assignment lookup", async () => {
+  const [resolver, vercel] = await Promise.all([read("api/project-card-resolve.js"), read("vercel.json")]);
+  assert.match(vercel, /"source": "\/t\/:token"[\s\S]*"destination": "\/api\/project-card-resolve\?token=:token"/);
+  assert.match(resolver, /rpc\/resolve_project_card/);
+  assert.match(resolver, /TOKEN_PATTERN = \/\^\[0-9a-f\]\{32\}\$\//);
+  assert.match(resolver, /card\.destination_access !== "public"/);
+  assert.match(resolver, /Location", `\/p\/\$\{encodeURIComponent\(card\.destination_slug\)\}`/);
+  assert.match(resolver, /no-store/);
+});
+
 test("Project Card resource uploads are organization-scoped and privately delivered", async () => {
   const [foundation, privacy, endpoint] = await Promise.all([read("supabase/migrations/20260831234707_project_card_resource_uploads.sql"), read("supabase/migrations/20260901001302_organization_files_assets_privacy.sql"), read("api/project-card-file.js")]);
   assert.match(foundation, /'project-card-resources'.*true.*52428800/s);
