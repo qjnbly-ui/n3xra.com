@@ -64,6 +64,8 @@ const websiteOrganizationSetup = document.getElementById("website-organization-s
 const websiteOrganizationSetupTitle = document.getElementById("website-organization-setup-title");
 const websiteOrganizationSetupCopy = document.getElementById("website-organization-setup-copy");
 const websiteOrganizationSelect = document.getElementById("website-organization-select");
+const websiteOrganizationOwnerWrap = document.getElementById("website-organization-owner-wrap");
+const websiteOrganizationOwnerSelect = document.getElementById("website-organization-owner-select");
 const websiteOrganizationSetupButton = document.getElementById("website-organization-setup-button");
 const websiteOrganizationSetupStatus = document.getElementById("website-organization-setup-status");
 const adminRequestList = document.getElementById("admin-request-list");
@@ -106,6 +108,7 @@ let websites = [];
 let domains = [];
 let repositories = [];
 let organizations = [];
+let clientAccounts = [];
 let selectedWebsite;
 let assets = [];
 let versions = [];
@@ -432,7 +435,7 @@ function renderWebsiteOrganizationSetup() {
   if (websiteOrganizationSelect) {
     const selectedOrganizationId = websiteOrganizationSelect.value;
     websiteOrganizationSelect.innerHTML = [
-      '<option value="">Create from the assigned website owner</option>',
+      '<option value="">Create a new organization</option>',
       ...organizations
         .filter((organization) => organization.account_status !== "suspended")
         .map((organization) => `<option value="${escapeHtml(organization.id)}">${escapeHtml(organization.name)}</option>`),
@@ -441,18 +444,29 @@ function renderWebsiteOrganizationSetup() {
       websiteOrganizationSelect.value = selectedOrganizationId;
     }
   }
+  if (websiteOrganizationOwnerSelect) {
+    const selectedOwnerId = websiteOrganizationOwnerSelect.value;
+    const assignedOwner = members.find((member) => (member.website_role || member.role) === "owner" && member.status === "active");
+    websiteOrganizationOwnerSelect.innerHTML = [
+      '<option value="">Choose a confirmed N3XRA account</option>',
+      ...clientAccounts.map((account) => `<option value="${escapeHtml(account.id)}">${escapeHtml(account.name || account.email)} · ${escapeHtml(account.email)}</option>`),
+    ].join("");
+    const preferredOwnerId = assignedOwner?.user_id || selectedOwnerId;
+    if (clientAccounts.some((account) => account.id === preferredOwnerId)) websiteOrganizationOwnerSelect.value = preferredOwnerId;
+  }
   if (websiteOrganizationSetupTitle) websiteOrganizationSetupTitle.textContent = `Connect ${selectedWebsite.name}`;
-  if (websiteOrganizationSetupCopy) websiteOrganizationSetupCopy.textContent = `Create a protected client organization from ${selectedWebsite.name}'s verified website owner. Existing project, billing, domain, and service records will stay unchanged.`;
+  if (websiteOrganizationSetupCopy) websiteOrganizationSetupCopy.textContent = `Choose the confirmed N3XRA account that should own ${selectedWebsite.name}. N3XRA will create the protected client organization, assign that account as its administrator, and preserve existing project, billing, domain, and service records.`;
   updateWebsiteOrganizationSetupMode();
 }
 
 function updateWebsiteOrganizationSetupMode() {
   if (!websiteOrganizationSetupButton || !websiteOrganizationSetupCopy || !selectedWebsite) return;
   const organization = organizations.find((item) => item.id === websiteOrganizationSelect?.value);
+  if (websiteOrganizationOwnerWrap) websiteOrganizationOwnerWrap.hidden = Boolean(organization);
   websiteOrganizationSetupButton.textContent = organization ? "Connect existing organization" : "Create and connect organization";
   websiteOrganizationSetupCopy.textContent = organization
     ? `Attach ${selectedWebsite.name} to ${organization.name}. Its existing project, billing, domain, and service records will stay unchanged.`
-    : `Create a protected client organization from ${selectedWebsite.name}'s verified website owner. Existing project, billing, domain, and service records will stay unchanged.`;
+    : `Choose the confirmed N3XRA account that should own ${selectedWebsite.name}. N3XRA will create the protected client organization, assign that account as its administrator, and preserve existing project, billing, domain, and service records.`;
 }
 
 function renderMembers() {
@@ -621,21 +635,33 @@ async function loadMembers() {
     return;
   }
   const data = await invokeAdmin({ action: "list-website-members", websiteId: selectedWebsite.id });
-  members = (data.members || []).map((member) => ({ ...member, role: member.role === "owner" ? "account_admin" : member.role }));
+  members = (data.members || []).map((member) => ({ ...member, website_role: member.role, role: member.role === "owner" ? "account_admin" : member.role }));
   memberInvites = [];
   memberUserLimit = 0;
   canManageMembers = false;
   memberForm.querySelectorAll("input,select,button").forEach((control) => { control.disabled = true; });
   setMemberStatus("");
   renderMembers();
+  renderWebsiteOrganizationSetup();
   await loadProjectLifecycle();
 }
 
 async function connectWebsiteOrganization() {
   if (!selectedWebsite || selectedWebsite.organization_id || !websiteOrganizationSetupButton) return;
   websiteOrganizationSetupButton.disabled = true;
+  const selectedOrganizationId = websiteOrganizationSelect?.value || null;
+  const assignedOwner = members.find((member) => (member.website_role || member.role) === "owner" && member.status === "active");
+  const selectedOwnerId = websiteOrganizationOwnerSelect?.value || assignedOwner?.user_id || null;
+  if (!selectedOrganizationId && !selectedOwnerId) {
+    websiteOrganizationSetupButton.disabled = false;
+    if (websiteOrganizationSetupStatus) {
+      websiteOrganizationSetupStatus.textContent = "Choose the confirmed account that should own this organization.";
+      websiteOrganizationSetupStatus.classList.add("is-error");
+    }
+    return;
+  }
   if (websiteOrganizationSetupStatus) {
-    websiteOrganizationSetupStatus.textContent = websiteOrganizationSelect?.value
+    websiteOrganizationSetupStatus.textContent = selectedOrganizationId
       ? "Connecting the existing organization…"
       : "Creating the client organization…";
     websiteOrganizationSetupStatus.classList.remove("is-error");
@@ -643,7 +669,8 @@ async function connectWebsiteOrganization() {
   try {
     const { data, error } = await supabase.rpc("platform_connect_website_client_organization", {
       input_website_id: selectedWebsite.id,
-      input_organization_id: websiteOrganizationSelect?.value || null,
+      input_organization_id: selectedOrganizationId,
+      input_owner_user_id: selectedOwnerId,
     });
     if (error) throw error;
     selectedWebsite.organization_id = data.organization_id;
@@ -1256,11 +1283,12 @@ function handleProjectLinkClick(event) {
 }
 
 async function loadWebsites(preferredId) {
-  const [websiteResult, domainResult, repositoryResult, organizationResult] = await Promise.all([
+  const [websiteResult, domainResult, repositoryResult, organizationResult, accountResult] = await Promise.all([
     supabase.from("client_websites").select("*").order("name"),
     supabase.from("website_domains").select("website_id,domain_name,is_primary").order("is_primary", { ascending: false }),
     supabase.from("website_repositories").select("website_id,full_name,created_at").order("created_at"),
     supabase.from("organizations").select("id,name,owner_user_id,account_status").order("name"),
+    invokeAdmin({ action: "list-platform-accounts" }),
   ]);
   if (websiteResult.error) throw websiteResult.error;
   if (domainResult.error) throw domainResult.error;
@@ -1270,6 +1298,10 @@ async function loadWebsites(preferredId) {
   domains = domainResult.data || [];
   repositories = repositoryResult.data || [];
   organizations = organizationResult.data || [];
+  clientAccounts = (accountResult?.accounts || [])
+    .filter((account) => account.emailConfirmedAt && !account.bannedUntil && !account.isAnonymous)
+    .map((account) => ({ id: account.id, email: account.email, name: account.name }))
+    .sort((a, b) => String(a.name || a.email).localeCompare(String(b.name || b.email)));
   renderWebsiteOptions();
   const requested = preferredId || new URLSearchParams(window.location.search).get("website")
     || readWorkspaceContext("admin", currentUser?.id).websiteId;

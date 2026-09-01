@@ -127,20 +127,26 @@ test("confirmed accounts are attached immediately and organization teams default
 });
 
 test("legacy websites expose a platform-admin-only organization connection without activating other products", async () => {
-  const [html, admin, migration, existingOrganizationMigration] = await Promise.all([
+  const [html, admin, migration, existingOrganizationMigration, selectedOwnerMigration] = await Promise.all([
     projectFile("n3xra-admin/websites/index.html"),
     projectFile("n3xra-admin/websites/websites-admin.js"),
     projectFile("supabase/migrations/20260823234716_connect_website_client_organization.sql"),
     projectFile("supabase/migrations/20260824131658_connect_website_to_existing_organization.sql"),
+    projectFile("supabase/migrations/20260901164039_connect_website_with_selected_owner.sql"),
   ]);
 
   assert.match(html, /id="website-organization-setup" hidden/);
   assert.match(html, /Create and connect organization/);
   assert.match(html, /id="website-organization-select"/);
+  assert.match(html, /id="website-organization-owner-select"/);
+  assert.match(html, /Choose a confirmed N3XRA account/);
   assert.match(html, /Existing organization/);
+  assert.doesNotMatch(html, /id="website-support-work-panel"/);
   assert.match(admin, /Boolean\(selectedWebsite && !selectedWebsite\.organization_id\)/);
   assert.match(admin, /platform_connect_website_client_organization/);
-  assert.match(admin, /input_organization_id: websiteOrganizationSelect\?\.value \|\| null/);
+  assert.match(admin, /action: "list-platform-accounts"/);
+  assert.match(admin, /input_organization_id: selectedOrganizationId/);
+  assert.match(admin, /input_owner_user_id: selectedOwnerId/);
   assert.match(admin, /Connect existing organization/);
   assert.match(admin, /selectedWebsite\.organization_id = data\.organization_id/);
   assert.match(migration, /not public\.is_platform_admin\(\)/);
@@ -155,6 +161,11 @@ test("legacy websites expose a platform-admin-only organization connection witho
   assert.match(existingOrganizationMigration, /organization\.owner_user_id = target_owner_user_id/);
   assert.match(existingOrganizationMigration, /insert into public\.website_members/);
   assert.match(existingOrganizationMigration, /grant execute on function public\.platform_connect_website_client_organization\(uuid, uuid\)[\s\S]*to authenticated/);
+  assert.match(selectedOwnerMigration, /input_owner_user_id uuid default null/);
+  assert.match(selectedOwnerMigration, /auth\.users[\s\S]*email_confirmed_at is not null/);
+  assert.match(selectedOwnerMigration, /insert into public\.website_members/);
+  assert.match(selectedOwnerMigration, /update public\.website_projects[\s\S]*client_user_id = target_owner_user_id/);
+  assert.match(selectedOwnerMigration, /grant execute on function public\.platform_connect_website_client_organization\(uuid, uuid, uuid\)[\s\S]*to authenticated/);
 });
 
 test("team mutations protect owners, bind invites to email, and preserve tenant isolation", async () => {

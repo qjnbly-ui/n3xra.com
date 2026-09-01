@@ -68,24 +68,6 @@
           </div>
         </div>
 
-        <section class="portal-access-panel website-support-work-panel" id="website-support-work-panel" hidden aria-labelledby="website-support-work-title">
-          <div class="portal-toolbar">
-            <div><p class="portal-kicker">Requests &amp; work</p><h3 id="website-support-work-title">Start work for this website</h3><p id="website-support-work-copy">Create client-visible work for the selected website.</p></div>
-            <button class="portal-button" id="website-support-work-open" type="button">New work</button>
-          </div>
-          <form class="website-support-work-form" id="website-support-work-form" hidden>
-            <div class="portal-form-grid">
-              <label>Type<select id="website-support-work-topic"><option value="website-change">Website change</option><option value="analytics">Site analytics</option><option value="communications">Communications</option><option value="new-feature">New feature or idea</option><option value="technical-support">Technical support</option><option value="other">Other</option></select></label>
-              <label>Title<input id="website-support-work-subject" maxlength="140" required placeholder="Configure site analytics"></label>
-              <label class="website-support-work-wide">Work description<textarea id="website-support-work-message" rows="4" maxlength="4000" required></textarea></label>
-              <label>Estimated start<input id="website-support-work-start" type="datetime-local"></label>
-              <label>Estimated completion<input id="website-support-work-completion" type="datetime-local"></label>
-              <label class="website-support-work-wide">First client-visible update<textarea id="website-support-work-note" rows="3" maxlength="8000" placeholder="Optional note the client will see"></textarea></label>
-            </div>
-            <div class="portal-form-actions"><button class="portal-button portal-button-secondary" id="website-support-work-cancel" type="button">Cancel</button><button class="portal-button" type="submit">Create visible work</button><p class="portal-inline-status" id="website-support-work-status" role="status"></p></div>
-          </form>
-        </section>
-
         <section class="portal-access-panel" id="access-panel" hidden aria-labelledby="access-title">
           <div class="portal-toolbar">
             <div>
@@ -100,10 +82,16 @@
               <p id="website-organization-setup-copy">Create the client organization from the website's verified owner before inviting team members.</p>
             </div>
             <div class="website-organization-setup-actions">
+              <label id="website-organization-owner-wrap">
+                Organization owner
+                <select id="website-organization-owner-select">
+                  <option value="">Choose a confirmed N3XRA account</option>
+                </select>
+              </label>
               <label>
                 Existing organization
                 <select id="website-organization-select">
-                  <option value="">Create from the assigned website owner</option>
+                  <option value="">Create a new organization</option>
                 </select>
               </label>
               <button class="portal-button" id="website-organization-setup-button" type="button">Create and connect organization</button>
@@ -225,6 +213,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Verifying master admin access…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=7"></script>
+  <script type="module" src="/n3xra-admin/websites/websites-admin.js?v=8"></script>
 </body>
 </html>
