@@ -196,15 +196,19 @@ function syncCopilotOpenState() {
 function updateTotal() {
   const oneTimeTotal = Math.max(moneyToCents(document.getElementById(fieldIds.subtotal_cents).value) - moneyToCents(document.getElementById(fieldIds.discount_cents).value), 0);
   const recurringTotal = moneyToCents(document.getElementById(fieldIds.recurring_cents).value);
-  const reviewRequired = document.getElementById(fieldIds.recurring_start_policy).value === "review_required";
-  let immediateAddOns = 0;
+  const requestedDeposit = moneyToCents(document.getElementById(fieldIds.deposit_cents).value);
+  let initialOutsideTotal = 0;
   try {
-    immediateAddOns = collectLineItems()
-      .filter((item) => item.billing_type === "recurring" && !["maintenance", "hosting"].includes(item.category))
+    initialOutsideTotal = collectLineItems()
+      .filter((item) => item.billing_type === "one_time" && ["domain", "email", "ssl_cdn", "integration"].includes(item.category))
       .reduce((sum, item) => sum + Math.round(item.quantity * item.unit_amount_cents), 0);
   } catch { /* Keep totals stable while a line is being edited. */ }
+  const initialPayment = requestedDeposit > 0
+    ? Math.min(oneTimeTotal, requestedDeposit + initialOutsideTotal)
+    : oneTimeTotal;
   document.getElementById(fieldIds.total_cents).value = centsToMoney(oneTimeTotal);
-  document.getElementById("proposal-checkout-total").value = centsToMoney(oneTimeTotal + immediateAddOns + (reviewRequired ? 0 : recurringTotal));
+  document.getElementById("proposal-checkout-total").value = centsToMoney(initialPayment);
+  document.getElementById("proposal-remaining-balance").value = centsToMoney(Math.max(oneTimeTotal - initialPayment, 0));
   renderBillingArrangement(recurringTotal);
 }
 
@@ -1441,6 +1445,7 @@ async function init() {
     if (event.target.closest("#apply-proposal-ai")) applyCopilotRun().catch((error) => setCopilotStatus(error.message, true));
   });
   document.getElementById(fieldIds.discount_cents).addEventListener("input", updateTotal);
+  document.getElementById(fieldIds.deposit_cents).addEventListener("input", updateTotal);
   document.getElementById(fieldIds.recurring_start_policy).addEventListener("change", updateTotal);
   document.getElementById(fieldIds.complimentary_months).addEventListener("input", updateTotal);
   document.getElementById(fieldIds.review_notice_days).addEventListener("input", updateTotal);

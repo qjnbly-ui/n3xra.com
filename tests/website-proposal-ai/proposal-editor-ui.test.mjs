@@ -98,6 +98,16 @@ test("direct website projects can start an agreement or request connected detail
   assert.match(onboardingEmail, /RESEND_API_KEY/);
 });
 
+test("the proposal payment summary follows the saved deposit and build balance", () => {
+  assert.match(html, /Initial payment \(\$\).*proposal-checkout-total/s);
+  assert.match(html, /Requested project deposit \(\$\).*proposal-deposit/s);
+  assert.match(html, /Remaining build balance \(\$\).*proposal-remaining-balance/s);
+  assert.doesNotMatch(html, /Due now \(\$\)/);
+  assert.match(script, /requestedDeposit > 0[\s\S]*requestedDeposit \+ initialOutsideTotal/);
+  assert.match(script, /oneTimeTotal - initialPayment/);
+  assert.match(script, /fieldIds\.deposit_cents\)\.addEventListener\("input", updateTotal\)/);
+});
+
 test("the client accepts the same agreement version used for billing", () => {
   assert.match(clientHtml, /Proposal &amp; Agreement/);
   assert.match(clientHtml, /Accept agreement/);
