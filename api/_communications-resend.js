@@ -37,7 +37,8 @@ function asObject(value, label) {
 }
 function canonicalPayload(input) {
     const workspaceId = requiredUuid(input.workspaceId, "Workspace");
-    const subscriberId = requiredUuid(input.subscriberId, "Subscriber");
+    const testDelivery = input.testDelivery === true;
+    const subscriberId = testDelivery ? null : requiredUuid(input.subscriberId, "Subscriber");
     const idempotencyKey = requiredString(input.idempotencyKey, "Idempotency key", 200);
     const from = requiredEmail(input.from, "From address");
     const to = requiredEmail(input.to, "To address");
@@ -52,6 +53,7 @@ function canonicalPayload(input) {
     return {
         workspaceId,
         subscriberId,
+        testDelivery,
         idempotencyKey,
         from,
         to,
@@ -105,15 +107,18 @@ async function sendResendEmail(input, dependencies = {}) {
     const hash = payloadHash(canonical);
     if (!SHA256_PATTERN.test(hash))
         throw new Error("Email payload hashing failed.");
-    const prepared = asObject(await rpc(database, "communications_prepare_resend_delivery", {
+    const testDelivery = canonical.testDelivery === true;
+    const prepareFunction = testDelivery ? "communications_prepare_resend_test_delivery" : "communications_prepare_resend_delivery";
+    const prepareBody = {
         input_workspace_id: canonical.workspaceId,
-        input_subscriber_id: canonical.subscriberId,
+        ...(testDelivery ? {} : { input_subscriber_id: canonical.subscriberId }),
         input_idempotency_key: canonical.idempotencyKey,
         input_payload_hash: hash,
         input_from_address: canonical.from,
         input_to_address: canonical.to,
         input_subject: canonical.subject,
-    }), "communications_prepare_resend_delivery");
+    };
+    const prepared = asObject(await rpc(database, prepareFunction, prepareBody), prepareFunction);
     const requestId = requiredUuid(prepared.request_id, "Delivery request");
     const claim = asObject(await rpc(database, "communications_claim_resend_delivery", {
         input_request_id: requestId,

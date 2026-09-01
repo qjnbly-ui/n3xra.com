@@ -3,10 +3,12 @@ const node_crypto_1 = require("node:crypto");
 const twilio = require("twilio");
 const { authenticatedUser, clean, firstRow, sendJson, supabaseJson } = require("./_communications");
 const { sendResendEmail } = require("./_communications-resend");
+const { loadCommunicationsEmailBrand, renderCommunicationsEmail } = require("./communications-email");
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ACTIVE_ENTITLEMENTS = new Set(["trialing", "active", "past_due"]);
 const SEND_ROLES = new Set(["account_admin", "editor"]);
 const MAX_RECIPIENTS = 500;
+const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
 function httpError(status, message) {
     const error = new Error(message);
     error.status = status;
@@ -34,9 +36,6 @@ function normalizeChannels(value) {
         throw httpError(400, "Choose text messages, email, or both.");
     return channels;
 }
-function escapeHtml(value) {
-    return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
-}
 function smsSegments(message) {
     const gsm = /^[\x0A\x0D\x20-\x7E£¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉÄÖÑÜ§¿äöñüà^{}\\\[~\]|€]*$/;
     const extended = (message.match(/[\^{}\\\[\]~|€]/g) || []).length;
@@ -49,7 +48,7 @@ async function requireSender(req, workspaceId, database = supabaseJson) {
     const user = await authenticatedUser(req);
     if (!user?.id)
         throw httpError(401, "Authentication required.");
-    const workspace = firstRow(await database(`communications_workspaces?select=id,organization_id,program_name,sender_name,support_email,status,sms_overage_cents&id=eq.${encodeURIComponent(workspaceId)}&limit=1`));
+    const workspace = firstRow(await database(`communications_workspaces?select=id,organization_id,program_name,sender_name,website_url,support_email,status,sms_overage_cents&id=eq.${encodeURIComponent(workspaceId)}&limit=1`));
     if (!workspace)
         throw httpError(404, "Communications workspace not found.");
     const [entitlement, access, platformAdmin] = await Promise.all([
@@ -117,7 +116,12 @@ async function deliverEmail(database, context, recipient) {
     if (!domain?.domain)
         throw httpError(409, "Email needs a verified sending domain before it can be sent.");
     const from = `updates@${domain.domain}`;
-    const footer = `You received this because you subscribed to ${context.workspace.program_name}. To change your email preference, contact ${context.workspace.support_email}.`;
+    const content = renderCommunicationsEmail({
+        brand: context.emailBrand,
+        message: context.message,
+        supportEmail: context.workspace.support_email,
+        programName: context.workspace.program_name,
+    });
     const result = await sendResendEmail({
         workspaceId: context.workspace.id,
         subscriberId: recipient.subscriber_id,
@@ -125,8 +129,8 @@ async function deliverEmail(database, context, recipient) {
         from,
         to: recipient.email,
         subject: context.subject,
-        text: `${context.message}\n\n${footer}`,
-        html: `<div style="font-family:Arial,sans-serif;line-height:1.65;white-space:pre-wrap">${escapeHtml(context.message)}</div><hr><p style="color:#667085;font:12px Arial,sans-serif">${escapeHtml(footer)}</p>`,
+        text: content.text,
+        html: content.html,
         replyTo: context.workspace.support_email,
     });
     return String(result.providerMessageId || "");
@@ -188,9 +192,10 @@ async function handler(req, res) {
     res.setHeader("Cache-Control", "private, no-store");
     try {
         const body = parseBody(req);
+        const operation = clean(body.operation, 20).toLowerCase() || "send";
+        if (!new Set(["send", "preview", "test"]).has(operation))
+            throw httpError(400, "Communications operation is invalid.");
         const workspaceId = requiredUuid(body.workspaceId, "Workspace");
-        const idempotencyKey = requiredUuid(body.idempotencyKey, "Send request");
-        const topicId = body.topicId ? requiredUuid(body.topicId, "Topic") : "";
         const channels = normalizeChannels(body.channels);
         const message = clean(body.message, 1600);
         const subject = channels.includes("email") ? clean(body.subject, 300) : "";
@@ -199,6 +204,39 @@ async function handler(req, res) {
         if (channels.includes("email") && !subject)
             throw httpError(400, "Enter an email subject.");
         const { user, workspace } = await requireSender(req, workspaceId);
+        const emailBrand = channels.includes("email") ? await loadCommunicationsEmailBrand(supabaseJson, workspace) : null;
+        if (operation === "preview") {
+            if (!channels.includes("email") || !emailBrand)
+                throw httpError(400, "Choose email to preview this update.");
+            const content = renderCommunicationsEmail({ brand: emailBrand, message, supportEmail: workspace.support_email, programName: workspace.program_name });
+            return sendJson(res, 200, { ok: true, subject, html: content.html, text: content.text, brandName: emailBrand.name });
+        }
+        if (operation === "test") {
+            if (!channels.includes("email") || !emailBrand)
+                throw httpError(400, "Choose email before sending a test.");
+            const testEmail = clean(body.testEmail, 320).toLowerCase();
+            if (!EMAIL_PATTERN.test(testEmail))
+                throw httpError(400, "Enter a valid test email address.");
+            const testRequestId = requiredUuid(body.idempotencyKey, "Test request");
+            const domain = firstRow(await supabaseJson(`communications_sending_domains?select=domain&workspace_id=eq.${encodeURIComponent(workspace.id)}&provider=eq.resend&status=eq.verified&limit=1`));
+            if (!domain?.domain)
+                throw httpError(409, "Email needs a verified sending domain before a test can be sent.");
+            const content = renderCommunicationsEmail({ brand: emailBrand, message, supportEmail: workspace.support_email, programName: workspace.program_name });
+            const result = await sendResendEmail({
+                workspaceId,
+                testDelivery: true,
+                idempotencyKey: `test/${testRequestId}`,
+                from: `updates@${domain.domain}`,
+                to: testEmail,
+                subject,
+                text: content.text,
+                html: content.html,
+                replyTo: workspace.support_email,
+            });
+            return sendJson(res, 200, { ok: true, sent: result.sent !== false, existing: result.existing === true, testEmail });
+        }
+        const idempotencyKey = requiredUuid(body.idempotencyKey, "Send request");
+        const topicId = body.topicId ? requiredUuid(body.topicId, "Topic") : "";
         const subscribers = await audience(supabaseJson, workspaceId, topicId);
         const deliveries = subscribers.flatMap((subscriber) => channels.flatMap((channel) => {
             const address = channel === "email" ? subscriber.email : subscriber.phone_e164;
@@ -250,7 +288,7 @@ async function handler(req, res) {
                 try {
                     const deliveryRecipient = { ...subscriber, subscriber_id: subscriber.id };
                     const providerId = row.channel === "email"
-                        ? await deliverEmail(supabaseJson, { workspace, broadcast, message, subject }, deliveryRecipient)
+                        ? await deliverEmail(supabaseJson, { workspace, broadcast, message, subject, emailBrand }, deliveryRecipient)
                         : await deliverSms(supabaseJson, { workspace, broadcast, message }, deliveryRecipient);
                     sentCount += 1;
                     await updateRecipient(supabaseJson, row.id, "sent", providerId, null);

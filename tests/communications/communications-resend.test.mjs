@@ -100,6 +100,32 @@ test("an already claimed delivery never calls Resend again", async () => {
   assert.equal(result.providerMessageId, "resend-existing");
 });
 
+test("test delivery accepts an entered inbox through the dedicated audited preparation path", async () => {
+  const calls = [];
+  const database = async (path, options) => {
+    const body = JSON.parse(options.body);
+    calls.push({ path, body });
+    if (path.endsWith("communications_prepare_resend_test_delivery")) return { request_id: requestId, status: "prepared" };
+    if (path.endsWith("communications_claim_resend_delivery")) return { request_id: requestId, status: "sending", should_send: true };
+    return { request_id: requestId, status: "sent", existing: false };
+  };
+  const result = await resend.sendResendEmail({
+    ...deliveryInput(),
+    subscriberId: undefined,
+    testDelivery: true,
+    idempotencyKey: "test/44444444-4444-4444-8444-444444444444",
+    to: "owner@example.com",
+  }, {
+    database,
+    fetch: async () => new Response(JSON.stringify({ id: "resend-test-1" }), { status: 200, headers: { "Content-Type": "application/json" } }),
+    apiKey: "re_test_server_only",
+  });
+  assert.equal(result.sent, true);
+  assert.match(calls[0].path, /communications_prepare_resend_test_delivery$/);
+  assert.equal(calls[0].body.input_to_address, "owner@example.com");
+  assert.equal("input_subscriber_id" in calls[0].body, false);
+});
+
 test("retryable provider failures are recorded before being rethrown", async () => {
   const calls = [];
   const database = async (path, options) => {
@@ -238,6 +264,18 @@ test("the migration keeps provider history private, immutable, ordered, and serv
   assert.match(migration, /on conflict \(email\) where workspace_id is null do update/);
   assert.match(migration, /normalized_event_type = 'suppression\.removed' and suppression_state_applied/);
   assert.doesNotMatch(migration, /RESEND_API_KEY|COMMUNICATIONS_RESEND_API_KEY|WEBHOOK_SECRET|service_role_key/i);
+});
+
+test("entered-recipient test delivery is rate-limited, audited, and excluded from broadcast usage", async () => {
+  const migration = await projectFile("supabase/migrations/20260901030343_communications_test_email_delivery.sql");
+  assert.match(migration, /delivery_kind text not null default 'broadcast'/);
+  assert.match(migration, /communications_prepare_resend_test_delivery/);
+  assert.match(migration, /request\.created_at > now\(\) - interval '15 minutes'/);
+  assert.match(migration, />= 5 then raise exception 'Wait before sending another test email\.'/);
+  assert.match(migration, /if target_request\.delivery_kind = 'broadcast' then[\s\S]*insert into public\.communications_message_events/);
+  assert.match(migration, /test_delivery_prepared/);
+  assert.match(migration, /revoke all on function public\.communications_prepare_resend_test_delivery[\s\S]*from public, anon, authenticated/);
+  assert.match(migration, /grant execute on function public\.communications_prepare_resend_test_delivery[\s\S]*to service_role/);
 });
 
 test("provider credentials and verification stay exclusively in server code", async () => {

@@ -111,9 +111,19 @@ function setupComposer(session, workspace, organizationName, topics, topicMetric
     const status = document.querySelector("#communications-send-status");
     const readiness = document.querySelector("#communications-delivery-readiness");
     const button = document.querySelector("#communications-send-button");
+    const previewButton = document.querySelector("#communications-preview-button");
+    const previewDialog = document.querySelector("#communications-preview-dialog");
+    const previewClose = document.querySelector("#communications-preview-close");
+    const previewFrame = document.querySelector("#communications-preview-frame");
+    const previewSubject = document.querySelector("#communications-preview-subject");
+    const previewBrand = document.querySelector("#communications-preview-brand");
+    const testEmail = document.querySelector("#communications-test-email");
+    const testSend = document.querySelector("#communications-test-send");
+    const testStatus = document.querySelector("#communications-test-status");
     const channelInputs = [...document.querySelectorAll('input[name="channel"]')];
-    if (!form || !audience || !subjectField || !subject || !message || !status || !readiness || !button)
+    if (!form || !audience || !subjectField || !subject || !message || !status || !readiness || !button || !previewButton || !previewDialog || !previewFrame || !testEmail || !testSend || !testStatus)
         return;
+    testEmail.value = String(session.user?.email || "");
     const topicCounts = new Map(topicMetrics.map((metric) => [metric.topic_id, Number(metric.subscriber_count || 0)]));
     audience.innerHTML = `<option value="">All subscribed people (${Number(metrics.total_subscribers || 0)})</option>${topics.map((topic) => `<option value="${escapeHtml(topic.id)}">${escapeHtml(topic.name)} (${topicCounts.get(topic.id) || 0})</option>`).join("")}`;
     const smsState = channelStates.find((channel) => channel.channel === "sms");
@@ -136,6 +146,7 @@ function setupComposer(session, workspace, organizationName, topics, topicMetric
         const includesEmail = selectedChannels.includes("email");
         subjectField.hidden = !includesEmail;
         subject.required = includesEmail;
+        previewButton.hidden = !includesEmail;
         const selectedTopic = audience.selectedOptions[0]?.textContent || "this audience";
         status.className = "";
         status.textContent = selectedChannels.length
@@ -145,6 +156,87 @@ function setupComposer(session, workspace, organizationName, topics, topicMetric
     channelInputs.forEach((input) => input.addEventListener("change", updateFormState));
     audience.addEventListener("change", updateFormState);
     message.addEventListener("input", () => setText("#communications-character-count", String(message.value.length)));
+    previewClose?.addEventListener("click", () => previewDialog.close());
+    previewDialog.addEventListener("click", (event) => {
+        if (event.target === previewDialog)
+            previewDialog.close();
+    });
+    testSend.addEventListener("click", async () => {
+        testStatus.className = "";
+        if (!testEmail.reportValidity())
+            return;
+        testSend.disabled = true;
+        testSend.textContent = "Sending…";
+        testStatus.textContent = `Sending the branded test to ${testEmail.value.trim()}…`;
+        try {
+            const response = await fetch("/api/communications-send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                body: JSON.stringify({
+                    operation: "test",
+                    workspaceId: workspace.id,
+                    channels: ["email"],
+                    subject: subject.value.trim(),
+                    message: message.value.trim(),
+                    testEmail: testEmail.value.trim(),
+                    idempotencyKey: crypto.randomUUID(),
+                }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.ok)
+                throw new Error(result.error || "The test email could not be sent.");
+            testStatus.className = "is-success";
+            testStatus.textContent = `Test email sent to ${result.testEmail || testEmail.value.trim()}.`;
+        }
+        catch (error) {
+            testStatus.className = "is-error";
+            testStatus.textContent = error instanceof Error ? error.message : "The test email could not be sent.";
+        }
+        finally {
+            testSend.disabled = false;
+            testSend.textContent = "Send test email";
+        }
+    });
+    previewButton.addEventListener("click", async () => {
+        if (!message.value.trim() || !subject.value.trim()) {
+            status.className = "is-error";
+            status.textContent = "Add an email subject and message before opening the preview.";
+            if (!subject.value.trim())
+                subject.focus();
+            else
+                message.focus();
+            return;
+        }
+        previewButton.disabled = true;
+        previewButton.textContent = "Preparing…";
+        status.className = "";
+        status.textContent = "Building the website-branded email preview…";
+        try {
+            const response = await fetch("/api/communications-send", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${session.access_token}` },
+                body: JSON.stringify({ operation: "preview", workspaceId: workspace.id, channels: ["email"], subject: subject.value.trim(), message: message.value.trim() }),
+            });
+            const result = await response.json().catch(() => ({}));
+            if (!response.ok || !result.ok || typeof result.html !== "string")
+                throw new Error(result.error || "The email preview could not be prepared.");
+            previewFrame.srcdoc = result.html;
+            if (previewSubject)
+                previewSubject.textContent = `Subject: ${result.subject || subject.value.trim()}`;
+            if (previewBrand)
+                previewBrand.textContent = `${result.brandName || organizationName || workspace.sender_name} · subscriber inbox`;
+            previewDialog.showModal();
+            status.textContent = "Preview ready. This is the same branded layout subscribers will receive.";
+        }
+        catch (error) {
+            status.className = "is-error";
+            status.textContent = error instanceof Error ? error.message : "The email preview could not be prepared.";
+        }
+        finally {
+            previewButton.disabled = false;
+            previewButton.textContent = "Preview email";
+        }
+    });
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
         const channels = channelInputs.filter((input) => input.checked && !input.disabled).map((input) => input.value);

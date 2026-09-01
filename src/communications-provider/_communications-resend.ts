@@ -15,7 +15,8 @@ const DEFAULT_SIGNATURE_TOLERANCE_SECONDS = 300;
 
 interface SendResendEmailInput {
   workspaceId: string;
-  subscriberId: string;
+  subscriberId?: string;
+  testDelivery?: boolean;
   idempotencyKey: string;
   from: string;
   to: string;
@@ -94,7 +95,8 @@ function asObject(value: unknown, label: string): JsonObject {
 
 function canonicalPayload(input: SendResendEmailInput): JsonObject {
   const workspaceId = requiredUuid(input.workspaceId, "Workspace");
-  const subscriberId = requiredUuid(input.subscriberId, "Subscriber");
+  const testDelivery = input.testDelivery === true;
+  const subscriberId = testDelivery ? null : requiredUuid(input.subscriberId, "Subscriber");
   const idempotencyKey = requiredString(input.idempotencyKey, "Idempotency key", 200);
   const from = requiredEmail(input.from, "From address");
   const to = requiredEmail(input.to, "To address");
@@ -107,6 +109,7 @@ function canonicalPayload(input: SendResendEmailInput): JsonObject {
   return {
     workspaceId,
     subscriberId,
+    testDelivery,
     idempotencyKey,
     from,
     to,
@@ -166,15 +169,18 @@ async function sendResendEmail(
 
   const hash = payloadHash(canonical);
   if (!SHA256_PATTERN.test(hash)) throw new Error("Email payload hashing failed.");
-  const prepared = asObject(await rpc(database, "communications_prepare_resend_delivery", {
+  const testDelivery = canonical.testDelivery === true;
+  const prepareFunction = testDelivery ? "communications_prepare_resend_test_delivery" : "communications_prepare_resend_delivery";
+  const prepareBody: JsonObject = {
     input_workspace_id: canonical.workspaceId,
-    input_subscriber_id: canonical.subscriberId,
+    ...(testDelivery ? {} : { input_subscriber_id: canonical.subscriberId }),
     input_idempotency_key: canonical.idempotencyKey,
     input_payload_hash: hash,
     input_from_address: canonical.from,
     input_to_address: canonical.to,
     input_subject: canonical.subject,
-  }), "communications_prepare_resend_delivery") as PreparedResult;
+  };
+  const prepared = asObject(await rpc(database, prepareFunction, prepareBody), prepareFunction) as PreparedResult;
   const requestId = requiredUuid(prepared.request_id, "Delivery request");
 
   const claim = asObject(await rpc(database, "communications_claim_resend_delivery", {
