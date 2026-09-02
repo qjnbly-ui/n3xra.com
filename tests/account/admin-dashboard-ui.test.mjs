@@ -37,10 +37,10 @@ test("the account Admin tab keeps daily tools focused and isolates retired admin
   const adminSection = html.match(/<section class="dashboard-section admin-app-section[\s\S]+?<\/section>\s*<\/div>/)?.[0] || "";
 
   const adminCards = adminSection.match(/class="app-card admin-app-card"/g) || [];
-  assert.equal(adminCards.length, 9);
+  assert.equal(adminCards.length, 10);
   assert.doesNotMatch(html, /id="(?:music|virals)-app-card"/);
   assert.doesNotMatch(adminSection, /Utilities Admin|\/n3xra-admin\/utilities/);
-  assert.match(adminSection, /Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Project Cards[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
+  assert.match(adminSection, /Sales Leads[\s\S]*Admin Inbox[\s\S]*Accounts[\s\S]*Websites[\s\S]*Records[\s\S]*Project Cards[\s\S]*Support Requests[\s\S]*Billing &amp; Plans/);
   assert.match(adminSection, /Open all admin tools/);
   assert.match(adminSection, /Retired products[\s\S]*N3XRA Virals[\s\S]*N3XRA AI Music Generator/);
   assert.doesNotMatch(adminSection, /N3XRA Internal Records|open-admin-records-button/);
@@ -134,7 +134,7 @@ test("customer app cards use consistent N3XRA product names and clear access sta
   assert.match(html, /id="investment-interest-link" href="\/invest\/#ownership-updates"/);
   assert.match(script, /communicationsProductLink\.href = hasCommunicationsAccess[\s\S]*organization=\$\{encodeURIComponent\(communicationsEntitlement\.organization_id\)\}[\s\S]*"\/client-portal\/billing\/\?product=communications"/);
   assert.match(script, /websitePortalLink\.href = "\/client-portal\/"[\s\S]*websitePortalLink\.href = "\/website-request\/"/);
-  assert.match(script, /placeMoreFromN3xraCard\(partnerPortalCard, isApprovedPartner\)/);
+  assert.match(script, /placeMoreFromN3xraCard\(partnerPortalCard, isApprovedPartner, partnerAccessError/);
   assert.match(script, /\[projectCardsProductCard, hasProjectCardsAccess\]/);
   assert.match(script, /activate=1/);
   assert.match(script, /ownershipUpdateStatus = !interest[\s\S]*"Withdrawn"[\s\S]*"Submitted"/);

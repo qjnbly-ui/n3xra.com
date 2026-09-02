@@ -25,7 +25,7 @@ test("prospects remain separate from accounts and store private business-card im
   assert.doesNotMatch(controller, /auth\.admin|profiles|createUser|inviteUser/);
 });
 
-test("all platform administrators can open Prospects and announcements expose a consent-aware audience", async () => {
+test("authorized staff can open Sales Leads and announcements expose a consent-aware audience", async () => {
   const [navigation, session, announcementPage, announcementController, edgeFunction, smsConsent] = await Promise.all([
     read("account/admin/admin-navigation.js"),
     read("account/admin/admin-session.js"),
@@ -35,7 +35,7 @@ test("all platform administrators can open Prospects and announcements expose a 
     read("api/_sms-consent.js"),
   ]);
 
-  assert.match(navigation, /\["\/account\/admin\/prospects\/", "Prospects"\]/);
+  assert.match(navigation, /\["\/account\/admin\/prospects\/", "Sales Leads"\]/);
   assert.match(session, /"\/account\/admin\/prospects\/"/);
   assert.match(announcementPage, /<option value="prospects">Potential Clients<\/option>/);
   assert.match(announcementController, /recipientKeys:/);

@@ -11,7 +11,7 @@ const peopleLinks = [
 ];
 
 const customerOperationsLinks = [
-  ["/account/admin/prospects/", "Prospects"],
+  ["/account/admin/prospects/", "Sales Leads"],
   ["/account/admin/support/", "Support Requests"],
   ["/account/admin/billing/", "Billing & Plans"],
   ["/account/admin/operations/", "Financial Operations"],
@@ -162,11 +162,17 @@ function isOperationsAdministrator() {
   return String(window.__n3xraAdminRole || "").toLowerCase() === "operations_admin";
 }
 
+function isSalesRepresentative() {
+  return String(window.__n3xraAdminRole || "").toLowerCase() === "sales_rep";
+}
+
 function visibleLinks(items) {
+  if (isSalesRepresentative()) return items.filter(([href]) => ["/account/", "/account/admin/prospects/"].includes(href));
   return isOperationsAdministrator() ? items.filter(([href]) => operationsAdminAllowedLinks.has(href)) : items;
 }
 
 function visibleProductApps() {
+  if (isSalesRepresentative()) return [];
   return isOperationsAdministrator() ? productApps.filter((app) => operationsAdminProductKeys.has(app.key)) : productApps;
 }
 
@@ -451,7 +457,7 @@ function mobileNavigationMarkup() {
     ${mobileSection({ title: "Products", meta: `${availableProductApps.length} workspaces`, className: "admin-mobile-products", content: productContent })}
     ${mobileSection({ title: "Company", content: links(visibleLinks(companyLinks)) })}
     ${mobileSection({ title: "Tools", content: links(visibleLinks(toolLinks)) })}
-    ${isOperationsAdministrator() ? "" : mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
+    ${isOperationsAdministrator() || isSalesRepresentative() ? "" : mobileSection({ title: "Ownership", content: links(ownershipLinks) })}
   `;
 }
 
@@ -482,9 +488,9 @@ function navigationMarkup(mobile = false) {
     divider,
     label("Tools"),
     visibleLinks(toolLinks).map((item) => linkMarkup(item, mobile)).join(""),
-    isOperationsAdministrator() ? "" : divider,
-    isOperationsAdministrator() ? "" : label("Ownership"),
-    isOperationsAdministrator() ? "" : ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
+    isOperationsAdministrator() || isSalesRepresentative() ? "" : divider,
+    isOperationsAdministrator() || isSalesRepresentative() ? "" : label("Ownership"),
+    isOperationsAdministrator() || isSalesRepresentative() ? "" : ownershipLinks.map((item) => linkMarkup(item, mobile)).join(""),
   ].join("");
 }
 

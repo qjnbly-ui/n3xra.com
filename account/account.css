@@ -308,6 +308,12 @@ body {
   box-shadow: 0 8px 24px rgba(15, 22, 32, 0.035);
 }
 
+body[data-admin-role="sales_rep"] .admin-app-card:not([data-sales-leads-card]),
+body[data-admin-role="sales_rep"] .admin-product-section-head,
+body[data-admin-role="sales_rep"] .admin-all-tools-link {
+  display: none !important;
+}
+
 .admin-app-card .auth-kicker {
   font-size: 0.66rem;
 }

@@ -4,7 +4,8 @@ body:not(.admin-ready):not(.portal-loading):not(.product-native-admin) main.acco
   visibility: hidden;
 }
 
-body[data-admin-role="operations_admin"] [data-site-assistant-open] {
+body[data-admin-role="operations_admin"] [data-site-assistant-open],
+body[data-admin-role="sales_rep"] [data-site-assistant-open] {
   display: none !important;
 }
 

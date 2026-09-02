@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>N3XRA | Prospects</title>
-  <meta name="description" content="Private N3XRA prospect contacts and business-card scanning.">
+  <title>N3XRA | Sales Leads</title>
+  <meta name="description" content="Private N3XRA sales leads and business-card scanning.">
   <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
   <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -12,7 +12,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=17">
-  <link rel="stylesheet" href="/account/admin/admin.css?v=34">
+  <link rel="stylesheet" href="/account/admin/admin.css?v=35">
   <link rel="stylesheet" href="/account/admin/prospects/prospects.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script>
@@ -28,27 +28,27 @@
       <nav class="portal-nav"></nav>
       <section class="portal-workspace prospects-workspace">
         <header class="prospects-header">
-          <div><p class="portal-kicker">Potential clients</p><h1>Prospects</h1><p>Save contacts without creating accounts, then include only consented contacts in announcements.</p></div>
+          <div><p class="portal-kicker">Potential clients</p><h1>Sales Leads</h1><p>Save and maintain potential-client contacts without creating customer accounts.</p></div>
           <div class="prospects-header-actions">
             <button class="portal-button portal-button-secondary" id="prospect-add" type="button">Add manually</button>
             <button class="portal-button" id="prospect-scan" type="button">Scan business card</button>
           </div>
         </header>
 
-        <div class="prospects-metrics" aria-label="Prospect summary">
-          <article><span>Total prospects</span><strong id="prospect-total">0</strong></article>
+        <div class="prospects-metrics" aria-label="Sales lead summary">
+          <article><span>Total leads</span><strong id="prospect-total">0</strong></article>
           <article><span>Email audience</span><strong id="prospect-email-audience">0</strong></article>
           <article><span>Text audience</span><strong id="prospect-sms-audience">0</strong></article>
           <article><span>New</span><strong id="prospect-new-count">0</strong></article>
         </div>
 
         <div class="prospects-toolbar">
-          <label><span>Find a prospect</span><input id="prospect-search" type="search" placeholder="Name, company, email, interest…"></label>
+          <label><span>Find a lead</span><input id="prospect-search" type="search" placeholder="Name, company, email, interest…"></label>
           <label><span>Status</span><select id="prospect-status-filter"><option value="all">All statuses</option><option value="new">New</option><option value="contacted">Contacted</option><option value="qualified">Qualified</option><option value="nurturing">Nurturing</option><option value="not_interested">Not interested</option><option value="converted">Converted</option></select></label>
           <label><span>Interest</span><select id="prospect-interest-filter"><option value="all">All interests</option></select></label>
         </div>
 
-        <div class="prospects-list" id="prospect-list"><div class="prospects-empty">Loading prospects…</div></div>
+        <div class="prospects-list" id="prospect-list"><div class="prospects-empty">Loading sales leads…</div></div>
         <p class="admin-status" id="admin-status" role="status"></p>
       </section>
     </div>
@@ -102,15 +102,15 @@
       </section>
 
       <footer class="prospect-dialog-actions">
-        <button class="prospect-delete" id="prospect-delete" type="button" hidden>Delete contact</button>
+        <button class="prospect-delete" id="prospect-delete" type="button" hidden>Delete lead</button>
         <span></span>
         <button class="portal-button portal-button-secondary" id="prospect-cancel" type="button">Cancel</button>
-        <button class="portal-button" id="prospect-save" type="submit">Save prospect</button>
+        <button class="portal-button" id="prospect-save" type="submit">Save lead</button>
       </footer>
       <p class="prospect-form-status" id="prospect-form-status" role="status"></p>
     </form>
   </dialog>
 
-  <script type="module" src="/account/admin/admin.js?v=52"></script>
+  <script type="module" src="/account/admin/admin.js?v=53"></script>
 </body>
 </html>

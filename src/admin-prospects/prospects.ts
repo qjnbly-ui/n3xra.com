@@ -36,7 +36,7 @@ let scanMetadata: Row = {};
 
 const element = <T extends HTMLElement>(id: string): T => {
   const found = document.getElementById(id);
-  if (!found) throw new Error(`Prospects control is missing: ${id}`);
+  if (!found) throw new Error(`Sales Leads control is missing: ${id}`);
   return found as T;
 };
 
@@ -155,7 +155,7 @@ function renderContacts(): void {
       <span class="prospect-channel-stack"><i class="prospect-channel${contact.email_marketing_status === "subscribed" ? " is-on" : ""}">Email</i><i class="prospect-channel${contact.sms_marketing_status === "subscribed" ? " is-on" : ""}">Text</i></span>
     </button>`;
   }).join("") : '<div class="prospects-empty">No prospects match this view.</div>';
-  setPageStatus(`${rows.length} prospect${rows.length === 1 ? "" : "s"}`);
+  setPageStatus(`${rows.length} sales lead${rows.length === 1 ? "" : "s"}`);
 }
 
 function render(): void {
@@ -165,7 +165,7 @@ function render(): void {
 }
 
 async function loadContacts(): Promise<void> {
-  setPageStatus("Loading prospects…");
+  setPageStatus("Loading sales leads…");
   const { data, error } = await supabase.from("prospect_contacts").select("*").order("created_at", { ascending: false }).limit(5000);
   if (error) throw error;
   contacts = data || [];
@@ -225,8 +225,8 @@ function populateForm(contact: Row): void {
 async function openDialog(contact: Row | null = null, scanFirst = false): Promise<void> {
   resetForm();
   currentContact = contact;
-  element("prospect-dialog-title").textContent = contact ? "Edit prospect" : scanFirst ? "Scan a business card" : "Add a prospect";
-  element<HTMLButtonElement>("prospect-delete").hidden = !contact;
+  element("prospect-dialog-title").textContent = contact ? "Edit sales lead" : scanFirst ? "Scan a business card" : "Add a sales lead";
+  element<HTMLButtonElement>("prospect-delete").hidden = !contact || document.body.dataset.adminRole === "sales_rep";
   if (contact) {
     populateForm(contact);
     if (contact.card_image_path) {
@@ -415,13 +415,13 @@ async function saveProspect(event: SubmitEvent): Promise<void> {
     if (pendingCardBlob && currentContact?.card_image_path && currentContact.card_image_path !== uploadedPath) {
       await supabase.storage.from(BUCKET).remove([currentContact.card_image_path]);
     }
-    setDialogStatus("Prospect saved.", "success");
+    setDialogStatus("Sales lead saved.", "success");
     await loadContacts();
     window.setTimeout(closeDialog, 350);
   } catch (error) {
     if (uploadedPath && uploadedPath !== currentContact?.card_image_path) await supabase.storage.from(BUCKET).remove([uploadedPath]);
-    const message = error instanceof Error ? error.message : String((error as Row)?.message || "The prospect could not be saved.");
-    setDialogStatus(message.includes("duplicate key") ? "A prospect with that email already exists." : message, "error");
+    const message = error instanceof Error ? error.message : String((error as Row)?.message || "The sales lead could not be saved.");
+    setDialogStatus(message.includes("duplicate key") ? "A sales lead with that email already exists." : message, "error");
   } finally {
     button.disabled = false;
   }
@@ -429,9 +429,9 @@ async function saveProspect(event: SubmitEvent): Promise<void> {
 
 async function deleteProspect(): Promise<void> {
   if (!currentContact?.id) return;
-  const confirmed = await confirmAdminAction("Permanently delete this prospect and saved business-card image?", { title: "Delete prospect", confirmLabel: "Delete prospect" });
+  const confirmed = await confirmAdminAction("Permanently delete this sales lead and saved business-card image?", { title: "Delete sales lead", confirmLabel: "Delete sales lead" });
   if (!confirmed) return;
-  setDialogStatus("Deleting prospect…");
+  setDialogStatus("Deleting sales lead…");
   const { error } = await supabase.from("prospect_contacts").delete().eq("id", currentContact.id);
   if (error) return setDialogStatus(error.message, "error");
   if (currentContact.card_image_path) await supabase.storage.from(BUCKET).remove([currentContact.card_image_path]);

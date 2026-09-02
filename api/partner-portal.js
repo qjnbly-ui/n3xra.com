@@ -30,8 +30,8 @@ async function rest(path, options = {}) {
   return data;
 }
 
-async function approvedApplication(email) {
-  const rows = await rest(`founding_partner_applications?select=*&email=eq.${encodeURIComponent(email.toLowerCase())}&status=eq.approved&limit=1`);
+async function approvedApplication(userId) {
+  const rows = await rest(`founding_partner_applications?select=*&account_user_id=eq.${encodeURIComponent(userId)}&status=eq.approved&limit=1`);
   return rows?.[0] || null;
 }
 
@@ -74,7 +74,7 @@ export default async function handler(req, res) {
     const preview = Boolean(previewId);
     const application = preview
       ? await isFullAdmin(user.id) ? await approvedApplicationById(previewId) : null
-      : await approvedApplication(user.email);
+      : await approvedApplication(user.id);
     if (!application) return send(res, 403, { error: "An approved partner account is required." });
 
     if (req.method === "POST") {

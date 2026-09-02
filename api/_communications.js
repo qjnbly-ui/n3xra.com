@@ -102,6 +102,30 @@ async function requirePlatformAdmin(req) {
   return { user, admin: rows[0] };
 }
 
+async function requireSalesLeadAccess(req) {
+  const user = await authenticatedUser(req);
+  if (!user?.id) {
+    const error = new Error("Authentication required.");
+    error.status = 401;
+    throw error;
+  }
+  const [administrators, salesRepresentatives] = await Promise.all([
+    supabaseJson(
+      `platform_admins?select=user_id,role,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&role=in.(owner,admin)&limit=1`,
+    ),
+    supabaseJson(
+      `platform_sales_representatives?select=user_id,status&user_id=eq.${encodeURIComponent(user.id)}&status=eq.active&limit=1`,
+    ),
+  ]);
+  const access = firstRow(administrators) || firstRow(salesRepresentatives);
+  if (!access) {
+    const error = new Error("Sales Leads access is required.");
+    error.status = 403;
+    throw error;
+  }
+  return { user, access };
+}
+
 function normalizedUrl(value) {
   try {
     const url = new URL(clean(value, 500));
@@ -200,6 +224,7 @@ module.exports = {
   normalizeKeyword,
   normalizePhone,
   requirePlatformAdmin,
+  requireSalesLeadAccess,
   resolveRequesterOwnership,
   sendJson,
   supabaseJson,

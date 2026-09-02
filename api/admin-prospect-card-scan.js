@@ -1,4 +1,4 @@
-const { requirePlatformAdmin, sendJson } = require("./_communications");
+const { requireSalesLeadAccess, sendJson } = require("./_communications");
 const { analyzeProspectBusinessCard } = require("./_ai-core/prospect-card");
 
 module.exports = async function handler(req, res) {
@@ -6,7 +6,7 @@ module.exports = async function handler(req, res) {
   if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed." });
 
   try {
-    await requirePlatformAdmin(req);
+    await requireSalesLeadAccess(req);
     const imageDataUrl = String(req.body?.imageDataUrl || "");
     const result = await analyzeProspectBusinessCard(imageDataUrl);
     return sendJson(res, 200, { success: true, ...result });

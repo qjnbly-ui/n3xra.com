@@ -53,6 +53,7 @@ function normalizeAdminPath(pathname = window.location.pathname) {
 export function canOpenAdminPath(role, pathname = window.location.pathname) {
   const normalizedRole = String(role || "").toLowerCase();
   if (["owner", "admin"].includes(normalizedRole)) return true;
+  if (normalizedRole === "sales_rep") return normalizeAdminPath(pathname) === "/account/admin/prospects/";
   return normalizedRole === "operations_admin" && OPERATIONS_ADMIN_PATHS.has(normalizeAdminPath(pathname));
 }
 

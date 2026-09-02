@@ -208,11 +208,24 @@ function writeStoredValue(prefix, value) {
 }
 
 function hasCachedAdminAccess() {
-  return ["owner", "admin", "operations_admin"].includes(readStoredValue(ADMIN_ACCESS_CACHE_PREFIX));
+  return ["owner", "admin", "operations_admin", "sales_rep"].includes(readStoredValue(ADMIN_ACCESS_CACHE_PREFIX));
 }
 
 function hasAdminWorkspaceAccess(access) {
-  return ["owner", "admin", "operations_admin"].includes(String(access?.role || ""));
+  return ["owner", "admin", "operations_admin", "sales_rep"].includes(String(access?.role || ""));
+}
+
+function syncStaffWorkspaceLabel(role = "") {
+  const salesRepresentative = role === "sales_rep";
+  if (showAdminViewButton) showAdminViewButton.textContent = salesRepresentative ? "Sales" : "Admin";
+  const kicker = document.getElementById("staff-workspace-kicker");
+  const title = document.getElementById("staff-workspace-title");
+  const summary = document.getElementById("staff-workspace-summary");
+  if (kicker) kicker.textContent = salesRepresentative ? "Sales workspace" : "Admin quick access";
+  if (title) title.textContent = salesRepresentative ? "Partner / Sales Representative" : "Run N3XRA";
+  if (summary) summary.textContent = salesRepresentative
+    ? "Capture potential clients and keep each lead ready for handoff. Referral and commission activity remains in your Partner Portal."
+    : "Open the workspaces you use most. The complete admin menu remains available inside every workspace.";
 }
 
 function getPreferredDashboardView() {
@@ -696,11 +709,14 @@ async function loadProfileName() {
 }
 
 async function loadPartnerAccess() {
-  if (!currentSession?.access_token) return false;
+  if (!currentSession?.access_token) return { approved: false };
   const response = await fetch("/api/partner-portal", {
     headers: { Authorization: `Bearer ${currentSession.access_token}` },
   });
-  return response.ok;
+  if (response.ok) return { approved: true };
+  const payload = await response.json().catch(() => ({}));
+  if (response.status === 403) return { approved: false };
+  throw new Error(payload.error || "Partner Portal access could not be checked.");
 }
 
 async function invokePlatformAdmin(action, body = {}) {
@@ -730,7 +746,8 @@ async function loadPlatformAdminAccess() {
     };
     writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, platformAdminAccess.role);
     document.body.dataset.adminRole = platformAdminAccess.role;
-    document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", platformAdminAccess.role === "operations_admin"));
+    syncStaffWorkspaceLabel(platformAdminAccess.role);
+    document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", !["owner", "admin"].includes(platformAdminAccess.role)));
     return platformAdminAccess;
   }
 
@@ -743,7 +760,8 @@ async function loadPlatformAdminAccess() {
   }
   writeStoredValue(ADMIN_ACCESS_CACHE_PREFIX, hasAdminWorkspaceAccess(platformAdminAccess) ? platformAdminAccess.role : "");
   document.body.dataset.adminRole = String(platformAdminAccess?.role || "");
-  document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", platformAdminAccess?.role === "operations_admin"));
+  syncStaffWorkspaceLabel(String(platformAdminAccess?.role || ""));
+  document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", !["owner", "admin"].includes(String(platformAdminAccess?.role || ""))));
   return platformAdminAccess;
 }
 
@@ -833,7 +851,7 @@ async function renderDashboard(message = "") {
   // continues to enforce platform-admin authorization independently.
   canViewAdminApps = isPlatformAdminEmail(currentSession.user.email) || hasCachedAdminAccess();
   show(dashboardViewToggle, canViewAdminApps);
-  show(adminNotificationButton, canViewAdminApps);
+  show(adminNotificationButton, canViewAdminApps && readStoredValue(ADMIN_ACCESS_CACHE_PREFIX) !== "sales_rep");
   accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);
   setDashboardView(getPreferredDashboardView());
 
@@ -850,7 +868,8 @@ async function renderDashboard(message = "") {
     loadOrganizationAdminAccess(),
     loadContactCardProfile(),
   ]);
-  const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value === true;
+  const isApprovedPartner = partnerAccess.status === "fulfilled" && partnerAccess.value?.approved === true;
+  const partnerAccessError = partnerAccess.status === "rejected";
   const interest = investmentInterest.status === "fulfilled" ? investmentInterest.value : null;
 
   const firstMembership = memberships[0] || null;
@@ -944,6 +963,12 @@ async function renderDashboard(message = "") {
     partnerPortalSummary.textContent = "Manage your referral code, balances, referrals, and commission history.";
     partnerPortalLink.href = "/client-portal/partners/";
     partnerPortalLink.textContent = "Open Partner Portal";
+  } else if (partnerAccessError) {
+    partnerPortalKicker.textContent = "Connection unavailable";
+    partnerPortalTitle.textContent = "N3XRA Partners";
+    partnerPortalSummary.textContent = "We could not verify Partner Portal access right now. Your approval has not been changed; please refresh or contact N3XRA if this continues.";
+    partnerPortalLink.href = "/client-portal/partners/";
+    partnerPortalLink.textContent = "Retry Partner Portal";
   } else {
     partnerPortalKicker.textContent = "Partner program";
     partnerPortalTitle.textContent = "N3XRA Partners";
@@ -975,7 +1000,7 @@ async function renderDashboard(message = "") {
     [organizationAdminCard, hasOrganizationAdminAccess],
     [contactCardAppCard, Boolean(contactCardProfile && contactCardEntitlement?.base_access)],
   ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
-  placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner);
+  placeMoreFromN3xraCard(partnerPortalCard, isApprovedPartner, partnerAccessError ? "Check connection" : undefined);
   const ownershipUpdateStatus = !interest
     ? "Available"
     : interest.status === "withdrawn"
@@ -1006,9 +1031,10 @@ async function renderDashboard(message = "") {
 
   canViewAdminApps = hasAdminWorkspaceAccess(platformAdminAccess) || isPlatformAdminEmail(currentSession.user.email);
   show(dashboardViewToggle, canViewAdminApps);
-  show(adminNotificationButton, canViewAdminApps);
+  const canViewAdminNotifications = canViewAdminApps && platformAdminAccess?.role !== "sales_rep";
+  show(adminNotificationButton, canViewAdminNotifications);
   accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);
-  if (canViewAdminApps && adminNotificationCount) {
+  if (canViewAdminNotifications && adminNotificationCount) {
     const { count } = await supabase
       .from("admin_notifications")
       .select("id", { count: "exact", head: true })

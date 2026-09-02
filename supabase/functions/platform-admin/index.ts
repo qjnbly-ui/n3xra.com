@@ -566,6 +566,15 @@ async function getPlatformAdmin(adminClient: ReturnType<typeof createClient>, us
   if (error) throw new Error(error.message);
   if (data) return data.access_scope === "operations" ? { ...data, role: "operations_admin" } : data;
 
+  const { data: salesRepresentative, error: salesRepresentativeError } = await adminClient
+    .from("platform_sales_representatives")
+    .select("user_id, email, status")
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .maybeSingle();
+  if (salesRepresentativeError) throw new Error(salesRepresentativeError.message);
+  if (salesRepresentative) return { ...salesRepresentative, role: "sales_rep", access_scope: "sales_leads" };
+
   const { data: reviewer, error: reviewerError } = await adminClient
     .from("platform_app_reviewers")
     .select("user_id, email, status")
@@ -1240,6 +1249,10 @@ Deno.serve(async (request) => {
 
     if (isReviewerAdmin(platformAdmin)) {
       return jsonResponse({ error: "Reviewer access is limited to the N3XRA Admin mobile app." }, 403);
+    }
+
+    if (String(platformAdmin.role || "") === "sales_rep") {
+      return jsonResponse({ error: "Partner / Sales Representative access is limited to Sales Leads and the Partner Portal." }, 403);
     }
 
     if (action === "list-career-applicant-products") {
@@ -2996,11 +3009,15 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Owner admin access required." }, 403);
       }
 
-      const [adminsResult, reviewersResult, invitesResult] = await Promise.all([
+      const [adminsResult, salesRepresentativesResult, reviewersResult, invitesResult] = await Promise.all([
         adminClient
           .from("platform_admins")
           .select("user_id, email, role, status, access_scope, invited_by_user_id, created_at, updated_at")
           .order("role", { ascending: false })
+          .order("email", { ascending: true }),
+        adminClient
+          .from("platform_sales_representatives")
+          .select("user_id, email, status, granted_by_user_id, created_at, updated_at")
           .order("email", { ascending: true }),
         adminClient
           .from("platform_app_reviewers")
@@ -3013,12 +3030,13 @@ Deno.serve(async (request) => {
           .limit(100),
       ]);
 
-      if (adminsResult.error || reviewersResult.error || invitesResult.error) {
-        return jsonResponse({ error: adminsResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load platform access." }, 400);
+      if (adminsResult.error || salesRepresentativesResult.error || reviewersResult.error || invitesResult.error) {
+        return jsonResponse({ error: adminsResult.error?.message || salesRepresentativesResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load platform access." }, 400);
       }
 
+      const salesRepresentatives = (salesRepresentativesResult.data || []).map((representative) => ({ ...representative, role: "sales_rep", access_scope: "sales_leads" }));
       const reviewers = (reviewersResult.data || []).map((reviewer) => ({ ...reviewer, role: "reviewer" }));
-      return jsonResponse({ ok: true, admins: [...(adminsResult.data || []), ...reviewers], invites: invitesResult.data || [] });
+      return jsonResponse({ ok: true, admins: [...(adminsResult.data || []), ...salesRepresentatives, ...reviewers], invites: invitesResult.data || [] });
     }
 
     if (action === "list-platform-admin-candidates") {
@@ -3026,19 +3044,21 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "Owner admin access required." }, 403);
       }
 
-      const [authUsers, profilesResult, adminsResult, reviewersResult, invitesResult] = await Promise.all([
+      const [authUsers, profilesResult, adminsResult, salesRepresentativesResult, reviewersResult, invitesResult] = await Promise.all([
         listAllAuthUsers(adminClient),
         adminClient.from("profiles").select("id,email,full_name"),
         adminClient.from("platform_admins").select("user_id,role,status,access_scope").eq("status", "active"),
+        adminClient.from("platform_sales_representatives").select("user_id,status").eq("status", "active"),
         adminClient.from("platform_app_reviewers").select("user_id,status").eq("status", "active"),
         adminClient.from("platform_admin_invites").select("email,status,access_scope").eq("status", "pending"),
       ]);
-      if (profilesResult.error || adminsResult.error || reviewersResult.error || invitesResult.error) {
-        return jsonResponse({ error: profilesResult.error?.message || adminsResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load account choices." }, 400);
+      if (profilesResult.error || adminsResult.error || salesRepresentativesResult.error || reviewersResult.error || invitesResult.error) {
+        return jsonResponse({ error: profilesResult.error?.message || adminsResult.error?.message || salesRepresentativesResult.error?.message || reviewersResult.error?.message || invitesResult.error?.message || "Unable to load account choices." }, 400);
       }
 
       const profiles = new Map((profilesResult.data || []).map((profile) => [String(profile.id), profile]));
       const adminAccess = new Map((adminsResult.data || []).map((admin) => [String(admin.user_id), admin.access_scope === "operations" ? "operations_admin" : String(admin.role || "admin")]));
+      (salesRepresentativesResult.data || []).forEach((representative) => adminAccess.set(String(representative.user_id), "sales_rep"));
       const reviewerIds = new Set((reviewersResult.data || []).map((reviewer) => String(reviewer.user_id)));
       const pendingEmails = new Set((invitesResult.data || []).map((invite) => normalizeEmail(invite.email)));
       const accounts = authUsers
@@ -3071,9 +3091,9 @@ Deno.serve(async (request) => {
       if (accountError || !email || !isValidEmail(email)) {
         return jsonResponse({ error: accountError?.message || "The selected account does not have a valid email address." }, 400);
       }
-      const requestedRole = String(payload.role || "operations_admin").trim().toLowerCase();
-      if (!["admin", "operations_admin", "reviewer"].includes(requestedRole)) {
-        return jsonResponse({ error: "Role must be admin, operations_admin, or reviewer." }, 400);
+      const requestedRole = String(payload.role || "sales_rep").trim().toLowerCase();
+      if (!["admin", "operations_admin", "sales_rep", "reviewer"].includes(requestedRole)) {
+        return jsonResponse({ error: "Role must be admin, operations_admin, sales_rep, or reviewer." }, 400);
       }
       const role = requestedRole === "operations_admin" ? "admin" : requestedRole;
       const accessScope = requestedRole === "operations_admin" ? "operations" : "full";
@@ -3081,19 +3101,34 @@ Deno.serve(async (request) => {
         return jsonResponse({ error: "The owner account is already the master admin." }, 400);
       }
 
-      const [existingAdminResult, existingReviewerResult] = await Promise.all([
-        adminClient.from("platform_admins").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
-        adminClient.from("platform_app_reviewers").select("user_id").eq("user_id", accountUserId).eq("status", "active").maybeSingle(),
-      ]);
-      const existingAccessError = existingAdminResult.error || existingReviewerResult.error;
-      if (existingAccessError) return jsonResponse({ error: existingAccessError.message }, 400);
-      if (existingAdminResult.data || existingReviewerResult.data) {
-        return jsonResponse({ error: "This account already has administrator or reviewer access." }, 409);
-      }
-
       const now = new Date().toISOString();
       let access: Record<string, unknown>;
-      if (role === "reviewer") {
+      if (role === "sales_rep") {
+        const { data: representative, error: representativeError } = await adminClient
+          .from("platform_sales_representatives")
+          .upsert({
+            user_id: accountUserId,
+            email,
+            status: "active",
+            granted_by_user_id: user.id,
+            updated_at: now,
+          }, { onConflict: "user_id" })
+          .select("user_id,email,status,granted_by_user_id,created_at,updated_at")
+          .single();
+        if (representativeError) return jsonResponse({ error: representativeError.message }, 400);
+        const { error: removeAdminError } = await adminClient
+          .from("platform_admins")
+          .delete()
+          .eq("user_id", accountUserId)
+          .neq("role", "owner");
+        if (removeAdminError) return jsonResponse({ error: removeAdminError.message }, 400);
+        const { error: removeReviewerError } = await adminClient
+          .from("platform_app_reviewers")
+          .update({ status: "revoked", updated_at: now })
+          .eq("user_id", accountUserId);
+        if (removeReviewerError) return jsonResponse({ error: removeReviewerError.message }, 400);
+        access = { ...representative, role: "sales_rep", access_scope: "sales_leads" };
+      } else if (role === "reviewer") {
         const { data: reviewer, error: reviewerError } = await adminClient
           .from("platform_app_reviewers")
           .upsert({
@@ -3142,6 +3177,14 @@ Deno.serve(async (request) => {
           .eq("user_id", accountUserId);
         if (removeReviewerError) return jsonResponse({ error: removeReviewerError.message }, 400);
         access = { ...administrator, role: requestedRole };
+      }
+
+      if (role !== "sales_rep") {
+        const { error: removeSalesRepresentativeError } = await adminClient
+          .from("platform_sales_representatives")
+          .update({ status: "revoked", updated_at: now })
+          .eq("user_id", accountUserId);
+        if (removeSalesRepresentativeError) return jsonResponse({ error: removeSalesRepresentativeError.message }, 400);
       }
 
       await adminClient
@@ -3197,6 +3240,11 @@ Deno.serve(async (request) => {
         .update({ status: "revoked", updated_at: new Date().toISOString() })
         .eq("user_id", userId);
       if (reviewerError) return jsonResponse({ error: reviewerError.message }, 400);
+      const { error: salesRepresentativeError } = await adminClient
+        .from("platform_sales_representatives")
+        .update({ status: "revoked", updated_at: new Date().toISOString() })
+        .eq("user_id", userId);
+      if (salesRepresentativeError) return jsonResponse({ error: salesRepresentativeError.message }, 400);
       return jsonResponse({ ok: true });
     }
 

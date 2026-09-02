@@ -42,7 +42,7 @@ test("Operations Administrator navigation contains only the approved workspaces"
   }
 
   assert.match(navigation, /operationsAdminProductKeys = new Set\(\["websites", "records", "communications", "contact-cards"\]\)/);
-  assert.match(navigation, /isOperationsAdministrator\(\) \? "" : mobileSection/);
+  assert.match(navigation, /isOperationsAdministrator\(\) \|\| isSalesRepresentative\(\) \? "" : mobileSection/);
   assert.match(session, /return normalizedRole === "operations_admin" && OPERATIONS_ADMIN_PATHS\.has/);
   assert.match(adminCss, /body\[data-admin-role="operations_admin"\] \[data-site-assistant-open\]/);
 });

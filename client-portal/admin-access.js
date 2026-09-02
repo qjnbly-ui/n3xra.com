@@ -1,6 +1,6 @@
 const CACHE_KEY = "n3xra-platform-admin-access";
 const CACHE_TTL = 15 * 60 * 1000;
-const CACHE_VERSION = 2;
+const CACHE_VERSION = 3;
 
 function readCachedAccess(user) {
   try {
