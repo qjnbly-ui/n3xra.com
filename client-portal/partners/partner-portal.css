@@ -1,5 +1,13 @@
 .partner-portal-workspace { display: grid; align-content: start; gap: 1.25rem; }
 
+@media (min-width: 801px) {
+  .client-portal-page .portal-layout > .partner-portal-workspace {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-gutter: stable;
+  }
+}
+
 .partner-admin-preview { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .9rem 1rem; color: #164e63; background: #ecfeff; border: 1px solid #a5f3fc; border-radius: 12px; }
 .partner-admin-preview[hidden] { display: none; }
 .partner-admin-preview strong,.partner-admin-preview span { display: block; }

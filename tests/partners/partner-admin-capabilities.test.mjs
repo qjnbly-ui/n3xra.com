@@ -92,6 +92,11 @@ test("approved partners can open representative resources without gaining access
   assert.match(endpoint, /approvedApplication\(user\.id\)/);
 });
 
+test("the desktop partner portal scrolls through its complete workspace", async () => {
+  const styles = await read("client-portal/partners/partner-portal.css");
+  assert.match(styles, /@media \(min-width: 801px\)[\s\S]*\.client-portal-page \.portal-layout > \.partner-portal-workspace \{[\s\S]*overflow-y: auto;/);
+});
+
 test("commission and contract validation preserves exact percentage basis points", async () => {
   const { normalizeTerms } = await import("../../api/partner-admin-terms.js");
   const saved = normalizeTerms({
