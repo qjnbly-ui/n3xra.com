@@ -80,6 +80,32 @@ body {
   box-shadow: none;
 }
 
+.account-client-preview-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  color: #123a33;
+  background: #e5f3ef;
+  border: 1px solid rgba(18, 90, 78, 0.18);
+  border-radius: 14px;
+}
+
+.account-client-preview-banner.hidden { display: none; }
+.account-client-preview-banner strong,
+.account-client-preview-banner span { display: block; }
+.account-client-preview-banner span { margin-top: 0.2rem; color: #4d6863; font-size: 0.82rem; }
+.account-client-preview-banner .btn { flex: 0 0 auto; }
+
+body.is-client-dashboard-preview .account-settings-button,
+body.is-client-dashboard-preview .account-notification-button { display: none !important; }
+
+body.is-client-dashboard-preview .app-card [aria-disabled="true"] {
+  opacity: 0.68;
+  cursor: not-allowed;
+}
+
 .account-card h2,
 .app-card h3 {
   margin: 0;
@@ -937,6 +963,11 @@ body[data-admin-role="sales_rep"] .admin-all-tools-link {
 
   .account-card {
     border-radius: 12px;
+  }
+
+  .account-client-preview-banner {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .account-overview-actions {

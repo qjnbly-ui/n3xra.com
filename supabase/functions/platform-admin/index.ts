@@ -3054,23 +3054,80 @@ Deno.serve(async (request) => {
       }
 
       const targetAccess = await getPlatformAdmin(adminClient, { id: targetUser.id, email });
-      if (!targetAccess) return jsonResponse({ error: "This account no longer has staff access." }, 404);
-      const { data: partnerApplication, error: partnerError } = await adminClient
-        .from("founding_partner_applications")
-        .select("id")
-        .eq("account_user_id", accountUserId)
-        .eq("status", "approved")
-        .maybeSingle();
-      if (partnerError) return jsonResponse({ error: partnerError.message }, 400);
+      const [profileResult, membershipsResult, ownedOrganizationsResult, websiteRequestResult, loanResult, contactProfileResult, contactEntitlementResult, partnerResult, investmentResult] = await Promise.all([
+        adminClient.from("profiles").select("full_name").eq("id", accountUserId).maybeSingle(),
+        adminClient.from("organization_memberships").select("organization_id,role,organization:organizations(id,name,owner_user_id)").eq("user_id", accountUserId).order("created_at", { ascending: true }),
+        adminClient.from("organizations").select("id,name,owner_user_id").eq("owner_user_id", accountUserId),
+        adminClient.from("website_service_requests").select("id,status").eq("user_id", accountUserId).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+        adminClient.from("loan_accounts").select("id,status").eq("user_id", accountUserId).eq("status", "active").limit(1).maybeSingle(),
+        adminClient.from("contact_card_profiles").select("status").eq("owner_user_id", accountUserId).maybeSingle(),
+        adminClient.from("contact_card_entitlements").select("base_access").eq("owner_user_id", accountUserId).maybeSingle(),
+        adminClient.from("founding_partner_applications").select("id,status").eq("account_user_id", accountUserId).eq("status", "approved").maybeSingle(),
+        adminClient.from("investment_interest_profiles").select("status").eq("user_id", accountUserId).maybeSingle(),
+      ]);
+      const lookupError = [profileResult, membershipsResult, ownedOrganizationsResult, websiteRequestResult, loanResult, contactProfileResult, contactEntitlementResult, partnerResult, investmentResult].find((result) => result.error)?.error;
+      if (lookupError) return jsonResponse({ error: lookupError.message }, 400);
+
+      const organizations = new Map<string, { id: string; name: string; owner_user_id: string; role: string }>();
+      (ownedOrganizationsResult.data || []).forEach((organization) => organizations.set(String(organization.id), {
+        id: String(organization.id), name: String(organization.name || "Organization"), owner_user_id: String(organization.owner_user_id || ""), role: "owner",
+      }));
+      (membershipsResult.data || []).forEach((membership) => {
+        const related = Array.isArray(membership.organization) ? membership.organization[0] : membership.organization;
+        if (!related?.id) return;
+        organizations.set(String(related.id), {
+          id: String(related.id), name: String(related.name || "Organization"), owner_user_id: String(related.owner_user_id || ""), role: String(membership.role || "member"),
+        });
+      });
+      const organizationIds = Array.from(organizations.keys());
+      const membershipOrganizationIds = new Set((membershipsResult.data || []).map((membership) => String(membership.organization_id || "")));
+      const [entitlementsResult, clientWebsitesResult, communicationsWorkspacesResult] = organizationIds.length
+        ? await Promise.all([
+          adminClient.from("organization_product_entitlements").select("organization_id,product_key,status,portal_enabled").in("organization_id", organizationIds),
+          adminClient.from("client_websites").select("organization_id").in("organization_id", organizationIds),
+          adminClient.from("communications_workspaces").select("organization_id,slug,status").in("organization_id", organizationIds),
+        ])
+        : [{ data: [], error: null }, { data: [], error: null }, { data: [], error: null }];
+      const productError = entitlementsResult.error || clientWebsitesResult.error || communicationsWorkspacesResult.error;
+      if (productError) return jsonResponse({ error: productError.message }, 400);
+
+      const activeEntitlements = (entitlementsResult.data || []).filter((entitlement) =>
+        entitlement.portal_enabled && ["active", "trialing", "past_due"].includes(String(entitlement.status || ""))
+      );
+      const product = (productKey: string, allowedOrganizationIds = new Set(organizationIds)) => {
+        const entitlement = activeEntitlements.find((item) => String(item.product_key) === productKey && allowedOrganizationIds.has(String(item.organization_id)));
+        const organization = entitlement ? organizations.get(String(entitlement.organization_id)) : null;
+        return { connected: Boolean(entitlement && organization), organization_id: organization?.id || null, organization_name: organization?.name || null, status: entitlement?.status || null };
+      };
+      const communications = product("communications");
+      const communicationsWorkspace = (communicationsWorkspacesResult.data || []).find((workspace) =>
+        String(workspace.organization_id) === String(communications.organization_id) && String(workspace.status || "") !== "canceled"
+      );
+      const websiteOrganizationIds = new Set((clientWebsitesResult.data || []).map((website) => String(website.organization_id || "")));
+      const managedOrganization = Array.from(organizations.values()).find((organization) =>
+        websiteOrganizationIds.has(organization.id) && (organization.owner_user_id === accountUserId || organization.role === "account_admin")
+      );
 
       return jsonResponse({
         ok: true,
         preview: {
           user_id: accountUserId,
           email,
-          role: targetAccess.role,
-          status: targetAccess.status,
-          partner_application_id: partnerApplication?.id || null,
+          display_name: textValue(profileResult.data?.full_name || targetUser.user_metadata?.full_name || targetUser.user_metadata?.name || email, 180),
+          role: targetAccess?.role || null,
+          status: targetAccess?.status || null,
+          products: {
+            records: product("records", membershipOrganizationIds),
+            communications: { ...communications, workspace_slug: communicationsWorkspace?.slug || null },
+            project_cards: product("project_cards"),
+            files_assets: product("files_assets"),
+            website_portal: { connected: Boolean(websiteRequestResult.data), status: websiteRequestResult.data?.status || null },
+            organization_admin: { connected: Boolean(managedOrganization), organization_id: managedOrganization?.id || null, organization_name: managedOrganization?.name || null },
+            loan_tracker: { connected: Boolean(loanResult.data) },
+            contact_card: { connected: Boolean(contactProfileResult.data && contactEntitlementResult.data?.base_access), status: contactProfileResult.data?.status || null },
+          },
+          partner: { connected: Boolean(partnerResult.data), application_id: partnerResult.data?.id || null },
+          ownership_updates: { status: investmentResult.data?.status || null },
         },
       });
     }

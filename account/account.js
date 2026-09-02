@@ -45,6 +45,7 @@ const accountSmsConsentInput = document.getElementById("account-sms-consent");
 const accountSmsState = document.getElementById("account-sms-state");
 const accountName = document.getElementById("account-name");
 const accountEmail = document.getElementById("account-email");
+const accountIdentityKicker = document.querySelector(".account-identity .auth-kicker");
 const profileFullNameInput = document.getElementById("profile-full-name");
 const settingsAccountEmail = document.getElementById("settings-account-email");
 const accountSettingsModal = document.getElementById("account-settings-modal");
@@ -104,6 +105,7 @@ const showAdminViewButton = document.getElementById("show-admin-view");
 const accountOverviewActions = document.querySelector(".account-overview-actions");
 const adminNotificationButton = document.getElementById("admin-notification-button");
 const adminNotificationCount = document.getElementById("admin-notification-count");
+const accountClientPreviewBanner = document.getElementById("account-client-preview-banner");
 
 let supabase = null;
 let currentSession = null;
@@ -119,6 +121,7 @@ let organizationAdminAccess = null;
 let contactCardProfile = null;
 let contactCardEntitlement = null;
 let platformAdminAccess = null;
+let dashboardPreviewData = null;
 let validatedSignupReferralCode = "";
 let signupReferralTimer = null;
 let phoneAccessConfigured = false;
@@ -301,7 +304,7 @@ function setDashboardView(requestedView = "apps") {
   showAdminViewButton?.setAttribute("aria-selected", String(!showingApps));
   if (showAppsViewButton) showAppsViewButton.tabIndex = showingApps ? 0 : -1;
   if (showAdminViewButton) showAdminViewButton.tabIndex = showingApps ? -1 : 0;
-  if (canViewAdminApps) writeStoredValue(DASHBOARD_VIEW_CACHE_PREFIX, view);
+  if (canViewAdminApps && !dashboardPreviewData) writeStoredValue(DASHBOARD_VIEW_CACHE_PREFIX, view);
 }
 
 function setStatus(message, tone = "") {
@@ -730,6 +733,128 @@ async function invokePlatformAdmin(action, body = {}) {
     throw new Error(data?.error || error?.message || "Platform admin request failed.");
   }
   return data || {};
+}
+
+function makePreviewActionSafe(element, { href = "", label = "Private app data hidden", allowed = false } = {}) {
+  if (!element) return;
+  if ("textContent" in element) element.textContent = label;
+  if (element instanceof HTMLAnchorElement) element.href = allowed && href ? href : "#";
+  element.toggleAttribute("aria-disabled", !allowed);
+  element.toggleAttribute("data-client-preview-safe", allowed);
+}
+
+async function renderClientDashboardPreview(accountUserId) {
+  renderShell("dashboard");
+  setStatus("Loading the client dashboard view…");
+  const data = await invokePlatformAdmin("get-platform-admin-structure-preview", { accountUserId });
+  const preview = data.preview || {};
+  dashboardPreviewData = preview;
+  const products = preview.products || {};
+
+  document.body.classList.add("is-client-dashboard-preview");
+  show(accountClientPreviewBanner, true);
+  if (accountIdentityKicker) accountIdentityKicker.textContent = "Dashboard for";
+  accountName.textContent = preview.display_name || preview.email || "N3XRA account";
+  accountEmail.textContent = preview.email || "";
+  platformAdminAccess = preview.role ? { role: preview.role, status: preview.status } : null;
+  document.body.dataset.adminRole = String(preview.role || "");
+  syncStaffWorkspaceLabel(String(preview.role || ""));
+  document.querySelectorAll("[data-full-admin-only]").forEach((element) => element.classList.toggle("hidden", !["owner", "admin"].includes(String(preview.role || ""))));
+  canViewAdminApps = hasAdminWorkspaceAccess(platformAdminAccess);
+  show(dashboardViewToggle, canViewAdminApps);
+  show(adminNotificationButton, false);
+  show(openAccountSettingsButton, false);
+  accountOverviewActions?.classList.toggle("has-admin-tools", canViewAdminApps);
+  setDashboardView("apps");
+
+  const records = products.records || {};
+  recordsSummary.textContent = records.connected
+    ? `Connected to ${records.organization_name || "a Records organization"}. Private records are hidden in this view.`
+    : "No Records library yet. Start one or join an existing organization.";
+  makePreviewActionSafe(openRecordsButton, {
+    label: records.connected ? "Open Records" : "Start Records",
+    allowed: Boolean(records.connected && records.organization_id),
+  });
+
+  const communications = products.communications || {};
+  communicationsProductSummary.textContent = communications.connected
+    ? "Connected to N3XRA Communications. Messages, audiences, and activity are hidden."
+    : "Activate email and text communications for your organization from one secure billing flow.";
+  makePreviewActionSafe(communicationsProductLink, { label: communications.connected ? "Open Communications" : "Activate Communications" });
+
+  const projectCards = products.project_cards || {};
+  projectCardsProductSummary.textContent = projectCards.connected
+    ? "Connected to N3XRA Project Cards. Project and card contents are hidden."
+    : "Start the independent Project Cards app, then optionally connect it to a client organization.";
+  makePreviewActionSafe(projectCardsProductLink, { label: projectCards.connected ? "Open Project Cards" : "Activate Project Cards" });
+
+  const filesAssets = products.files_assets || {};
+  filesAssetsProductSummary.textContent = filesAssets.connected
+    ? "Connected to Files & Assets. File names and contents are hidden."
+    : "Activate a private organization library when another N3XRA product stores a file.";
+  makePreviewActionSafe(filesAssetsProductLink, { label: filesAssets.connected ? "Open Files & Assets" : "Activate Files & Assets" });
+
+  const websitePortal = products.website_portal || {};
+  websitePortalSummary.textContent = websitePortal.connected
+    ? `Website workspace connected · ${formatAppStatus(websitePortal.status || "active")}. Private project details are hidden.`
+    : "No website workspace yet. Start a request when you are ready to build or manage a site.";
+  makePreviewActionSafe(websitePortalLink, { label: websitePortal.connected ? "Open Website Portal" : "Start Website Request" });
+
+  const organizationAdmin = products.organization_admin || {};
+  if (organizationAdmin.connected) {
+    organizationAdminSummary.textContent = `Manages people and permissions for ${organizationAdmin.organization_name || "an organization"}. Member details are hidden.`;
+  }
+  makePreviewActionSafe(organizationAdminLink, { label: "Open Organization Admin" });
+
+  const contactCard = products.contact_card || {};
+  contactCardAppSummary.textContent = contactCard.connected
+    ? `${formatAppStatus(contactCard.status || "active")} contact card. Profile details are hidden.`
+    : "$19.99 one time · includes your permanent link and first physical tap card.";
+  makePreviewActionSafe(contactCardAppLink, { label: contactCard.connected ? "Manage Contact Card" : "Activate Contact Card" });
+
+  const loanTracker = products.loan_tracker || {};
+  if (loanTracker.connected) {
+    loanTrackerSummary.textContent = "Connected loan workspace. Financial details are hidden.";
+    placeAppCard(loanTrackerAppCard, true);
+    makePreviewActionSafe(loanTrackerAppCard?.querySelector("a"), { label: "Open Loan Tracker" });
+  } else {
+    show(loanTrackerAppCard, false);
+  }
+
+  const partner = preview.partner || {};
+  if (partner.connected) {
+    partnerPortalKicker.textContent = "Approved partner";
+    partnerPortalSummary.textContent = "Manage your referral code, balances, referrals, and commission history.";
+    makePreviewActionSafe(partnerPortalLink, {
+      href: `/client-portal/partners/?admin_preview=${encodeURIComponent(partner.application_id)}`,
+      label: "Open Partner Portal",
+      allowed: Boolean(partner.application_id),
+    });
+  } else {
+    partnerPortalKicker.textContent = "Partner program";
+    partnerPortalSummary.textContent = "Apply to participate in approved N3XRA referral and partner opportunities.";
+    makePreviewActionSafe(partnerPortalLink, { label: "Explore Partner Program" });
+  }
+
+  const ownershipStatus = String(preview.ownership_updates?.status || "");
+  investmentInterestSummary.textContent = ownershipStatus && ownershipStatus !== "withdrawn"
+    ? "This account is on the information list for future N3XRA company and ownership updates."
+    : "Join the information list for future N3XRA company and ownership updates.";
+  makePreviewActionSafe(investmentInterestLink, { label: ownershipStatus && ownershipStatus !== "withdrawn" ? "Update Ownership Information" : "Request Ownership Updates" });
+
+  [
+    [recordsAppCard, Boolean(records.connected)],
+    [communicationsProductCard, Boolean(communications.connected)],
+    [projectCardsProductCard, Boolean(projectCards.connected)],
+    [filesAssetsProductCard, Boolean(filesAssets.connected)],
+    [websitePortalCard, Boolean(websitePortal.connected), websitePortal.connected ? websiteAppState(websitePortal.status) : "available"],
+    [organizationAdminCard, Boolean(organizationAdmin.connected)],
+    [contactCardAppCard, Boolean(contactCard.connected)],
+  ].forEach(([card, connected, state]) => placeAppCard(card, connected, state));
+  placeMoreFromN3xraCard(partnerPortalCard, Boolean(partner.connected));
+  placeMoreFromN3xraCard(investmentInterestCard, Boolean(ownershipStatus && ownershipStatus !== "withdrawn"), ownershipStatus ? formatAppStatus(ownershipStatus) : "Available");
+  updateAppSectionEmptyStates();
+  setStatus("Client dashboard view. Your administrator session is unchanged.", "success");
 }
 
 async function loadPlatformAdminAccess() {
@@ -1264,6 +1389,13 @@ async function handleRecovery(event) {
 async function openRecords() {
   if (!currentSession?.user) return;
 
+  const previewOrganizationId = dashboardPreviewData?.products?.records?.organization_id;
+  if (previewOrganizationId) {
+    setStatus("Opening the protected Records client view…");
+    window.location.assign(`/n3xra-records/library/?support_org=${encodeURIComponent(previewOrganizationId)}`);
+    return;
+  }
+
   if (!memberships.length) {
     const inviteCode = String(
       getInviteCode()
@@ -1497,6 +1629,15 @@ async function handleSignout() {
 }
 
 function bindEvents() {
+  accountPanel?.addEventListener("click", (event) => {
+    if (!dashboardPreviewData) return;
+    const action = event.target.closest("a,button");
+    if (!action || action.closest("#account-client-preview-banner") || action.closest("#dashboard-view-toggle")) return;
+    if (action.hasAttribute("data-client-preview-safe") || action.closest("[data-sales-leads-card]")) return;
+    if (!action.closest("#apps-dashboard-view,#admin-app-section")) return;
+    event.preventDefault();
+    setStatus("That product’s private data is hidden in client dashboard view.");
+  });
   accountNavLink?.addEventListener("click", (event) => {
     if (accountNavLink.dataset.authState !== "signed-in") return;
     event.preventDefault();
@@ -1599,7 +1740,14 @@ async function init() {
     renderShell("recovery");
     setStatus(isAccountActivation ? "Choose your password to activate this account." : "Choose a new password.");
   } else if (currentSession?.user) {
-    if (getPlatformAdminInviteToken()) {
+    const requestedDashboardPreview = String(new URLSearchParams(window.location.search).get("admin_preview") || "").trim();
+    if (requestedDashboardPreview) {
+      try {
+        await renderClientDashboardPreview(requestedDashboardPreview);
+      } catch (error) {
+        await renderDashboard(getErrorMessage(error, "Unable to open the client dashboard view."));
+      }
+    } else if (getPlatformAdminInviteToken()) {
       try {
         const message = await maybeRedeemPlatformAdminInvite();
         await renderDashboard(message || "Signed in.");

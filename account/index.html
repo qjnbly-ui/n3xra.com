@@ -14,7 +14,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Manrope:wght@400;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260820-mobile-interactions">
-  <link rel="stylesheet" href="/account/account.css?v=12">
+  <link rel="stylesheet" href="/account/account.css?v=13">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -153,6 +153,10 @@
       </div>
 
       <div class="account-card account-dashboard hidden" id="dashboard-card">
+        <aside class="account-client-preview-banner hidden" id="account-client-preview-banner" role="status">
+          <div><strong>Client dashboard view</strong><span>This is the dashboard this account sees. Private product contents remain hidden.</span></div>
+          <a class="btn secondary button-link" href="/account/admin/platform-admins/">Back to Administrators</a>
+        </aside>
         <div class="dashboard-head account-overview">
           <div class="account-identity">
             <p class="auth-kicker">Signed in</p>
@@ -541,6 +545,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260902-partner-account-link"></script>
+  <script type="module" src="/account/account.js?v=20260902-client-dashboard-preview"></script>
 </body>
 </html>

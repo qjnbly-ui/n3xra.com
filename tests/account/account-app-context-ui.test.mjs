@@ -18,7 +18,23 @@ test("My products queries stay scoped to the signed-in account even for platform
     const query = script.match(new RegExp(`\\.from\\("${table}"\\)[\\s\\S]*?(?=\\n}\\n|\\nasync function)`))?.[0] || "";
     assert.match(query, /\.eq\("user_id", currentSession\.user\.id\)/, `${table} must be scoped to the current user`);
   }
-  assert.match(html, /account\.js\?v=20260902-partner-account-link/);
+  assert.match(html, /account\.js\?v=20260902-client-dashboard-preview/);
+});
+
+test("administrator dashboard preview reuses the real account dashboard without loading private product data", async () => {
+  const [script, html] = await Promise.all([
+    readFile(accountScriptPath, "utf8"),
+    readFile(accountHtmlPath, "utf8"),
+  ]);
+
+  assert.match(html, /id="account-client-preview-banner"/);
+  assert.match(script, /renderClientDashboardPreview\(requestedDashboardPreview\)/);
+  assert.match(script, /get-platform-admin-structure-preview/);
+  assert.match(script, /products\.records/);
+  assert.match(script, /\/n3xra-records\/library\/\?support_org=/);
+  assert.match(script, /Private app data hidden/);
+  assert.match(script, /data-client-preview-safe/);
+  assert.match(script, /\[data-sales-leads-card\]/);
 });
 
 test("platform administrator visibility does not count as a personal Communications subscription", async () => {
