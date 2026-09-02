@@ -70,6 +70,92 @@ function candidateAccessLabel(candidate) {
   return "Available";
 }
 
+const customerDashboardAreas = [
+  ["N3XRA Records", "Document and organization workspace"],
+  ["N3XRA Communications", "Email and text communications"],
+  ["N3XRA Project Cards", "Project pages and physical cards"],
+  ["Files & Assets", "Private organization file library"],
+  ["N3XRA Website Portal", "Website request and project workspace"],
+  ["N3XRA Contact Card", "Contact profile and tap card"],
+];
+
+const fullAdminAreas = [
+  "Sales Leads", "Admin Inbox", "Accounts", "Support Requests", "Billing & Plans", "Financial Operations",
+  "Site Analytics", "Career Applications", "Company Information", "Internal Files", "Strategy & Policies",
+  "Codebase AI", "Calls & Messages", "Account Announcements", "Ownership & Governance", "Websites", "Records",
+  "Partners", "Communications", "Contact Cards", "Project Cards",
+];
+const operationsAdminAreas = [
+  "Sales Leads", "Admin Inbox", "Accounts", "Support Requests", "Billing & Plans", "Financial Operations",
+  "Site Analytics", "Career Applications", "Company Information", "Internal Files", "Calls & Messages",
+  "Account Announcements", "Websites", "Records", "Communications", "Contact Cards",
+];
+
+function previewAreaCard(title, description, options = {}) {
+  const action = options.href
+    ? `<a class="portal-button portal-button-secondary" href="${escapeHtml(options.href)}"${options.newTab ? ' target="_blank" rel="noopener"' : ""}>${escapeHtml(options.label || `Open ${title}`)}</a>`
+    : '<span class="platform-dashboard-preview-private">Structure only</span>';
+  return `<article class="platform-dashboard-preview-card"><div><span>${escapeHtml(options.kicker || "App area")}</span><strong>${escapeHtml(title)}</strong><p>${escapeHtml(description)}</p></div>${action}</article>`;
+}
+
+function renderDashboardPreview(data = {}) {
+  const target = document.getElementById("platform-dashboard-preview-content");
+  if (!target) return;
+  const role = effectivePlatformAdminRole(data);
+  const staffLabel = role === "sales_rep" ? "Sales" : role === "reviewer" ? "Review app" : "Admin";
+  const partnerHref = data.partner_application_id
+    ? `/client-portal/partners/?admin_preview=${encodeURIComponent(data.partner_application_id)}`
+    : "/n3xra-admin/partners/";
+  const staffAreas = role === "sales_rep"
+    ? [previewAreaCard("Sales Leads", "Shared leads, notes, business-card scans, and lead status.", { href: "/account/admin/prospects/", label: "Open Sales Leads", kicker: "Live shared workspace", newTab: true })]
+    : role === "reviewer"
+      ? [previewAreaCard("N3XRA Admin mobile review", "Synthetic review data only. This role does not receive the web administration dashboard.", { kicker: "Review-only role" })]
+      : (role === "operations_admin" ? operationsAdminAreas : fullAdminAreas).map((area) => previewAreaCard(area, "This workspace appears in the staff dashboard for this role.", { kicker: "Staff workspace" }));
+  const partnerCard = previewAreaCard("N3XRA Partners", "Referral identity, referrals, commission balances, and commission history.", { href: partnerHref, label: data.partner_application_id ? "Open read-only preview" : "Open Partner Admin", kicker: data.partner_application_id ? "Connected partner" : "Partner program", newTab: true });
+
+  target.innerHTML = `
+    <div class="platform-dashboard-preview-account"><span class="platform-admin-roster-avatar">${escapeHtml(platformAdminInitials(data.email))}</span><div><strong>${escapeHtml(data.email || "Account")}</strong><p>Structure preview · no impersonation · no personal product records loaded</p></div></div>
+    <div class="platform-dashboard-preview-switch" role="tablist" aria-label="Dashboard view"><button class="is-active" type="button" role="tab" aria-selected="true" data-dashboard-preview-tab="products">My products</button><button type="button" role="tab" aria-selected="false" data-dashboard-preview-tab="staff">${escapeHtml(staffLabel)}</button></div>
+    <section class="platform-dashboard-preview-panel" data-dashboard-preview-panel="products">
+      <div class="platform-dashboard-preview-heading"><span>Dashboard structure</span><h3>Your products</h3><p>Personal enrollment status and private product content are intentionally omitted.</p></div>
+      <div class="platform-dashboard-preview-grid">${customerDashboardAreas.map(([title, description]) => previewAreaCard(title, description)).join("")}</div>
+      <div class="platform-dashboard-preview-heading"><span>More from N3XRA</span><h3>Programs and updates</h3></div>
+      <div class="platform-dashboard-preview-grid">${partnerCard}${previewAreaCard("N3XRA Ownership Updates", "Company and ownership information list.", { kicker: "Company updates" })}</div>
+    </section>
+    <section class="platform-dashboard-preview-panel hidden" data-dashboard-preview-panel="staff">
+      <div class="platform-dashboard-preview-heading"><span>${role === "sales_rep" ? "Sales workspace" : "Staff workspace"}</span><h3>${role === "sales_rep" ? "Partner / Sales Representative" : role === "reviewer" ? "App reviewer" : "Run N3XRA"}</h3><p>${role === "sales_rep" ? "This is the complete staff-side structure Lindsey sees." : "These are the workspaces visible to this role."}</p></div>
+      <div class="platform-dashboard-preview-grid">${staffAreas.join("")}</div>
+    </section>`;
+}
+
+async function openDashboardPreview(accountUserId) {
+  const dialog = document.getElementById("platform-dashboard-preview-dialog");
+  const content = document.getElementById("platform-dashboard-preview-content");
+  if (!(dialog instanceof HTMLDialogElement) || !content) return;
+  content.innerHTML = '<div class="platform-dashboard-preview-loading">Building the safe dashboard structure preview…</div>';
+  if (!dialog.open) dialog.showModal();
+  try {
+    const data = await invoke("get-platform-admin-structure-preview", { accountUserId });
+    renderDashboardPreview(data.preview || {});
+  } catch (error) {
+    content.innerHTML = `<div class="platform-dashboard-preview-loading is-error">${escapeHtml(error.message || "Unable to load dashboard preview.")}</div>`;
+  }
+}
+
+function closeDashboardPreview() {
+  const dialog = document.getElementById("platform-dashboard-preview-dialog");
+  if (dialog instanceof HTMLDialogElement && dialog.open) dialog.close();
+}
+
+function selectDashboardPreviewTab(tabName) {
+  document.querySelectorAll("[data-dashboard-preview-tab]").forEach((button) => {
+    const active = button.dataset.dashboardPreviewTab === tabName;
+    button.classList.toggle("is-active", active);
+    button.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll("[data-dashboard-preview-panel]").forEach((panel) => panel.classList.toggle("hidden", panel.dataset.dashboardPreviewPanel !== tabName));
+}
+
 function renderSelectedPlatformAdminCandidate() {
   const select = document.getElementById("platform-admin-invite-account");
   const detail = document.getElementById("platform-admin-selected-account");
@@ -130,7 +216,7 @@ function renderPlatformAdminDetail() {
   if (item.user_id) accountParams.set("user", item.user_id);
   detail.innerHTML = `
     <article class="platform-admin-detail-card">
-      <div class="platform-admin-detail-head"><div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(email))}</span><div><p class="portal-kicker">${isAdmin ? "Administrator account" : "Administrator invitation"}</p><h3>${escapeHtml(email)}</h3><span class="account-state-pill ${status === "active" || pending ? "is-active" : "is-suspended"}">${escapeHtml(status)}</span></div></div>${isAdmin ? `<a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Open account</a>` : ""}</div>
+      <div class="platform-admin-detail-head"><div class="account-admin-identity"><span class="account-admin-avatar" aria-hidden="true">${escapeHtml(platformAdminInitials(email))}</span><div><p class="portal-kicker">${isAdmin ? "Administrator account" : "Administrator invitation"}</p><h3>${escapeHtml(email)}</h3><span class="account-state-pill ${status === "active" || pending ? "is-active" : "is-suspended"}">${escapeHtml(status)}</span></div></div>${isAdmin ? `<div class="platform-admin-detail-head-actions"><button class="portal-button" type="button" data-platform-admin-action="preview-dashboard" data-platform-admin-id="${escapeHtml(String(item.user_id))}">View dashboard</button><a class="portal-button portal-button-secondary" href="/account/admin/accounts/?${escapeHtml(accountParams.toString())}">Open account</a></div>` : ""}</div>
       <div class="platform-admin-detail-facts">
         <div><span>Access level</span><strong>${isOwner ? "Master owner" : isReviewer ? "App reviewer" : isSalesRepresentative ? "Partner / Sales Representative" : isOperationsAdmin ? "Operations administrator" : isAdmin ? "Platform administrator" : "Access invitation"}</strong></div>
         <div><span>Status</span><strong>${escapeHtml(status)}</strong></div>
@@ -245,7 +331,10 @@ async function handlePlatformAdminAction(event) {
 
   button.disabled = true;
   try {
-    if (action === "change-role") {
+    if (action === "preview-dashboard") {
+      await openDashboardPreview(id);
+      button.disabled = false;
+    } else if (action === "change-role") {
       const role = String(button.closest(".platform-admin-detail-actions")?.querySelector("[data-platform-role-select]")?.value || "");
       if (!role) throw new Error("Choose an access role.");
       setStatus("Changing access role…");
@@ -302,5 +391,12 @@ export async function startPlatformAdmins(context = {}) {
     renderPlatformAdmins();
   });
   document.getElementById("platform-admin-detail")?.addEventListener("click", handlePlatformAdminAction);
+  document.getElementById("platform-dashboard-preview-close")?.addEventListener("click", closeDashboardPreview);
+  document.getElementById("platform-dashboard-preview-done")?.addEventListener("click", closeDashboardPreview);
+  document.getElementById("platform-dashboard-preview-dialog")?.addEventListener("click", (event) => {
+    if (event.target === event.currentTarget) closeDashboardPreview();
+    const tabButton = event.target.closest("[data-dashboard-preview-tab]");
+    if (tabButton) selectDashboardPreviewTab(tabButton.dataset.dashboardPreviewTab || "products");
+  });
   await loadPlatformAdmins();
 }

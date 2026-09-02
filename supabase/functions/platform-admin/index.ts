@@ -3039,6 +3039,42 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, admins: [...(adminsResult.data || []), ...salesRepresentatives, ...reviewers], invites: invitesResult.data || [] });
     }
 
+    if (action === "get-platform-admin-structure-preview") {
+      if (!isOwnerAdmin(platformAdmin)) {
+        return jsonResponse({ error: "Owner admin access required." }, 403);
+      }
+
+      const accountUserId = String(payload.accountUserId || "").trim();
+      if (!isValidUuid(accountUserId)) return jsonResponse({ error: "Choose a valid N3XRA account." }, 400);
+      const { data: accountResult, error: accountError } = await adminClient.auth.admin.getUserById(accountUserId);
+      const targetUser = accountResult?.user;
+      const email = normalizeEmail(targetUser?.email);
+      if (accountError || !targetUser || !email) {
+        return jsonResponse({ error: accountError?.message || "Account not found." }, 404);
+      }
+
+      const targetAccess = await getPlatformAdmin(adminClient, { id: targetUser.id, email });
+      if (!targetAccess) return jsonResponse({ error: "This account no longer has staff access." }, 404);
+      const { data: partnerApplication, error: partnerError } = await adminClient
+        .from("founding_partner_applications")
+        .select("id")
+        .eq("account_user_id", accountUserId)
+        .eq("status", "approved")
+        .maybeSingle();
+      if (partnerError) return jsonResponse({ error: partnerError.message }, 400);
+
+      return jsonResponse({
+        ok: true,
+        preview: {
+          user_id: accountUserId,
+          email,
+          role: targetAccess.role,
+          status: targetAccess.status,
+          partner_application_id: partnerApplication?.id || null,
+        },
+      });
+    }
+
     if (action === "list-platform-admin-candidates") {
       if (!isOwnerAdmin(platformAdmin)) {
         return jsonResponse({ error: "Owner admin access required." }, 403);

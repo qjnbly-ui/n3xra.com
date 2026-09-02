@@ -577,6 +577,7 @@ body[data-admin-role="sales_rep"] [data-site-assistant-open] {
 .platform-admin-modal-status.is-error { color:#a92d37; }
 .platform-admin-detail-card { margin-top:0; }
 .platform-admin-detail-head { display:flex; align-items:center; justify-content:space-between; gap:1rem; }
+.platform-admin-detail-head-actions { display:flex; align-items:center; gap:.55rem; flex:none; }
 .platform-admin-detail-head h3 { margin:.15rem 0 0; overflow-wrap:anywhere; font-family:"Fraunces",Georgia,serif; font-size:1.45rem; }
 .platform-admin-detail-card .account-state-pill { align-items:center; gap:.4rem; margin-top:.45rem; padding:0; color:var(--portal-muted); background:transparent; border-radius:0; }
 .platform-admin-detail-card .account-state-pill::before { width:7px; height:7px; content:""; background:#16856d; border-radius:50%; }
@@ -596,6 +597,36 @@ body[data-admin-role="sales_rep"] [data-site-assistant-open] {
 .platform-admin-empty-detail h3 { margin:.2rem 0; font-family:"Fraunces",Georgia,serif; font-size:1.45rem; }
 .platform-admin-empty-detail p:not(.portal-kicker) { max-width:500px; margin:0; color:var(--portal-muted); }
 .platform-admin-directory-app > #admin-status { position:absolute; right:1rem; bottom:.65rem; z-index:2; margin:0; padding:.35rem 0; background:transparent; border-radius:0; }
+.platform-dashboard-preview-dialog { width:min(1120px,calc(100vw - 2rem)); max-height:calc(100svh - 2rem); box-sizing:border-box; padding:0; overflow:hidden; color:var(--portal-ink); background:#f5f8f9; border:1px solid rgba(8,17,29,.12); border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,.32); }
+.platform-dashboard-preview-dialog::backdrop { background:rgba(4,10,18,.72); backdrop-filter:blur(5px); }
+.platform-dashboard-preview-dialog > .platform-admin-dialog-head,.platform-dashboard-preview-dialog > .platform-admin-dialog-copy,.platform-dashboard-preview-dialog > .platform-admin-dialog-actions { margin:0; padding:1rem 1.25rem; background:#fff; }
+.platform-dashboard-preview-dialog > .platform-admin-dialog-head { border-bottom:1px solid var(--portal-line); }
+.platform-dashboard-preview-dialog > .platform-admin-dialog-copy { padding-top:0; }
+.platform-dashboard-preview-dialog > .platform-admin-dialog-actions { border-top:1px solid var(--portal-line); }
+#platform-dashboard-preview-content { max-height:calc(100svh - 230px); overflow-y:auto; padding:1.25rem; }
+.platform-dashboard-preview-loading { display:grid; min-height:260px; place-items:center; color:var(--portal-muted); text-align:center; }
+.platform-dashboard-preview-loading.is-error { color:#a33041; }
+.platform-dashboard-preview-account { display:flex; align-items:center; gap:.75rem; margin-bottom:1rem; }
+.platform-dashboard-preview-account strong,.platform-dashboard-preview-account p { display:block; margin:0; }
+.platform-dashboard-preview-account p { margin-top:.15rem; color:var(--portal-muted); font-size:.72rem; }
+.platform-dashboard-preview-switch { display:inline-grid; grid-template-columns:repeat(2,auto); gap:.2rem; padding:.25rem; background:#e8eef0; border-radius:999px; }
+.platform-dashboard-preview-switch button { min-height:36px; padding:.45rem .85rem; color:var(--portal-muted); background:transparent; border:0; border-radius:999px; font:800 .72rem/1 inherit; cursor:pointer; }
+.platform-dashboard-preview-switch button.is-active { color:#fff; background:#123a33; }
+.platform-dashboard-preview-panel { margin-top:1.1rem; }
+.platform-dashboard-preview-panel.hidden { display:none; }
+.platform-dashboard-preview-heading { margin:1.2rem 0 .75rem; }
+.platform-dashboard-preview-heading:first-child { margin-top:0; }
+.platform-dashboard-preview-heading span { color:#0a7b83; font-size:.66rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
+.platform-dashboard-preview-heading h3 { margin:.18rem 0; font-family:"Fraunces",Georgia,serif; font-size:1.4rem; }
+.platform-dashboard-preview-heading p { margin:0; color:var(--portal-muted); font-size:.8rem; }
+.platform-dashboard-preview-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:.75rem; }
+.platform-dashboard-preview-card { display:flex; min-height:150px; flex-direction:column; justify-content:space-between; gap:1rem; padding:1rem; background:#fff; border:1px solid var(--portal-line); border-radius:12px; }
+.platform-dashboard-preview-card span,.platform-dashboard-preview-card strong,.platform-dashboard-preview-card p { display:block; }
+.platform-dashboard-preview-card > div > span { color:#0a7b83; font-size:.62rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; }
+.platform-dashboard-preview-card strong { margin-top:.3rem; font-size:.92rem; }
+.platform-dashboard-preview-card p { margin:.4rem 0 0; color:var(--portal-muted); font-size:.72rem; line-height:1.5; }
+.platform-dashboard-preview-card .portal-button { align-self:flex-start; min-height:36px; padding:.45rem .7rem; font-size:.68rem; }
+.platform-dashboard-preview-private { align-self:flex-start; padding:.35rem .55rem; color:#607078; background:#eef2f4; border-radius:999px; font-size:.62rem !important; font-weight:800; letter-spacing:0 !important; text-transform:none !important; }
 
 /* Billing is a flat operations workspace with independently scrolling roster and detail panes. */
 .billing-admin-page .admin-workspace-banner { display:none !important; }
@@ -1539,6 +1570,7 @@ body[data-admin-role="sales_rep"] [data-site-assistant-open] {
   .platform-admin-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
   .platform-admin-roster-pane { max-height:40svh; border-right:0; border-bottom:1px solid var(--portal-line); }
   .platform-admin-detail-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .platform-dashboard-preview-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .billing-workbench { grid-template-columns:1fr; grid-template-rows:auto auto; }
   .billing-roster-pane { max-height:42svh; border-right:0; border-bottom:1px solid var(--portal-line); }
   .billing-detail-facts { grid-template-columns:repeat(2,minmax(0,1fr)); }
@@ -1804,6 +1836,8 @@ body[data-admin-role="sales_rep"] [data-site-assistant-open] {
   .analytics-panel-head small { text-align: left; }
   .platform-admin-invite-link,
   .platform-admin-detail-head { align-items:stretch; flex-direction:column; }
+  .platform-admin-detail-head-actions { align-items:stretch; flex-direction:column; }
+  .platform-dashboard-preview-grid { grid-template-columns:1fr; }
   .platform-admin-detail-facts { grid-template-columns:1fr; }
   .platform-admin-detail-facts > div { padding:.85rem 0; border-right:0; border-bottom:1px solid var(--portal-line); }
   .platform-admin-detail-facts > div:last-child { border-bottom:0; }

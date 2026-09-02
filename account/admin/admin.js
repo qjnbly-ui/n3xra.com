@@ -239,7 +239,7 @@ async function loadAdminView(adminContext) {
     const supportController = await import("/account/admin/controllers/support.js?v=8");
     await supportController.startSupport({ invoke, invokeWebsiteAutomation, escapeHtml, formatDate, setStatus, confirmAdminAction });
   } else if (view === "platform-admins") {
-    const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=5");
+    const platformAdmins = await import("/account/admin/controllers/platform-admins.js?v=6");
     await platformAdmins.startPlatformAdmins({ invoke, escapeHtml, setStatus, confirmAdminAction });
   } else if (view === "codebase-ai") {
     const codebaseAi = await import("/account/admin/controllers/codebase-ai.js?v=2");
