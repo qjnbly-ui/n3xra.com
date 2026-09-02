@@ -7,6 +7,7 @@ const accountHtmlPath = new URL("../../account/index.html", import.meta.url);
 const accountControllerPath = new URL("../../account/admin/controllers/accounts.js", import.meta.url);
 const adminAccountsHtmlPath = new URL("../../account/admin/accounts/index.html", import.meta.url);
 const adminScriptPath = new URL("../../account/admin/admin.js", import.meta.url);
+const recordsFilesScriptPath = new URL("../../n3xra-records/files.js", import.meta.url);
 
 test("My products queries stay scoped to the signed-in account even for platform admins", async () => {
   const [script, html] = await Promise.all([
@@ -22,9 +23,10 @@ test("My products queries stay scoped to the signed-in account even for platform
 });
 
 test("administrator dashboard preview reuses the real account dashboard without loading private product data", async () => {
-  const [script, html] = await Promise.all([
+  const [script, html, recordsFilesScript] = await Promise.all([
     readFile(accountScriptPath, "utf8"),
     readFile(accountHtmlPath, "utf8"),
+    readFile(recordsFilesScriptPath, "utf8"),
   ]);
 
   assert.match(html, /id="account-client-preview-banner"/);
@@ -35,6 +37,7 @@ test("administrator dashboard preview reuses the real account dashboard without 
   assert.match(script, /Private app data hidden/);
   assert.match(script, /data-client-preview-safe/);
   assert.match(script, /\[data-sales-leads-card\]/);
+  assert.match(recordsFilesScript, /resolveActiveOrganization\(memberships, supportOrganizationId \|\| "", \{ preferStored: !supportOrganizationId \}\)/);
 });
 
 test("platform administrator visibility does not count as a personal Communications subscription", async () => {

@@ -1304,7 +1304,8 @@ async function bootstrapAccess() {
     const supportMembership = await loadSupportMembership(supabase, currentSession.user);
     if (supportMembership) memberships = [supportMembership, ...memberships.filter((item) => item.organization?.id !== supportMembership.organization.id)];
   }
-  activeMembership = resolveActiveOrganization(memberships, getSupportOrganizationId() || "");
+  const supportOrganizationId = getSupportOrganizationId();
+  activeMembership = resolveActiveOrganization(memberships, supportOrganizationId || "", { preferStored: !supportOrganizationId });
   if (activeMembership?.organization?.id) {
     setStoredActiveOrganizationId(activeMembership.organization.id);
   } else {
