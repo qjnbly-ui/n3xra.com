@@ -18,6 +18,12 @@ test("Internal Files remains the central admin library", () => {
   assert.match(navigationSource, /\["\/account\/admin\/files\/", "Internal Files"\]/);
 });
 
+test("Internal Files can create and retain empty folders", () => {
+  assert.match(internalFilesPage, /id="n3xra-new-folder-button"/);
+  assert.match(filesSource, /fileInvoke\("create-n3xra-folder", \{ folderPath \}\)/);
+  assert.match(filesSource, /fileState\.folders\.forEach/);
+});
+
 test("website libraries retain website and category folders", () => {
   assert.match(filesSource, /`Websites\/\$\{websiteFolderSegment\(website\.name\)\}`/);
   assert.match(filesSource, /websiteCategoryFolder\(asset\.category\)/);

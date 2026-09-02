@@ -49,6 +49,17 @@ function textValue(value: unknown, limit = 1000) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, limit);
 }
 
+function n3xraFolderPath(value: unknown) {
+  const path = String(value || "").trim().replace(/^\/+|\/+$/g, "");
+  const parts = path.split("/");
+  if (!path || path.length > 180 || parts.some((part) => !part.trim() || part.trim() !== part || part === "." || part === ".." || part.includes("\\") || /[\u0000-\u001f]/.test(part))) return "";
+  return parts.join("/");
+}
+
+function isManagedN3xraFolder(path: string) {
+  return path === "Websites" || path.startsWith("Websites/") || path === "Client shares" || path.startsWith("Client shares/");
+}
+
 function normalizeEmail(value: unknown) {
   return String(value || "").trim().toLowerCase();
 }
@@ -1693,22 +1704,46 @@ Deno.serve(async (request) => {
     }
 
     if (action === "list-n3xra-files") {
-      const [{ data: files, error: filesError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
+      const [{ data: files, error: filesError }, { data: folders, error: foldersError }, { data: access, error: accessError }, { data: admins, error: adminsError }] = await Promise.all([
         adminClient.from("n3xra_files").select("id,name,storage_path,mime_type,size_bytes,created_by,created_at,cdn_storage_path,cdn_url,published_at,published_by").order("created_at", { ascending: false }),
+        adminClient.from("n3xra_file_folders").select("id,path,created_by,created_at").order("path", { ascending: true }),
         adminClient.from("n3xra_file_access").select("file_id,user_id"),
         adminClient.from("platform_admins").select("user_id,email,role,status").eq("status", "active").order("email", { ascending: true }),
       ]);
-      if (filesError || accessError || adminsError) {
-        return jsonResponse({ error: filesError?.message || accessError?.message || adminsError?.message || "Unable to load N3XRA Files." }, 400);
+      if (filesError || foldersError || accessError || adminsError) {
+        return jsonResponse({ error: filesError?.message || foldersError?.message || accessError?.message || adminsError?.message || "Unable to load N3XRA Files." }, 400);
       }
       const allowedFileIds = new Set((access || []).filter((item) => String(item.user_id) === user.id).map((item) => String(item.file_id)));
       const visibleFiles = (files || []).filter((file) => allowedFileIds.has(String(file.id)));
       return jsonResponse({
         ok: true,
         files: visibleFiles,
+        folders: folders || [],
         access: access || [],
         admins: admins || [],
       });
+    }
+
+    if (action === "create-n3xra-folder") {
+      const folderPath = n3xraFolderPath(payload.folderPath);
+      if (!folderPath) return jsonResponse({ error: "Enter a valid folder name without slashes or control characters." }, 400);
+      if (isManagedN3xraFolder(folderPath)) return jsonResponse({ error: "Folders in this location are managed automatically." }, 400);
+      if (folderPath === "Business Records") return jsonResponse({ error: "That system folder already exists." }, 409);
+      const [{ data: savedFolders, error: foldersError }, { data: files, error: filesError }] = await Promise.all([
+        adminClient.from("n3xra_file_folders").select("path"),
+        adminClient.from("n3xra_files").select("name"),
+      ]);
+      if (foldersError || filesError) return jsonResponse({ error: foldersError?.message || filesError?.message || "Unable to check existing folders." }, 400);
+      const normalizedPath = folderPath.toLocaleLowerCase();
+      const folderExists = (savedFolders || []).some((folder) => String(folder.path || "").toLocaleLowerCase() === normalizedPath);
+      const fileFolderExists = (files || []).some((file) => {
+        const parts = String(file.name || "").split("/").filter(Boolean);
+        return parts.slice(0, -1).some((_, index) => parts.slice(0, index + 1).join("/").toLocaleLowerCase() === normalizedPath);
+      });
+      if (folderExists || fileFolderExists) return jsonResponse({ error: "A folder with that name already exists here." }, 409);
+      const { data: folder, error } = await adminClient.from("n3xra_file_folders").insert({ path: folderPath, created_by: user.id }).select("id,path,created_by,created_at").single();
+      if (error) return jsonResponse({ error: error.code === "23505" ? "A folder with that name already exists here." : error.message }, error.code === "23505" ? 409 : 400);
+      return jsonResponse({ ok: true, folder });
     }
 
     if (action === "create-n3xra-file") {
@@ -1837,10 +1872,16 @@ Deno.serve(async (request) => {
     }
 
     if (action === "delete-n3xra-folder") {
-      const folderPath = String(payload.folderPath || "").trim().replace(/^\/|\/$/g, "");
-      if (!folderPath || folderPath.includes("..")) return jsonResponse({ error: "A valid folder path is required." }, 400);
-      const { data: files, error: filesError } = await adminClient.from("n3xra_files").select("id,storage_path,cdn_storage_path").like("name", `${folderPath}/%`);
-      if (filesError) return jsonResponse({ error: filesError.message }, 400);
+      const folderPath = n3xraFolderPath(payload.folderPath);
+      if (!folderPath) return jsonResponse({ error: "A valid folder path is required." }, 400);
+      if (isManagedN3xraFolder(folderPath) || folderPath === "Business Records") return jsonResponse({ error: "This system folder cannot be deleted." }, 400);
+      const [{ data: allFiles, error: filesError }, { data: allFolders, error: foldersError }] = await Promise.all([
+        adminClient.from("n3xra_files").select("id,name,storage_path,cdn_storage_path"),
+        adminClient.from("n3xra_file_folders").select("id,path"),
+      ]);
+      const files = (allFiles || []).filter((file) => String(file.name || "").startsWith(`${folderPath}/`));
+      const folders = (allFolders || []).filter((folder) => folder.path === folderPath || String(folder.path || "").startsWith(`${folderPath}/`));
+      if (filesError || foldersError) return jsonResponse({ error: filesError?.message || foldersError?.message || "Unable to load the folder." }, 400);
       if (files?.length) {
         const { error: storageError } = await adminClient.storage.from("n3xra-files").remove(files.map((file) => file.storage_path));
         if (storageError) return jsonResponse({ error: storageError.message }, 400);
@@ -1852,7 +1893,11 @@ Deno.serve(async (request) => {
         const { error: deleteError } = await adminClient.from("n3xra_files").delete().in("id", files.map((file) => file.id));
         if (deleteError) return jsonResponse({ error: deleteError.message }, 400);
       }
-      return jsonResponse({ ok: true, deletedCount: files?.length || 0 });
+      if (folders.length) {
+        const { error: folderDeleteError } = await adminClient.from("n3xra_file_folders").delete().in("id", folders.map((folder) => folder.id));
+        if (folderDeleteError) return jsonResponse({ error: folderDeleteError.message }, 400);
+      }
+      return jsonResponse({ ok: true, deletedCount: files.length, deletedFolderCount: folders.length });
     }
 
     if (action === "activate-project-cards-for-account") {

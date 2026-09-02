@@ -3,7 +3,7 @@ import { promptAdminText } from "/account/admin/admin-dialogs.js";
 import { safeWebsiteAssetFilename, validateWebsiteAssetRename, websiteAssetThumbnailUrl } from "/shared/lib/website-asset-utils.js?v=3";
 import { CDN_BROWSER_CACHE_SECONDS, canOptimizeCdnImage, prepareCdnImage } from "/shared/lib/cdn-image-optimizer.js";
 
-let fileState = { files: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
+let fileState = { files: [], folders: [], access: [], admins: [], websites: [], websiteAssets: [], websiteVersions: [] };
 let fileSupabase = null;
 let fileInvoke = null;
 let fileUserId = null;
@@ -227,6 +227,13 @@ function renderFolderTree() {
   const tree = document.getElementById("n3xra-folder-tree");
   if (!tree) return;
   const folders = new Map();
+  fileState.folders.forEach((savedFolder) => {
+    const parts = pathParts(savedFolder.path);
+    parts.forEach((name, index) => {
+      const path = parts.slice(0, index + 1).join("/");
+      if (!folders.has(path)) folders.set(path, { name, path, depth: index, count: 0 });
+    });
+  });
   fileState.files.forEach((file) => {
     const parts = pathParts(file.name);
     parts.slice(0, -1).forEach((name, index) => {
@@ -276,13 +283,20 @@ function syncFileActions() {
   const clientShares = currentFolderPath === "Client shares" || currentFolderPath.startsWith("Client shares/");
   const statusFilter = document.getElementById("n3xra-file-status-filter");
   const uploadFilesLabel = document.querySelector('label[for="n3xra-file-input"]');
+  const newFolderButton = document.getElementById("n3xra-new-folder-button");
   const uploadFolderButton = document.getElementById("n3xra-folder-button");
   const fileInput = document.getElementById("n3xra-file-input");
   const folderInput = document.getElementById("n3xra-folder-input");
+  const managedLocation = websiteRoot || Boolean(website) || clientShares;
   [uploadFilesLabel, uploadFolderButton].forEach((element) => element?.classList.toggle("is-disabled", websiteRoot || clientShares));
+  newFolderButton?.classList.toggle("is-disabled", managedLocation);
   if (fileInput) fileInput.disabled = websiteRoot || clientShares;
   if (folderInput) folderInput.disabled = websiteRoot || clientShares;
   if (uploadFolderButton) uploadFolderButton.disabled = websiteRoot || clientShares;
+  if (newFolderButton) {
+    newFolderButton.disabled = managedLocation;
+    newFolderButton.title = managedLocation ? "Folders in this location are managed automatically." : "Create a folder here";
+  }
   if (uploadFilesLabel) uploadFilesLabel.title = clientShares ? "Clients control this shared folder." : websiteRoot ? "Choose a website folder before uploading." : website ? `Upload to ${website.name}` : "Upload files";
   if (statusFilter) {
     statusFilter.disabled = !website;
@@ -459,7 +473,7 @@ async function loadSharedOrganizationFiles() {
 
 async function loadFiles() {
   const [data, websiteData, sharedFiles] = await Promise.all([fileInvoke("list-n3xra-files"), loadWebsiteFiles(), loadSharedOrganizationFiles()]);
-  fileState = { files: [...(data.files || []).map((file) => ({ ...file, source: "n3xra" })), ...websiteData.files, ...sharedFiles], access: data.access || [], admins: data.admins || [], websites: websiteData.websites, websiteAssets: websiteData.assets, websiteVersions: websiteData.versions };
+  fileState = { files: [...(data.files || []).map((file) => ({ ...file, source: "n3xra" })), ...websiteData.files, ...sharedFiles], folders: data.folders || [], access: data.access || [], admins: data.admins || [], websites: websiteData.websites, websiteAssets: websiteData.assets, websiteVersions: websiteData.versions };
   renderFiles();
   fileStatus();
 }
@@ -609,6 +623,35 @@ async function chooseFolder() {
     document.getElementById("n3xra-folder-input")?.click();
   } catch (error) {
     if (error?.name !== "AbortError") fileStatus(error.message || "Unable to open that folder.", "error");
+  }
+}
+
+async function createFolder() {
+  const parentPath = currentFolderPath;
+  const name = await promptAdminText(
+    parentPath ? `Create a new folder inside “${pathParts(parentPath).at(-1)}”.` : "Create a new top-level folder in Internal Files.",
+    { title: "Create folder", inputLabel: "Folder name", confirmLabel: "Create folder" },
+  );
+  if (name === null) return;
+  const folderName = name.trim();
+  if (!folderName) {
+    fileStatus("Enter a folder name.", "error");
+    return;
+  }
+  if (folderName === "." || folderName === ".." || /[\\/\u0000-\u001f]/.test(folderName)) {
+    fileStatus("Folder names cannot contain slashes or control characters.", "error");
+    return;
+  }
+  const folderPath = parentPath ? `${parentPath}/${folderName}` : folderName;
+  fileStatus(`Creating ${folderName}…`);
+  try {
+    await fileInvoke("create-n3xra-folder", { folderPath });
+    pathParts(folderPath).slice(0, -1).forEach((_, index) => expandedFolderPaths.add(pathParts(folderPath).slice(0, index + 1).join("/")));
+    currentFolderPath = folderPath;
+    await loadFiles();
+    fileStatus(`Folder “${folderName}” created.`, "success");
+  } catch (error) {
+    fileStatus(error.message || "The folder could not be created.", "error");
   }
 }
 
@@ -1257,6 +1300,7 @@ export async function startFiles({ supabase, session, invoke }) {
   selectedFileKeys.clear();
   document.getElementById("n3xra-file-input")?.addEventListener("change", uploadFiles);
   document.getElementById("n3xra-folder-input")?.addEventListener("change", uploadFiles);
+  document.getElementById("n3xra-new-folder-button")?.addEventListener("click", createFolder);
   document.getElementById("n3xra-folder-button")?.addEventListener("click", chooseFolder);
   document.getElementById("n3xra-file-list")?.addEventListener("click", (event) => {
     const selectableRow = event.target.closest("[data-selectable-file]");
