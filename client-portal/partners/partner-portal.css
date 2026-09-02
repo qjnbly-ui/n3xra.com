@@ -1,4 +1,4 @@
-.partner-portal-workspace { display: grid; align-content: start; gap: 1.25rem; }
+.partner-portal-workspace { display: grid; grid-auto-rows: max-content; align-content: start; gap: 1.25rem; }
 
 @media (min-width: 801px) {
   .client-portal-page .portal-layout > .partner-portal-workspace {

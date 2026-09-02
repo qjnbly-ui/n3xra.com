@@ -94,6 +94,7 @@ test("approved partners can open representative resources without gaining access
 
 test("the desktop partner portal scrolls through its complete workspace", async () => {
   const styles = await read("client-portal/partners/partner-portal.css");
+  assert.match(styles, /\.partner-portal-workspace \{[^}]*grid-auto-rows: max-content;/);
   assert.match(styles, /@media \(min-width: 801px\)[\s\S]*\.client-portal-page \.portal-layout > \.partner-portal-workspace \{[\s\S]*overflow-y: auto;/);
 });
 
