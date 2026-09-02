@@ -39,7 +39,7 @@
 .partner-balance-grid strong { display: block; margin: .35rem 0 .2rem; font-family: "Fraunces",Georgia,serif; font-size: 1.8rem; }
 .partner-balance-grid p { margin: 0; color: var(--portal-muted); font-size: .75rem; }
 
-.partner-code-card,.partner-activity,.partner-terms-card { border: 1px solid var(--portal-line); border-radius: 14px; background: #fff; overflow: hidden; }
+.partner-code-card,.partner-activity,.partner-terms-card,.partner-resources { border: 1px solid var(--portal-line); border-radius: 14px; background: #fff; overflow: hidden; }
 .partner-code-card { display: grid; grid-template-columns: minmax(240px,.65fr) minmax(0,1.35fr); }
 .partner-section-intro { padding: 1.4rem; background: linear-gradient(135deg,rgba(22,185,237,.09),rgba(22,185,237,.025)); border-right: 1px solid rgba(22,185,237,.18); }
 .partner-section-intro h2,.partner-section-heading h2 { margin: 0; font-family: "Fraunces",Georgia,serif; font-size: 1.55rem; }
@@ -63,6 +63,14 @@
 
 .partner-activity { padding: 1.4rem; }
 .partner-terms-card { padding: 1.4rem; }
+.partner-resources { padding: 1.4rem; }
+.partner-resource-list { display: grid; gap: .75rem; margin-top: .9rem; }
+.partner-resource-card { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 1rem; padding: 1rem; background: #f5f7fa; border: 1px solid var(--portal-line); border-radius: 12px; }
+.partner-resource-icon { display: grid; place-items: center; width: 46px; height: 52px; color: #fff; background: #0b2239; border-radius: 8px; font-size: .68rem; font-weight: 800; letter-spacing: .06em; }
+.partner-resource-copy strong,.partner-resource-copy span { display: block; }
+.partner-resource-copy strong { font-size: .88rem; }
+.partner-resource-copy span { margin-top: .28rem; color: var(--portal-muted); font-size: .75rem; line-height: 1.5; }
+.partner-resource-empty { padding: 1rem; color: var(--portal-muted); background: #f5f7fa; border: 1px dashed var(--portal-line); border-radius: 10px; font-size: .78rem; text-align: center; }
 .partner-terms-card[hidden] { display: none; }
 .partner-terms-grid { display: grid; grid-template-columns: minmax(220px,.55fr) minmax(0,1.45fr); gap: .85rem; margin-top: .9rem; }
 .partner-terms-grid > div,.partner-terms-grid article { padding: 1rem; background: #f5f7fa; border: 1px solid var(--portal-line); border-radius: 12px; }
@@ -100,6 +108,8 @@
   .partner-admin-preview { align-items: stretch; flex-direction: column; }
   .partner-approval-badge { justify-items: start; }
   .partner-activity-grid,.partner-code-control,.partner-share-control { grid-template-columns: 1fr; }
+  .partner-resource-card { grid-template-columns: auto minmax(0,1fr); }
+  .partner-resource-card .portal-button { grid-column: 1 / -1; width: 100%; }
   .partner-code-control .portal-button,.partner-share-control .portal-button { width: 100%; }
 }
 

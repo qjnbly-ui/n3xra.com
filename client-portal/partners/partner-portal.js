@@ -36,6 +36,18 @@ function title(value = "") {
   return String(value).replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function renderResources(resources = []) {
+  const target = document.getElementById("partner-resource-list");
+  if (!target) return;
+  target.innerHTML = resources.length ? resources.map((resource) => `
+    <article class="partner-resource-card">
+      <span class="partner-resource-icon" aria-hidden="true">PDF</span>
+      <div class="partner-resource-copy"><strong>${escapeHtml(resource.title)}</strong><span>${escapeHtml(resource.description)}</span></div>
+      <button class="portal-button" type="button" data-partner-resource="${escapeHtml(resource.id)}"${isAdminPreview ? " disabled" : ""}>${isAdminPreview ? "Preview only" : "Open guide"}</button>
+    </article>
+  `).join("") : '<div class="partner-resource-empty">No training materials are available yet.</div>';
+}
+
 async function api(options = {}) {
   const method = String(options.method || "GET").toUpperCase();
   const query = previewId && method === "GET" ? `?admin_preview=${encodeURIComponent(previewId)}` : "";
@@ -108,6 +120,7 @@ function render(data) {
   renderHistory("partner-referral-history", data.referrals, "referral");
   renderHistory("partner-commission-history", data.commissions, "commission");
   renderTerms(data.terms);
+  renderResources(data.resources || []);
 }
 
 async function init() {
@@ -188,6 +201,22 @@ async function init() {
     } catch {
       input.select();
       copyStatus.textContent = "Select Copy to copy the highlighted link.";
+    }
+  });
+  document.getElementById("partner-resource-list")?.addEventListener("click", async (event) => {
+    const button = event.target.closest("[data-partner-resource]");
+    if (!button || isAdminPreview) return;
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Opening…";
+    try {
+      const data = await api({ method: "POST", body: JSON.stringify({ action: "open_training_resource", file_id: button.dataset.partnerResource }) });
+      window.location.assign(data.url);
+    } catch (error) {
+      button.disabled = false;
+      button.textContent = "Try again";
+      button.title = error.message || "This guide could not be opened.";
+      window.setTimeout(() => { if (button.isConnected && !button.disabled) button.textContent = originalLabel; }, 4000);
     }
   });
   document.body.classList.remove("portal-loading");

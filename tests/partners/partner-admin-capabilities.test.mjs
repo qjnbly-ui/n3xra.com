@@ -76,6 +76,22 @@ test("partner account preview reuses the real portal and remains read-only", asy
   assert.match(endpoint, /partner_terms\?select=/);
 });
 
+test("approved partners can open representative resources without gaining access to other internal files", async () => {
+  const [portal, endpoint, html] = await Promise.all([
+    read("client-portal/partners/partner-portal.js"),
+    read("api/partner-portal.js"),
+    read("client-portal/partners/index.html"),
+  ]);
+
+  assert.match(html, /id="training-resources"/);
+  assert.match(html, /Sales representative materials/);
+  assert.match(portal, /open_training_resource/);
+  assert.match(endpoint, /N3XRA LLC\/Sales\/Representative Training & Guides\//);
+  assert.match(endpoint, /startsWith\(TRAINING_RESOURCE_PATH\)/);
+  assert.match(endpoint, /object\/sign\/n3xra-files/);
+  assert.match(endpoint, /approvedApplication\(user\.id\)/);
+});
+
 test("commission and contract validation preserves exact percentage basis points", async () => {
   const { normalizeTerms } = await import("../../api/partner-admin-terms.js");
   const saved = normalizeTerms({

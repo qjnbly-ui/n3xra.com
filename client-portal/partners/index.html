@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/site-nav.css?v=4">
   <link rel="stylesheet" href="/client-portal/portal.css?v=18">
   <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
-  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=5">
+  <link rel="stylesheet" href="/client-portal/partners/partner-portal.css?v=6">
   <script src="/shared/config.js"></script>
   <script src="/assets/site-nav.js?v=5"></script>
   <script>
@@ -34,6 +34,7 @@
       <nav class="site-mobile-menu" id="partner-portal-menu" aria-label="Partner portal navigation" hidden>
         <div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Partner portal</p></div>
         <a class="site-menu-link is-current" href="/client-portal/partners/">Overview</a>
+        <a class="site-menu-link" href="#training-resources">Training &amp; resources</a>
         <a class="site-menu-link" href="#referral-tools">Referral tools</a>
         <a class="site-menu-link" href="#partner-activity">Activity &amp; earnings</a>
         <a class="site-menu-link" href="/support/">Support</a>
@@ -46,6 +47,7 @@
       <nav class="portal-nav" aria-label="Partner portal">
         <p class="portal-nav-label">Partner workspace</p>
         <a class="is-current" href="/client-portal/partners/">Overview</a>
+        <a href="#training-resources">Training &amp; resources</a>
         <a href="#referral-tools">Referral tools</a>
         <a href="#partner-activity">Activity &amp; earnings</a>
         <div class="portal-nav-divider"></div>
@@ -80,6 +82,17 @@
           <article><span>Available</span><strong id="balance-available">$0.00</strong><p>Ready for payout</p></article>
           <article><span>Paid</span><strong id="balance-paid">$0.00</strong><p>Total paid to date</p></article>
           <article><span>Referrals</span><strong id="referral-count">0</strong><p>Introductions recorded</p></article>
+        </section>
+
+        <section class="partner-resources" id="training-resources">
+          <div class="partner-section-heading">
+            <p class="portal-kicker">Training &amp; resources</p>
+            <h2>Sales representative materials</h2>
+            <p>Start here to learn N3XRA’s products, customer process, and compensation structure.</p>
+          </div>
+          <div class="partner-resource-list" id="partner-resource-list" aria-live="polite">
+            <div class="partner-resource-empty">Loading your sales materials…</div>
+          </div>
         </section>
 
         <section class="partner-code-card" id="referral-tools">
@@ -128,6 +141,6 @@
 
   <div class="portal-status" id="portal-status" role="status">Opening your partner portal…</div>
   <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
-  <script type="module" src="/client-portal/partners/partner-portal.js?v=5"></script>
+  <script type="module" src="/client-portal/partners/partner-portal.js?v=6"></script>
 </body>
 </html>
