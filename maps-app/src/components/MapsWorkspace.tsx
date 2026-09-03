@@ -240,8 +240,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       style: STANDARD_STYLE,
       center: [-98.5795, 39.8283],
       zoom: 3.2,
-      attributionControl: true,
+      attributionControl: false,
     });
+    map.addControl(new mapboxgl.AttributionControl(), "top-right");
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "bottom-right");
     mapRef.current = map;
     return () => {

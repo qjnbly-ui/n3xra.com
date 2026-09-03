@@ -40,6 +40,8 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /If Chrome asks to use your location, choose Allow/);
   assert.match(workspace, /allow Location for n3xra\.com/);
   assert.match(workspace, /Satellite/);
+  assert.match(workspace, /attributionControl: false/);
+  assert.match(workspace, /new mapboxgl\.AttributionControl\(\), "top-right"/);
   assert.match(workspace, /create_map_point/);
   assert.match(workspace, /Edit item/);
   assert.match(workspace, /saveFeatureDetails/);
