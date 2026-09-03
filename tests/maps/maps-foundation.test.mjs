@@ -210,7 +210,8 @@ test("Maps uses a clean N3XRA product header without the user identity block", a
   assert.match(workspace, /activeAccess\?\.organizationName/);
   assert.doesNotMatch(workspace, /className="maps-account-context"/);
   assert.doesNotMatch(workspace, /from\("profiles"\)/);
-  assert.match(styles, /linear-gradient\(135deg, #0b1219/);
+  assert.match(styles, /\.maps-header \{[^}]*background: #0b1219/);
+  assert.doesNotMatch(styles, /\.maps-header \{[^}]*radial-gradient/);
   assert.match(styles, /--maps-gold: #ea9b3f/);
   assert.doesNotMatch(styles, /\.maps-account-avatar/);
 });

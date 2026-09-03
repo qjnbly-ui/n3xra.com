@@ -18,7 +18,7 @@ button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
 
 .maps-product { min-height: 100vh; background: #070c12; }
-.maps-header { position: relative; z-index: 30; height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 clamp(1rem, 2.2vw, 2rem); border-bottom: 1px solid rgba(255,255,255,.1); background: radial-gradient(520px 180px at 8% 18%, rgba(23,111,102,.34), transparent 65%), radial-gradient(420px 180px at 92% 0%, rgba(234,155,63,.22), transparent 68%), linear-gradient(135deg, #0b1219 0%, #101925 52%, #0c141c 100%); box-shadow: 0 10px 30px rgba(4,9,15,.2); }
+.maps-header { position: relative; z-index: 30; height: 72px; display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 clamp(1rem, 2.2vw, 2rem); border-bottom: 1px solid rgba(255,255,255,.1); background: #0b1219; box-shadow: 0 10px 30px rgba(4,9,15,.2); }
 .maps-brand { display: inline-flex; align-items: center; gap: .8rem; color: #fff; text-decoration: none; }
 .maps-brand > img { width: 34px; height: 34px; object-fit: contain; filter: drop-shadow(0 8px 14px rgba(0,0,0,.24)); }
 .maps-brand > span { font-size: .88rem; font-weight: 800; letter-spacing: .17em; }
