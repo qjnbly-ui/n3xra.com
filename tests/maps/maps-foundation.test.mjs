@@ -35,6 +35,11 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /allow Location for n3xra\.com/);
   assert.match(workspace, /Satellite/);
   assert.match(workspace, /create_map_point/);
+  assert.match(workspace, /Edit item/);
+  assert.match(workspace, /saveFeatureDetails/);
+  assert.match(workspace, /\.from\("map_features"\)[\s\S]*?\.update\(\{/);
+  assert.match(workspace, /\.eq\("organization_id", activeAccess\.organizationId\)/);
+  assert.match(workspace, /Mapped item updated/);
   assert.match(migration, /create extension if not exists postgis/);
   assert.match(migration, /geometry extensions\.geometry\(Geometry, 4326\)/);
   assert.match(migration, /future_customer_account_id uuid/);

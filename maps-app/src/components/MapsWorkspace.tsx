@@ -130,6 +130,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layerDialogOpen, setLayerDialogOpen] = useState(false);
   const [featureDialogOpen, setFeatureDialogOpen] = useState(false);
+  const [featureEditOpen, setFeatureEditOpen] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
   const [saving, setSaving] = useState(false);
@@ -575,6 +576,35 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Location saved");
   };
 
+  const saveFeatureDetails = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedFeature || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const title = String(form.get("title") || "").trim();
+    if (!title) return;
+    setSaving(true);
+    const { data, error } = await client
+      .from("map_features")
+      .update({
+        title,
+        reference_code: String(form.get("reference_code") || "").trim() || null,
+        description: String(form.get("description") || "").trim() || null,
+        status: String(form.get("status") || "active"),
+      })
+      .eq("id", selectedFeature.id)
+      .eq("organization_id", activeAccess.organizationId)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That mapped item could not be updated.");
+      return;
+    }
+    setFeatureEditOpen(false);
+    await loadWorkspace(client, activeAccess);
+    showToast("Mapped item updated");
+  };
+
   const toggleLayer = (layerId: string) => {
     setVisibleLayers((current) => ({ ...current, [layerId]: current[layerId] === false }));
   };
@@ -729,6 +759,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
+              {canEdit && <button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>}
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -775,6 +806,23 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <label><span>Notes</span><textarea name="description" maxLength={1_000} rows={3} placeholder="Optional field notes" /></label>
               <div className="maps-coordinate-readout"><span>{pendingPoint.latitude.toFixed(7)}, {pendingPoint.longitude.toFixed(7)}</span><small>{pendingPoint.accuracyMeters === null ? "Placed manually" : `Device accuracy ±${Math.round(pendingPoint.accuracyMeters * 3.28084)} ft`}</small></div>
               <footer><button type="button" onClick={() => setFeatureDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save location"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {featureEditOpen && selectedFeature && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-feature-title">
+            <header><div><span>MAPPED ITEM</span><h2 id="edit-feature-title">Edit item details</h2></div><button type="button" onClick={() => setFeatureEditOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void saveFeatureDetails(event)}>
+              <label><span>Layer</span><input value={selectedLayer?.name || "Mapped item"} disabled /></label>
+              <label><span>Title</span><input name="title" required maxLength={140} defaultValue={selectedFeature.title} /></label>
+              <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} defaultValue={selectedFeature.reference_code || ""} placeholder="Optional" /></label>
+              <label><span>Status</span><select name="status" defaultValue={selectedFeature.status}><option value="active">Active</option><option value="inactive">Inactive</option><option value="unknown">Unknown</option></select></label>
+              <label><span>Notes</span><textarea name="description" maxLength={4_000} rows={4} defaultValue={selectedFeature.description || ""} placeholder="Optional field notes" /></label>
+              <p>This changes the item details without moving its mapped location.</p>
+              <footer><button type="button" onClick={() => setFeatureEditOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></footer>
             </form>
           </section>
         </div>
