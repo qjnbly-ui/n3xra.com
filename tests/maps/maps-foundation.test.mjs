@@ -156,3 +156,29 @@ test("Maps early access is requested by the account and decided in a dedicated a
   assert.match(adminNavigation, /label: "Maps"/);
   assert.match(adminNavigation, /"\/maps\/admin\/"/);
 });
+
+test("Approved users can activate a blank Maps workspace on an existing or new organization", async () => {
+  const [migration, workspace, styles] = await Promise.all([
+    read("supabase/migrations/20260903150109_maps_workspace_activation.sql"),
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+  ]);
+
+  assert.match(migration, /create or replace function public\.maps_activation_options\(\)/);
+  assert.match(migration, /create or replace function public\.activate_maps_workspace\(/);
+  assert.match(migration, /access_request\.status <> 'approved'/);
+  assert.match(migration, /membership\.role = 'account_admin'/);
+  assert.match(migration, /insert into public\.organization_product_entitlements/);
+  assert.match(migration, /insert into public\.organization_product_member_access/);
+  assert.match(migration, /'product_key',[\s\S]*'maps'|product_key,[\s\S]*'maps'/);
+  assert.doesNotMatch(migration, /insert into public\.map_layers|insert into public\.map_features|Bly Water/i);
+  assert.match(migration, /revoke all on function public\.activate_maps_workspace\(uuid, text\) from public, anon/);
+
+  assert.match(workspace, /rpc\("maps_activation_options"\)/);
+  assert.match(workspace, /rpc\("activate_maps_workspace"/);
+  assert.match(workspace, /Existing organization/);
+  assert.match(workspace, /New organization/);
+  assert.match(workspace, /Your workspace starts empty/);
+  assert.match(workspace, /Create blank Maps workspace/);
+  assert.match(styles, /\.maps-activation-modes/);
+});

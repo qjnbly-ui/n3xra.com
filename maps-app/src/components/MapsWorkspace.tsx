@@ -31,8 +31,22 @@ interface PointCoordinates {
   accuracyMeters: number | null;
 }
 
-type GateState = "loading" | "signed-out" | "unassigned" | "ready" | "error";
+interface ActivationOrganization {
+  id: string;
+  name: string;
+  isOwner: boolean;
+  mapsConnected: boolean;
+}
+
+interface ActivationOptions {
+  approved: boolean;
+  activatedOrganizationId: string | null;
+  organizations: ActivationOrganization[];
+}
+
+type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
+type ActivationMode = "existing" | "new";
 
 const ACTIVE_ORGANIZATION_KEY = "records-active-organization-id";
 const STANDARD_STYLE = "mapbox://styles/mapbox/standard";
@@ -106,6 +120,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [toast, setToast] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
   const [locationError, setLocationError] = useState("");
+  const [activationOptions, setActivationOptions] = useState<ActivationOptions | null>(null);
+  const [activationMode, setActivationMode] = useState<ActivationMode>("existing");
+  const [activationOrganizationId, setActivationOrganizationId] = useState("");
+  const [newOrganizationName, setNewOrganizationName] = useState("");
+  const [activating, setActivating] = useState(false);
 
   const canEdit = activeAccess?.role === "account_admin" || activeAccess?.role === "editor";
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
@@ -179,12 +198,22 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             .eq("user_id", sessionData.session.user.id)
             .maybeSingle();
           if (requestError && requestError.code !== "PGRST116") throw requestError;
+          if (request?.status === "approved") {
+            const { data: options, error: optionsError } = await supabase.rpc("maps_activation_options");
+            if (optionsError) throw optionsError;
+            const nextOptions = options as ActivationOptions;
+            const eligible = Array.isArray(nextOptions?.organizations) ? nextOptions.organizations : [];
+            setActivationOptions({ ...nextOptions, organizations: eligible });
+            setActivationOrganizationId(eligible[0]?.id || "");
+            setActivationMode(eligible.length ? "existing" : "new");
+            setGate("setup");
+            setGateMessage("Choose where this blank Maps workspace belongs.");
+            return;
+          }
           setGate("unassigned");
-          setGateMessage(request?.status === "approved"
-            ? "Your early access is approved. The next setup step will create your blank Maps workspace."
-            : request?.status === "pending"
-              ? "Your Maps early-access request is awaiting N3XRA approval."
-              : "Request Maps early access from your N3XRA dashboard.");
+          setGateMessage(request?.status === "pending"
+            ? "Your Maps early-access request is awaiting N3XRA approval."
+            : "Request Maps early access from your N3XRA dashboard.");
           return;
         }
         const storedId = window.localStorage.getItem(ACTIVE_ORGANIZATION_KEY);
@@ -297,6 +326,45 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       console.warn("The selected maps workspace could not be loaded.", error);
       setGate("error");
       setGateMessage("That maps workspace could not be loaded.");
+    }
+  };
+
+  const activateWorkspace = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || activating) return;
+    if (activationMode === "existing" && !activationOrganizationId) {
+      setGateMessage("Choose an organization for Maps.");
+      return;
+    }
+    if (activationMode === "new" && !newOrganizationName.trim()) {
+      setGateMessage("Enter a name for the new organization.");
+      return;
+    }
+
+    setActivating(true);
+    setGateMessage("Creating your blank Maps workspace…");
+    try {
+      const { data, error } = await client.rpc("activate_maps_workspace", {
+        input_organization_id: activationMode === "existing" ? activationOrganizationId : null,
+        input_organization_name: activationMode === "new" ? newOrganizationName.trim() : null,
+      });
+      if (error) throw error;
+      const organizationId = String(data?.organizationId || "");
+      const { data: accessData, error: accessError } = await client.rpc("maps_access_list");
+      if (accessError) throw accessError;
+      const available = Array.isArray(accessData) ? accessData as OrganizationAccess[] : [];
+      const access = available.find((item) => item.organizationId === organizationId) || available[0];
+      if (!access) throw new Error("Maps access was created, but the workspace could not be opened.");
+      setAccessList(available);
+      window.localStorage.setItem(ACTIVE_ORGANIZATION_KEY, access.organizationId);
+      await loadWorkspace(client, access);
+      showToast(`Maps is connected to ${access.organizationName}.`);
+    } catch (error) {
+      console.warn("Maps workspace activation failed.", error);
+      setGate("setup");
+      setGateMessage(error instanceof Error ? error.message : "Maps could not be activated.");
+    } finally {
+      setActivating(false);
     }
   };
 
@@ -484,13 +552,39 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           <div className="maps-map" ref={mapContainerRef} />
           {!mapboxToken && <div className="maps-map-notice">Add the Mapbox development token to display the map.</div>}
           {gate !== "ready" && (
-            <div className="maps-gate">
+            <div className={`maps-gate${gate === "setup" ? " is-setup" : ""}`}>
               <span className="maps-gate-mark">◇</span>
               <p>N3XRA MAPS</p>
-              <h2>{gate === "loading" ? "Opening Maps" : gate === "signed-out" ? "Sign in to continue" : gate === "unassigned" ? "Ready for activation" : "Maps needs attention"}</h2>
+              <h2>{gate === "loading" ? "Opening Maps" : gate === "signed-out" ? "Sign in to continue" : gate === "setup" ? "Set up your workspace" : gate === "unassigned" ? "Ready for activation" : "Maps needs attention"}</h2>
               <span>{gateMessage}</span>
               {gate === "signed-out" && <a href="/account/?next=/maps/app/">Sign in</a>}
               {gate === "unassigned" && <a href="/account/#available-apps-section">Return to dashboard</a>}
+              {gate === "setup" && (
+                <form className="maps-activation" onSubmit={activateWorkspace}>
+                  <div className="maps-activation-modes" role="group" aria-label="Workspace organization">
+                    <button type="button" className={activationMode === "existing" ? "is-active" : ""} onClick={() => setActivationMode("existing")} disabled={!activationOptions?.organizations.length}>Existing organization</button>
+                    <button type="button" className={activationMode === "new" ? "is-active" : ""} onClick={() => setActivationMode("new")}>New organization</button>
+                  </div>
+                  {activationMode === "existing" ? (
+                    <div className="maps-activation-existing">
+                      {activationOptions?.organizations.map((organization) => (
+                        <label className={activationOrganizationId === organization.id ? "is-selected" : ""} key={organization.id}>
+                          <input type="radio" name="maps-organization" value={organization.id} checked={activationOrganizationId === organization.id} onChange={() => setActivationOrganizationId(organization.id)} />
+                          <span><strong>{organization.name}</strong><small>{organization.isOwner ? "You own this organization" : "You administer this organization"}</small></span>
+                          {organization.mapsConnected && <em>Maps connected</em>}
+                        </label>
+                      ))}
+                    </div>
+                  ) : (
+                    <label className="maps-activation-new">
+                      <span>Organization name</span>
+                      <input type="text" maxLength={160} value={newOrganizationName} onChange={(event) => setNewOrganizationName(event.target.value)} placeholder="Organization name" autoComplete="organization" />
+                    </label>
+                  )}
+                  <div className="maps-activation-note"><strong>Your workspace starts empty.</strong><span>No layers, pins, customers, or preloaded information will be added.</span></div>
+                  <button className="maps-activation-submit" type="submit" disabled={activating}>{activating ? "Creating workspace…" : "Create blank Maps workspace"}</button>
+                </form>
+              )}
             </div>
           )}
 
