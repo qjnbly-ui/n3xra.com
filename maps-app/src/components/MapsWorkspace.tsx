@@ -152,6 +152,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [featureDialogOpen, setFeatureDialogOpen] = useState(false);
   const [featureEditOpen, setFeatureEditOpen] = useState(false);
   const [featureDeleteOpen, setFeatureDeleteOpen] = useState(false);
+  const [movingFeatureId, setMovingFeatureId] = useState<string | null>(null);
+  const [proposedMove, setProposedMove] = useState<PointCoordinates | null>(null);
   const [mapReady, setMapReady] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
@@ -312,7 +314,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       const layer = layers.find((item) => item.id === feature.layer_id);
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}`;
+      const isMoving = movingFeatureId === feature.id;
+      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}`;
       button.style.setProperty("--marker-color", layer?.color || "#1ed7b2");
       const label = document.createElement("span");
       label.textContent = layerIcon(layer);
@@ -323,12 +326,23 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         setSelectedFeatureId(feature.id);
         setSidebarOpen(false);
       });
-      const marker = new mapboxgl.Marker({ element: button, anchor: "bottom" })
+      const marker = new mapboxgl.Marker({ element: button, anchor: "bottom", draggable: isMoving })
         .setLngLat(coordinates)
         .addTo(map);
+      if (isMoving) {
+        marker.on("dragend", () => {
+          const nextCoordinates = marker.getLngLat();
+          setProposedMove({
+            longitude: nextCoordinates.lng,
+            latitude: nextCoordinates.lat,
+            placementMethod: "manual",
+            accuracyMeters: null,
+          });
+        });
+      }
       featureMarkersRef.current.set(feature.id, marker);
     });
-  }, [features, layers, selectedFeatureId, visibleLayers]);
+  }, [features, layers, movingFeatureId, selectedFeatureId, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -376,6 +390,27 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().style.cursor = "";
     };
   }, [placementMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !movingFeatureId || proposedMove) return;
+    const handleMoveClick = (event: mapboxgl.MapMouseEvent) => {
+      const point: PointCoordinates = {
+        longitude: event.lngLat.lng,
+        latitude: event.lngLat.lat,
+        placementMethod: "manual",
+        accuracyMeters: null,
+      };
+      featureMarkersRef.current.get(movingFeatureId)?.setLngLat([point.longitude, point.latitude]);
+      setProposedMove(point);
+    };
+    map.getCanvas().style.cursor = "crosshair";
+    map.on("click", handleMoveClick);
+    return () => {
+      map.off("click", handleMoveClick);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [movingFeatureId, proposedMove]);
 
   useEffect(() => () => {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
@@ -828,6 +863,61 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Archived item permanently deleted");
   };
 
+  const beginMoveFeature = () => {
+    if (!selectedFeature || selectedFeature.geometry.type !== "Point" || !canEdit) return;
+    setMovingFeatureId(selectedFeature.id);
+    setProposedMove(null);
+    showToast("Drag the point or click its new position on the map.");
+  };
+
+  const cancelMoveFeature = () => {
+    setMovingFeatureId(null);
+    setProposedMove(null);
+    showToast("Move canceled");
+  };
+
+  const proposeMoveFromGps = () => {
+    if (!deviceLocation) {
+      startLocating();
+      showToast("Once your location appears, choose Use GPS again.");
+      return;
+    }
+    const point: PointCoordinates = {
+      longitude: deviceLocation.longitude,
+      latitude: deviceLocation.latitude,
+      placementMethod: "device_gps",
+      accuracyMeters: deviceLocation.accuracyMeters,
+    };
+    if (movingFeatureId) {
+      featureMarkersRef.current.get(movingFeatureId)?.setLngLat([point.longitude, point.latitude]);
+    }
+    setProposedMove(point);
+  };
+
+  const saveMovedFeature = async () => {
+    if (!client || !activeAccess || !movingFeatureId || !proposedMove || !canEdit) return;
+    setSaving(true);
+    const { data, error } = await client.rpc("move_map_point", {
+      input_organization_id: activeAccess.organizationId,
+      input_feature_id: movingFeatureId,
+      input_longitude: proposedMove.longitude,
+      input_latitude: proposedMove.latitude,
+      input_accuracy_m: proposedMove.accuracyMeters,
+      input_placement_method: proposedMove.placementMethod,
+    });
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That point could not be moved.");
+      return;
+    }
+    const movedFeatureId = movingFeatureId;
+    setMovingFeatureId(null);
+    setProposedMove(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(movedFeatureId);
+    showToast("Point location updated");
+  };
+
   const toggleLayer = (layerId: string) => {
     setVisibleLayers((current) => ({ ...current, [layerId]: current[layerId] === false }));
   };
@@ -962,21 +1052,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && (
             <div className="maps-field-tools">
-              <button type="button" onClick={locating ? () => stopLocating() : startLocating} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
-              {canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}
-              {canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}
+              {movingFeatureId ? (
+                <><button type="button" onClick={cancelMoveFeature}>× <span>Cancel move</span></button><button type="button" onClick={proposeMoveFromGps}>◎ <span>{deviceLocation ? "Use GPS" : "Locate me"}</span></button></>
+              ) : (
+                <><button type="button" onClick={locating ? () => stopLocating() : startLocating} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>{canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}{canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}</>
+              )}
             </div>
           )}
 
+          {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
+
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
-          {selectedFeature && (
+          {selectedFeature && !movingFeatureId && (
             <article className="maps-detail-card">
               <button type="button" className="maps-detail-close" onClick={() => setSelectedFeatureId(null)} aria-label="Close mapped item">×</button>
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              {canEdit && <div className="maps-detail-actions"><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></div>}
+              {canEdit && <div className="maps-detail-actions"><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></div>}
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -1121,6 +1215,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>MAPPED ITEM</span><h2 id="delete-feature-title">Delete {selectedFeature.title}?</h2></div><button type="button" onClick={() => setFeatureDeleteOpen(false)} aria-label="Close">×</button></header>
             <div className="maps-confirm-copy"><p>This removes the item from the map and the map library. Its saved record is archived so it can be recovered later.</p></div>
             <footer><button type="button" onClick={() => setFeatureDeleteOpen(false)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void archiveFeature()}>{saving ? "Deleting…" : "Delete item"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {proposedMove && movingFeatureId && selectedFeature && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="move-feature-title">
+            <header><div><span>NEW POSITION</span><h2 id="move-feature-title">Move {selectedFeature.title} here?</h2></div><button type="button" onClick={cancelMoveFeature} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy maps-move-confirmation">
+              <p>Review the new position before replacing the saved location.</p>
+              <div className="maps-coordinate-readout"><span>{proposedMove.latitude.toFixed(7)}, {proposedMove.longitude.toFixed(7)}</span><small>{proposedMove.accuracyMeters === null ? "Selected on map" : `GPS accuracy ±${Math.round(proposedMove.accuracyMeters * 3.28084)} ft`}</small></div>
+            </div>
+            <footer><button type="button" onClick={cancelMoveFeature}>Keep original</button><button type="button" className="is-primary" disabled={saving} onClick={() => void saveMovedFeature()}>{saving ? "Saving…" : "Save new location"}</button></footer>
           </section>
         </div>
       )}

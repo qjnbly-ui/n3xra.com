@@ -273,3 +273,31 @@ test("Maps layers can be edited, archived, restored, and permanently deleted by 
   assert.match(migration, /revoke all on function public\.maps_archive_layer\(uuid, uuid\) from public, anon/);
   assert.match(migration, /grant execute on function public\.maps_restore_layer\(uuid, uuid\) to authenticated/);
 });
+
+test("Mapped points can be repositioned with review before saving", async () => {
+  const [workspace, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903193434_maps_move_point.sql"),
+  ]);
+
+  assert.match(workspace, /Move point/);
+  assert.match(workspace, /draggable: isMoving/);
+  assert.match(workspace, /marker\.on\("dragend"/);
+  assert.match(workspace, /Drag the selected point or click its new position/);
+  assert.match(workspace, /Use GPS/);
+  assert.match(workspace, /Keep original/);
+  assert.match(workspace, /Save new location/);
+  assert.match(workspace, /rpc\("move_map_point"/);
+  assert.match(styles, /\.maps-marker\.is-moving/);
+  assert.match(styles, /\.maps-move-banner/);
+
+  assert.match(migration, /create or replace function public\.move_map_point/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /organization_product_role\(input_organization_id, 'maps'\) not in \('account_admin', 'editor'\)/);
+  assert.match(migration, /extensions\.st_setsrid/);
+  assert.match(migration, /extensions\.st_makepoint\(input_longitude, input_latitude\)/);
+  assert.match(migration, /feature\.archived_at is null/);
+  assert.match(migration, /layer\.archived_at is null/);
+  assert.match(migration, /revoke all on function public\.move_map_point[\s\S]*from public, anon/);
+});
