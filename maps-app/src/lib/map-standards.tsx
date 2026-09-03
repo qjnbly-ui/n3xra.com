@@ -41,16 +41,16 @@ const SYMBOL_COLORS: Record<string, string> = {
 };
 
 const SYMBOL_CONTENT: Record<string, string> = {
-  marker: '<path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"/><circle cx="12" cy="10" r="2.2"/>',
-  meter: '<circle cx="12" cy="12" r="8"/><path d="M7.5 14.5a5 5 0 0 1 9 0M12 12l3-3M9 18h6"/>',
-  valve: '<path d="M4 8l8 4-8 4V8Zm16 0-8 4 8 4V8ZM12 12V5M9 5h6"/>',
-  hydrant: '<path d="M9 21v-3m6 3v-3M8 9h8v9H8V9Zm2-4h4l2 4H8l2-4Zm-5 7h3m8 0h3M5 10v4m14-4v4M10 13h4"/>',
-  pump: '<circle cx="11" cy="12" r="7"/><path d="M11 8v4l3 2M18 12h3v6h-5M4 18h14"/>',
-  "lift-station": '<rect x="5" y="5" width="14" height="14" rx="2"/><circle cx="12" cy="12" r="4"/><path d="M12 9v3l2 1M8 19v2m8-2v2"/>',
-  manhole: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/><path d="M4 12h16M12 4v16"/>',
+  marker: '<path d="M12 21s6-5.4 6-11a6 6 0 1 0-12 0c0 5.6 6 11 6 11Z"/><circle cx="12" cy="10" r="2.25"/>',
+  meter: '<circle cx="12" cy="12" r="8.5"/><path d="M7.5 14.5a5 5 0 0 1 9 0M12 12l3-3M8 18h8"/><circle cx="12" cy="12" r="1"/>',
+  valve: '<path d="M3.5 8l8.5 4-8.5 4V8Zm17 0L12 12l8.5 4V8ZM12 12V5M8.5 5h7"/>',
+  hydrant: '<path d="M7 21h10M9 21v-3h6v3M8 10h8v8H8V10ZM9 10V8a3 3 0 0 1 6 0v2M10 5h4M12 5V3M10 3h4M5 12h3v4H5v-4Zm11 0h3v4h-3v-4ZM10.5 14h3"/>',
+  pump: '<path d="M4 19h16M6 19v-3h11v3M7 16V9a5 5 0 0 1 10 0v7"/><circle cx="12" cy="10" r="2.5"/><path d="M12 7.5V5M17 10h3v4h-3"/>',
+  "lift-station": '<path d="M5 20V7l7-4 7 4v13H5Z"/><circle cx="12" cy="12" r="4"/><path d="M12 9.5V12l2 1.5M8 20v2m8-2v2"/>',
+  manhole: '<ellipse cx="12" cy="12" rx="9" ry="7"/><ellipse cx="12" cy="12" rx="5.5" ry="4"/><path d="M6.5 9.5h11M6.5 14.5h11M9 8.5v7m6-7v7"/>',
   cleanout: '<circle cx="12" cy="12" r="7"/><path d="M15 9a4 4 0 1 0 0 6M12 5V3m0 18v-2"/>',
-  well: '<circle cx="12" cy="9" r="5"/><path d="M7 9v8c0 2 10 2 10 0V9M7 14c0 2 10 2 10 0"/>',
-  tank: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 4 14 4 14 0V6M5 13c0 4 14 4 14 0"/>',
+  well: '<path d="M5 10h14M7 10v9m10-9v9M5 19h14M8 10V6h8v4M10 6V3h4v3"/><path d="M10 14h4"/>',
+  tank: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 4 14 4 14 0V6M5 13c0 4 14 4 14 0M8 21v1m8-1v1"/>',
   backflow: '<path d="M3 12h4m10 0h4M7 8l5 4-5 4V8Zm10 0-5 4 5 4V8ZM9 6h6"/>',
   "storm-inlet": '<rect x="4" y="6" width="16" height="12" rx="2"/><path d="M8 7v10m4-10v10m4-10v10M5 12h14"/>',
 };

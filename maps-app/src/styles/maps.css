@@ -150,13 +150,13 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-activation-submit { min-height: 46px; color: #06110f; border: 0; border-radius: 9px; background: var(--maps-mint); font-size: .72rem; font-weight: 900; cursor: pointer; }
 .maps-activation-submit:disabled { opacity: .58; cursor: wait; }
 
-.maps-marker { position: absolute; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; color: var(--marker-color); border: 0; border-radius: 50%; background: transparent; cursor: pointer; transition: transform .14s ease; }
+.maps-marker { position: absolute; width: 38px; height: 38px; display: grid; place-items: center; padding: 0; color: var(--marker-color); border: 0; border-radius: 50%; background: transparent; cursor: pointer; }
 .maps-marker::after { content: ""; position: absolute; inset: -3px; border: 2px solid transparent; border-radius: 50%; }
 .maps-marker.is-selected { z-index: 2; }
-.maps-marker.is-selected { transform: scale(1.16); }
 .maps-marker.is-selected::after { border-color: var(--marker-color); background: rgba(255,255,255,.78); }
 .maps-marker.is-moving::after { inset: -10px; border-color: #fff; border-style: dashed; animation: maps-marker-pulse 1.1s ease-in-out infinite alternate; }
 .maps-marker > span { position: relative; z-index: 1; width: 31px; height: 31px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
+.maps-marker.is-selected > span { transform: scale(1.16); }
 .maps-shape-vertex { width: 20px; height: 20px; padding: 0; border: 3px solid #08131d; border-radius: 999px; background: #f5a23c; box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: grab; }
 .maps-shape-vertex:active { cursor: grabbing; }
 .maps-shape-vertex.is-selected { width: 25px; height: 25px; border-color: #f5f8f7; background: var(--maps-mint); box-shadow: 0 0 0 4px rgba(105,210,196,.2), 0 5px 16px rgba(0,0,0,.5); }

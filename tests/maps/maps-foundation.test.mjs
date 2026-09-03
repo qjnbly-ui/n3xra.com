@@ -248,6 +248,8 @@ test("Maps keeps saved points anchored, frames saved data, and archives deleted 
   assert.match(workspace, /Its saved record is archived so it can be recovered later/);
   assert.doesNotMatch(styles, /\.maps-marker::before/);
   assert.match(styles, /\.maps-marker > span[^}]*width: 31px/);
+  assert.doesNotMatch(styles, /\.maps-marker \{[^}]*transition:\s*transform/);
+  assert.match(styles, /\.maps-marker\.is-selected > span[^}]*transform: scale/);
   assert.doesNotMatch(styles, /\.maps-marker \{[^}]*rotate:/);
   assert.doesNotMatch(styles, /\.maps-marker\.is-selected \{[^}]*scale:/);
 });
