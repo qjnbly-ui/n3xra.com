@@ -31,12 +31,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-organization-picker { display: flex; align-items: center; gap: .5rem; }
 .maps-organization-picker span { color: var(--maps-muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; }
 .maps-organization-picker select { max-width: 190px; padding: .45rem 1.6rem .45rem .6rem; color: var(--maps-ink); border: 1px solid var(--maps-line); border-radius: 9px; background: var(--maps-panel-2); }
-.maps-account-context { min-width: 0; display: flex; align-items: center; gap: .58rem; padding-left: .8rem; border-left: 1px solid var(--maps-line); }
-.maps-account-avatar { width: 34px; height: 34px; flex: 0 0 auto; display: grid; place-items: center; color: #07110f; border-radius: 11px; background: linear-gradient(135deg, var(--maps-mint), #8adfd4); box-shadow: inset 0 0 0 1px rgba(255,255,255,.28); font-size: .66rem; font-weight: 900; letter-spacing: .04em; }
-.maps-account-copy { min-width: 0; display: flex; flex-direction: column; line-height: 1.2; }
-.maps-account-copy small, .maps-account-copy strong { max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.maps-account-copy small { color: var(--maps-gold); font-size: .58rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; }
-.maps-account-copy strong { margin-top: .2rem; color: #fff; font-size: .7rem; font-weight: 700; }
 
 .maps-shell { height: calc(100vh - 72px); display: grid; grid-template-columns: 340px minmax(0, 1fr); }
 .maps-sidebar { position: relative; z-index: 20; min-width: 0; display: flex; flex-direction: column; border-right: 1px solid var(--maps-line); background: var(--maps-panel); box-shadow: 18px 0 45px rgba(0, 0, 0, .2); }
@@ -181,8 +175,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .maps-header { height: 64px; }
   .maps-shell { height: calc(100vh - 64px); grid-template-columns: 1fr; }
   .maps-header-actions .maps-role, .maps-organization-picker span { display: none; }
-  .maps-account-copy { display: none; }
-  .maps-account-context { padding-left: .5rem; }
   .maps-header-actions > a { padding: .5rem .65rem; }
   .maps-sidebar { position: absolute; z-index: 50; inset: 64px auto 0 0; width: min(360px, calc(100vw - 34px)); translate: -105% 0; transition: translate .2s ease; }
   .maps-sidebar.is-open { translate: 0; }
@@ -201,7 +193,6 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .maps-brand > span { font-size: .76rem; }
   .maps-brand > strong { font-size: .65rem; }
   .maps-brand > i { height: 21px; }
-  .maps-account-avatar { width: 31px; height: 31px; }
   .maps-floating-tools { top: .65rem; left: .65rem; }
   .maps-library-button { padding: 0 .65rem; }
   .maps-style-switcher button { min-width: 57px; }

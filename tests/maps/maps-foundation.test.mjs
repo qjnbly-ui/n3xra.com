@@ -194,18 +194,17 @@ test("Approved users can activate a blank Maps workspace on an existing or new o
   assert.match(styles, /\.maps-activation-modes/);
 });
 
-test("Maps uses the N3XRA product header and signed-in organization context", async () => {
+test("Maps uses a clean N3XRA product header without the user identity block", async () => {
   const [workspace, styles] = await Promise.all([
     read("maps-app/src/components/MapsWorkspace.tsx"),
     read("maps-app/src/styles/maps.css"),
   ]);
 
   assert.match(workspace, /n3xra_logo_transparent_small\.png/);
-  assert.match(workspace, /className="maps-account-context"/);
-  assert.match(workspace, /activeAccess\.organizationName/);
-  assert.match(workspace, /viewer\?\.name/);
-  assert.match(workspace, /from\("profiles"\)/);
+  assert.match(workspace, /activeAccess\?\.organizationName/);
+  assert.doesNotMatch(workspace, /className="maps-account-context"/);
+  assert.doesNotMatch(workspace, /from\("profiles"\)/);
   assert.match(styles, /linear-gradient\(135deg, #0b1219/);
   assert.match(styles, /--maps-gold: #ea9b3f/);
-  assert.match(styles, /\.maps-account-avatar/);
+  assert.doesNotMatch(styles, /\.maps-account-avatar/);
 });
