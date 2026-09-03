@@ -101,6 +101,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const watchIdRef = useRef<number | null>(null);
   const locationRequestTimerRef = useRef<number | null>(null);
   const locationRequestIdRef = useRef(0);
+  const fittedOrganizationRef = useRef<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [gate, setGate] = useState<GateState>("loading");
   const [gateMessage, setGateMessage] = useState("Opening your maps workspace…");
@@ -117,6 +118,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [layerDialogOpen, setLayerDialogOpen] = useState(false);
   const [featureDialogOpen, setFeatureDialogOpen] = useState(false);
   const [featureEditOpen, setFeatureEditOpen] = useState(false);
+  const [featureDeleteOpen, setFeatureDeleteOpen] = useState(false);
+  const [mapReady, setMapReady] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
   const [saving, setSaving] = useState(false);
@@ -245,6 +248,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     });
     map.addControl(new mapboxgl.AttributionControl(), "top-right");
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "bottom-right");
+    map.once("load", () => setMapReady(true));
     mapRef.current = map;
     return () => {
       featureMarkersRef.current.forEach((marker) => marker.remove());
@@ -252,6 +256,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       locationMarkerRef.current?.remove();
       map.remove();
       mapRef.current = null;
+      setMapReady(false);
     };
   }, [mapboxToken]);
 
@@ -275,7 +280,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       button.type = "button";
       button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}`;
       button.style.setProperty("--marker-color", layer?.color || "#1ed7b2");
-      button.textContent = layerIcon(layer);
+      const label = document.createElement("span");
+      label.textContent = layerIcon(layer);
+      button.append(label);
       button.setAttribute("aria-label", `Open ${feature.title}`);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
@@ -288,6 +295,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       featureMarkersRef.current.set(feature.id, marker);
     });
   }, [features, layers, selectedFeatureId, visibleLayers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const organizationId = activeAccess?.organizationId;
+    if (!map || !mapReady || !organizationId || fittedOrganizationRef.current === organizationId) return;
+    const coordinates = features.map(pointCoordinates).filter((point): point is [number, number] => point !== null);
+    fittedOrganizationRef.current = organizationId;
+    if (!coordinates.length) return;
+    if (coordinates.length === 1) {
+      map.easeTo({ center: coordinates[0]!, zoom: 17, duration: 650 });
+      return;
+    }
+    const firstPoint = coordinates[0]!;
+    const bounds = coordinates.reduce(
+      (currentBounds, point) => currentBounds.extend(point),
+      new mapboxgl.LngLatBounds(firstPoint, firstPoint),
+    );
+    map.fitBounds(bounds, { padding: 80, maxZoom: 17, duration: 650 });
+  }, [activeAccess?.organizationId, features, mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -326,6 +352,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     const access = accessList.find((item) => item.organizationId === organizationId);
     if (!client || !access) return;
     window.localStorage.setItem(ACTIVE_ORGANIZATION_KEY, organizationId);
+    fittedOrganizationRef.current = null;
     setSelectedFeatureId(null);
     try {
       await loadWorkspace(client, access);
@@ -607,6 +634,28 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Mapped item updated");
   };
 
+  const archiveFeature = async () => {
+    if (!client || !activeAccess || !selectedFeature || !canEdit) return;
+    setSaving(true);
+    const { data, error } = await client
+      .from("map_features")
+      .update({ archived_at: new Date().toISOString() })
+      .eq("id", selectedFeature.id)
+      .eq("organization_id", activeAccess.organizationId)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That mapped item could not be deleted.");
+      return;
+    }
+    setFeatureDeleteOpen(false);
+    setFeatureEditOpen(false);
+    setSelectedFeatureId(null);
+    await loadWorkspace(client, activeAccess);
+    showToast("Mapped item deleted");
+  };
+
   const toggleLayer = (layerId: string) => {
     setVisibleLayers((current) => ({ ...current, [layerId]: current[layerId] === false }));
   };
@@ -752,7 +801,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              {canEdit && <button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>}
+              {canEdit && <div className="maps-detail-actions"><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></div>}
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -817,6 +866,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <p>This changes the item details without moving its mapped location.</p>
               <footer><button type="button" onClick={() => setFeatureEditOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></footer>
             </form>
+          </section>
+        </div>
+      )}
+
+      {featureDeleteOpen && selectedFeature && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="delete-feature-title">
+            <header><div><span>MAPPED ITEM</span><h2 id="delete-feature-title">Delete {selectedFeature.title}?</h2></div><button type="button" onClick={() => setFeatureDeleteOpen(false)} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy"><p>This removes the item from the map and the map library. Its saved record is archived so it can be recovered later.</p></div>
+            <footer><button type="button" onClick={() => setFeatureDeleteOpen(false)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void archiveFeature()}>{saving ? "Deleting…" : "Delete item"}</button></footer>
           </section>
         </div>
       )}

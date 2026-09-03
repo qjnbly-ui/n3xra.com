@@ -229,3 +229,20 @@ test("Maps keeps all field controls visible above mobile browser chrome", async 
   assert.match(styles, /\.maps-field-tools \{ left: \.65rem; right: \.65rem/);
   assert.doesNotMatch(styles, /\.maps-field-tools button span \{ display: none; \}/);
 });
+
+test("Maps keeps saved points anchored, frames saved data, and archives deleted items", async () => {
+  const [workspace, styles] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+  ]);
+
+  assert.match(workspace, /new mapboxgl\.LngLatBounds/);
+  assert.match(workspace, /map\.fitBounds\(bounds/);
+  assert.match(workspace, /fittedOrganizationRef/);
+  assert.match(workspace, /Delete item/);
+  assert.match(workspace, /\.update\(\{ archived_at: new Date\(\)\.toISOString\(\) \}\)/);
+  assert.match(workspace, /Its saved record is archived so it can be recovered later/);
+  assert.match(styles, /\.maps-marker::before[^}]*transform: rotate\(-45deg\)/);
+  assert.doesNotMatch(styles, /\.maps-marker \{[^}]*rotate:/);
+  assert.doesNotMatch(styles, /\.maps-marker\.is-selected \{[^}]*scale:/);
+});
