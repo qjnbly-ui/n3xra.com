@@ -1,3 +1,5 @@
+.maps-icon-definitions { position: absolute; width: 0; height: 0; overflow: hidden; }
+.maps-icon { width: 1em; height: 1em; display: block; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .maps-hero-demo { width: 100%; }
 .maps-preview-window { width: min(580px, 100%); overflow: hidden; border: 1px solid rgba(255,255,255,.16); border-radius: 20px; background: var(--pc-paper); box-shadow: 0 35px 75px rgba(0,0,0,.32); }
 .maps-preview-window > header { display: flex; align-items: start; justify-content: space-between; padding: 1.15rem 1.25rem; color: #fff; background: var(--pc-forest); }
@@ -22,6 +24,7 @@
 .maps-road.three { right: -100px; bottom: 55px; rotate: -48deg; }
 .maps-pin { position: absolute; width: 32px; height: 32px; z-index: 2; display: grid; place-items: center; color: var(--pc-deep); border: 2px solid #fff; border-radius: 50% 50% 50% 8px; background: #72d49c; box-shadow: 0 6px 14px rgba(0,0,0,.24); font: 900 .52rem var(--pc-sans); rotate: -45deg; }
 .maps-pin.valve { background: var(--pc-amber); }
+.maps-pin .maps-icon { width: 17px; height: 17px; rotate: 45deg; }
 .pin-one { left: 18%; top: 23%; }
 .pin-two { right: 18%; top: 17%; }
 .pin-three { right: 10%; bottom: 23%; }
@@ -39,6 +42,8 @@
 .maps-asset-card footer b { color: var(--pc-amber); font-size: .68rem; }
 .maps-asset-card footer em { color: #82968e; font-size: .44rem; font-style: normal; }
 .maps-layer-preview article > b { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: var(--pc-deep); background: var(--pc-mint); font-size: .72rem; }
+.maps-layer-preview article > b .maps-icon { width: 18px; height: 18px; }
+.step-icon .maps-icon { width: 25px; height: 25px; }
 .maps-phone { position: relative; width: min(355px,100%); min-height: 600px; margin: auto; padding: 13px; border-radius: 42px; background: var(--pc-deep); box-shadow: 0 35px 80px rgba(20,45,36,.18); }
 .maps-phone::before { position: absolute; z-index: 4; top: 20px; left: 50%; width: 88px; height: 22px; content: ""; border-radius: 20px; background: var(--pc-deep); translate: -50%; }
 .maps-phone-map { position: absolute; inset: 13px 13px 178px; border-radius: 30px 30px 0 0; }

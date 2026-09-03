@@ -79,7 +79,6 @@ function bindMenuToggle(toggle) {
 
 function initializeVisibleNavigation() {
   document.querySelectorAll("[data-site-menu-toggle]").forEach(bindMenuToggle);
-  document.querySelectorAll("footer.site-footer.home-footer, footer.cards-footer").forEach(ensureProductFooterCards);
 
   if (!document.body
     || document.body.hasAttribute("data-disable-site-assistant")
@@ -87,34 +86,6 @@ function initializeVisibleNavigation() {
 
   ensureAssistantTrigger(document.querySelector(".site-nav-actions"));
   ensureAssistantTrigger(document.querySelector(".site-mobile-menu"), true);
-}
-
-function ensureProductFooterCards(footer) {
-  if (!footer || footer.dataset.productCardsReady === "true") return;
-  footer.dataset.productCardsReady = "true";
-  if (!document.querySelector('link[data-footer-products-style]')) {
-    const productStyles = document.createElement("link");
-    productStyles.rel = "stylesheet";
-    productStyles.href = "/assets/product-footer.css?v=1";
-    productStyles.dataset.footerProductsStyle = "true";
-    document.head.append(productStyles);
-  }
-  const productSection = document.createElement("section");
-  productSection.className = "footer-products page-shell";
-  productSection.setAttribute("aria-labelledby", "footer-products-title");
-  productSection.innerHTML = `
-    <div class="footer-products-heading">
-      <p>N3XRA SOFTWARE</p>
-      <h2 id="footer-products-title">Products built for real work.</h2>
-    </div>
-    <nav class="footer-product-grid" aria-label="N3XRA products">
-      <a href="/maps/"><span>MAPS</span><strong>N3XRA Maps</strong><small>Assets, infrastructure, layers, and field locations.</small><i>→</i></a>
-      <a href="/project-cards/"><span>PROJECT CARDS</span><strong>N3XRA Project Cards</strong><small>Reusable NFC cards connected to live project pages.</small><i>→</i></a>
-      <a href="/contact-card/"><span>CONTACT CARD</span><strong>N3XRA Contact Card</strong><small>Your identity, contact details, and links in one place.</small><i>→</i></a>
-      <a href="/nexra-communications/"><span>COMMUNICATIONS</span><strong>N3XRA Communications</strong><small>Permission-based text and email communication.</small><i>→</i></a>
-      <a href="/records/"><span>RECORDS</span><strong>N3XRA Records</strong><small>Secure documents, files, records, and meeting intelligence.</small><i>→</i></a>
-    </nav>`;
-  footer.prepend(productSection);
 }
 
 function loadAssistantController() {

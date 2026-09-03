@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { access, readFile } from "node:fs/promises";
 import test from "node:test";
 
 const read = (path) => readFile(new URL(`../../${path}`, import.meta.url), "utf8");
@@ -38,13 +38,13 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.doesNotMatch(migration, /grant delete/i);
 });
 
-test("Maps is discoverable from the dashboard, homepage, and shared footer", async () => {
-  const [home, account, accountSource, navigation, footerStyles] = await Promise.all([
+test("Maps is discoverable from the dashboard, homepage, and standard footer", async () => {
+  const [home, account, accountSource, navigation, landing] = await Promise.all([
     read("index.html"),
     read("account/index.html"),
     read("account/account.js"),
     read("assets/site-nav.js"),
-    read("assets/product-footer.css"),
+    read("maps-app/src/pages/index.astro"),
   ]);
 
   assert.match(home, /<strong>N3XRA Maps<\/strong>/);
@@ -52,11 +52,10 @@ test("Maps is discoverable from the dashboard, homepage, and shared footer", asy
   assert.match(account, /Paid plans are coming soon/);
   assert.match(accountSource, /rpc\("maps_access_list"\)/);
   assert.match(accountSource, /Request Maps Access/);
-  assert.match(navigation, /footer-product-grid/);
-  assert.match(navigation, /N3XRA Maps/);
-  assert.match(navigation, /N3XRA Project Cards/);
-  assert.match(footerStyles, /grid-template-columns: repeat\(5/);
-  assert.match(footerStyles, /@media \(max-width: 700px\)/);
+  assert.match(home, /<nav class="footer-nav" aria-label="Software">[\s\S]*?<a href="\/maps\/">Maps<\/a>/);
+  assert.doesNotMatch(navigation, /footer-product-grid|Products built for real work|ensureProductFooterCards/);
+  assert.match(landing, /<nav class="footer-nav" aria-label="Software"><p>Software<\/p><a href="\/maps\/">Maps<\/a>/);
+  await assert.rejects(access(new URL("../../assets/product-footer.css", import.meta.url)));
 });
 
 test("Maps has a public product presentation and a separate signed-in workspace", async () => {
@@ -77,7 +76,7 @@ test("Maps has a public product presentation and a separate signed-in workspace"
   assert.doesNotMatch(landing, /Bly Water|sample organization|demo organization/i);
 });
 
-test("Maps presentation is native-width on phones and product footers load everywhere", async () => {
+test("Maps presentation is native-width on phones with the standard N3XRA footer and polished icons", async () => {
   const [landing, productStyles, projectCards, navigation] = await Promise.all([
     read("maps-app/src/pages/index.astro"),
     read("maps-app/src/styles/maps-product.css"),
@@ -88,9 +87,35 @@ test("Maps presentation is native-width on phones and product footers load every
   assert.match(landing, /\/assets\/project-cards\.css\?v=4/);
   assert.match(landing, /class="site-topbar home-topbar cards-topbar"/);
   assert.match(landing, /<nav class="desktop-nav" aria-label="Primary"><a href="\/projects\/">Projects<\/a><a href="\/services\/">Services<\/a><a href="\/support\/">Support<\/a><a href="\/#software">Software<\/a><\/nav>/);
-  assert.match(landing, /class="cards-footer"/);
+  assert.match(landing, /class="site-footer home-footer"/);
+  assert.match(landing, /id="maps-icon-meter"/);
+  assert.match(landing, /id="maps-icon-valve"/);
+  assert.match(landing, /id="maps-icon-boundary"/);
+  assert.match(landing, /id="maps-icon-locate"/);
+  assert.doesNotMatch(landing, /class="step-icon">[▧＋⌖]/);
   assert.match(productStyles, /\.maps-preview-body aside \{ display: none; \}/);
+  assert.match(productStyles, /\.maps-icon \{/);
   assert.doesNotMatch(productStyles, /:root|--ml-|transform: scale/);
-  assert.match(projectCards, /site-nav\.js\?v=6/);
-  assert.match(navigation, /footer\.site-footer\.home-footer, footer\.cards-footer/);
+  assert.match(projectCards, /site-nav\.js\?v=7/);
+  assert.doesNotMatch(navigation, /Products built for real work/);
+});
+
+test("Every public Software footer lists Maps as one ordinary link", async () => {
+  const footerPages = [
+    "index.html", "account/index.html", "account/notifications/index.html",
+    "ai-music-generator/index.html", "careers/index.html", "contact-card/index.html",
+    "invest/index.html", "n3xra-records/login.html", "nexra-communications/index.html",
+    "partners/change-of-control/index.html", "partners/index.html", "partners/terms/index.html",
+    "privacy/index.html", "privacy/n3xra-admin/index.html", "project-pulse/index.html",
+    "projects/index.html", "records/index.html", "services/index.html", "support/index.html",
+    "terms/index.html", "updates/index.html", "utilities/index.html",
+    "utilities/onboarding/index.html", "virals/index.html",
+  ];
+
+  for (const page of footerPages) {
+    const html = await read(page);
+    const softwareFooter = html.match(/<nav[^>]+aria-label="Software"[^>]*>[\s\S]*?<\/nav>/)?.[0] || "";
+    assert.match(softwareFooter, /<a href="\/maps\/">Maps<\/a>/, `${page} should list Maps in Software`);
+    assert.equal((softwareFooter.match(/href="\/maps\/"/g) || []).length, 1, `${page} should list Maps once`);
+  }
 });
