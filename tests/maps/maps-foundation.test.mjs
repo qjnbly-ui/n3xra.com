@@ -418,3 +418,33 @@ test("Saved line and polygon geometry can be reviewed and edited", async () => {
   assert.match(migration, /updated_by_user_id = auth\.uid\(\)/);
   assert.match(migration, /revoke all on function public\.update_map_shape[\s\S]*from public, anon/);
 });
+
+test("Maps administrators assign product roles while editors and viewers remain scoped", async () => {
+  const [workspace, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903215319_maps_team_access_roles.sql"),
+  ]);
+
+  assert.match(workspace, /maps_team_snapshot/);
+  assert.match(workspace, /maps_set_member_role/);
+  assert.match(workspace, /Team access/);
+  assert.match(workspace, /No one is assigned automatically/);
+  assert.match(workspace, /Administrator[\s\S]*Manages Maps users, layers, archives, and assets/);
+  assert.match(workspace, /Editor[\s\S]*Places and edits mapped assets without changing layer structure/);
+  assert.match(workspace, /Viewer[\s\S]*without changing data/);
+  assert.match(workspace, /canManageLayers && <button[^>]+maps-add-layer-button/);
+  assert.match(workspace, /canManageLayers && <button[^>]+maps-layer-settings/);
+  assert.match(styles, /\.maps-team-dialog/);
+
+  assert.match(migration, /create or replace function public\.maps_team_snapshot\(input_organization_id uuid\)/);
+  assert.match(migration, /create or replace function public\.maps_set_member_role\(/);
+  assert.match(migration, /security definer[\s\S]*set search_path = pg_catalog, public/);
+  assert.match(migration, /input_role not in \('account_admin', 'editor', 'viewer'\)/);
+  assert.match(migration, /Choose an existing organization member/);
+  assert.match(migration, /The organization owner always has Maps administrator access/);
+  assert.match(migration, /revoke all on function public\.maps_team_snapshot\(uuid\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.maps_team_snapshot\(uuid\) to authenticated/);
+  assert.match(migration, /map_layers_insert[\s\S]*organization_product_role\(organization_id, 'maps'\)\) = 'account_admin'/);
+  assert.match(migration, /map_layer_fields_insert[\s\S]*organization_product_role\(organization_id, 'maps'\)\) = 'account_admin'/);
+});

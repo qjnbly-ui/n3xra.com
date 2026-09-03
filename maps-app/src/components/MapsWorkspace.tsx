@@ -78,6 +78,22 @@ interface PermanentDeleteTarget {
   name: string;
 }
 
+interface MapsTeamMember {
+  membershipId: string;
+  userId: string;
+  fullName: string;
+  email: string | null;
+  organizationRole: "account_admin" | "editor" | "viewer";
+  mapsRole: "account_admin" | "editor" | "viewer" | null;
+  isOwner: boolean;
+}
+
+interface MapsTeamSnapshot {
+  organization: { id: string; name: string };
+  currentUserId: string;
+  members: MapsTeamMember[];
+}
+
 interface DrivingRouteStep {
   instruction: string;
   roadName: string;
@@ -264,6 +280,10 @@ function layerIcon(layer: Pick<MapLayer, "icon_key" | "name"> | undefined): stri
   return icons[layer.icon_key] || layer.name.slice(0, 1).toUpperCase() || "•";
 }
 
+function mapsRoleLabel(role: MapsTeamMember["mapsRole"]): string {
+  return role === "account_admin" ? "Administrator" : role === "editor" ? "Editor" : role === "viewer" ? "Viewer" : "No access";
+}
+
 export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -339,8 +359,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [activationOrganizationId, setActivationOrganizationId] = useState("");
   const [newOrganizationName, setNewOrganizationName] = useState("");
   const [activating, setActivating] = useState(false);
+  const [teamOpen, setTeamOpen] = useState(false);
+  const [teamLoading, setTeamLoading] = useState(false);
+  const [teamSnapshot, setTeamSnapshot] = useState<MapsTeamSnapshot | null>(null);
+  const [teamSavingUserId, setTeamSavingUserId] = useState<string | null>(null);
 
   const canEdit = activeAccess?.role === "account_admin" || activeAccess?.role === "editor";
+  const canManageLayers = activeAccess?.role === "account_admin";
   const canPermanentlyDelete = activeAccess?.role === "account_admin";
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
@@ -899,6 +924,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setPendingShape(null);
     setEditingShapeId(null);
     setShapeEditReview(false);
+    setTeamOpen(false);
+    setTeamSnapshot(null);
     try {
       await loadWorkspace(client, access);
     } catch (error) {
@@ -906,6 +933,41 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       setGate("error");
       setGateMessage("That maps workspace could not be loaded.");
     }
+  };
+
+  const loadTeamAccess = async () => {
+    if (!client || !activeAccess || !canManageLayers) return;
+    setTeamLoading(true);
+    const { data, error } = await client.rpc("maps_team_snapshot", { input_organization_id: activeAccess.organizationId });
+    setTeamLoading(false);
+    if (error) {
+      showToast(error.message || "Team access could not be loaded.");
+      return;
+    }
+    setTeamSnapshot(data as MapsTeamSnapshot);
+  };
+
+  const openTeamAccess = () => {
+    setTeamOpen(true);
+    void loadTeamAccess();
+  };
+
+  const updateTeamMemberRole = async (member: MapsTeamMember, role: MapsTeamMember["mapsRole"]) => {
+    if (!client || !activeAccess || !canManageLayers || member.isOwner || member.userId === teamSnapshot?.currentUserId) return;
+    setTeamSavingUserId(member.userId);
+    const { error } = await client.rpc("maps_set_member_role", {
+      input_organization_id: activeAccess.organizationId,
+      input_user_id: member.userId,
+      input_role: role,
+    });
+    setTeamSavingUserId(null);
+    if (error) {
+      showToast(error.message || "Maps access could not be updated.");
+      await loadTeamAccess();
+      return;
+    }
+    await loadTeamAccess();
+    showToast(`${member.fullName}'s Maps access is now ${mapsRoleLabel(role).toLowerCase()}.`);
   };
 
   const activateWorkspace = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -1309,7 +1371,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   const saveLayer = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!client || !activeAccess || !canEdit) return;
+    if (!client || !activeAccess || !canManageLayers) return;
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     const geometryType = String(form.get("geometry_type") || "point") as GeometryType;
@@ -1550,6 +1612,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   };
 
   const openLayerEditor = (layer: MapLayer) => {
+    if (!canManageLayers) return;
     setEditingLayer(layer);
     setLayerFieldDrafts(layerFields.filter((field) => field.layer_id === layer.id).map((field) => ({
       id: field.id,
@@ -1573,7 +1636,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   const saveLayerDetails = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    if (!client || !activeAccess || !editingLayer || !canEdit) return;
+    if (!client || !activeAccess || !editingLayer || !canManageLayers) return;
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     if (!name) return;
@@ -1633,7 +1696,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   };
 
   const archiveLayer = async () => {
-    if (!client || !activeAccess || !editingLayer || !canEdit) return;
+    if (!client || !activeAccess || !editingLayer || !canManageLayers) return;
     setSaving(true);
     const { error } = await client.rpc("maps_archive_layer", {
       input_organization_id: activeAccess.organizationId,
@@ -1652,7 +1715,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   };
 
   const restoreArchivedLayer = async (layerId: string) => {
-    if (!client || !activeAccess || !canEdit) return;
+    if (!client || !activeAccess || !canManageLayers) return;
     setSaving(true);
     const { error } = await client.rpc("maps_restore_layer", {
       input_organization_id: activeAccess.organizationId,
@@ -1900,6 +1963,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             </label>
           )}
           {activeAccess && <span className="maps-role">{activeAccess.role.replace("_", " ")}</span>}
+          {canManageLayers && <button type="button" className="maps-team-button" onClick={openTeamAccess}>Team access</button>}
           <a href="/client-portal/">Dashboard</a>
         </div>
       </header>
@@ -1916,7 +1980,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           </label>
 
           <section className="maps-layers">
-            <header><div><span>Layers</span><small>{layers.length}</small></div>{canEdit && <div className="maps-layer-header-actions"><button type="button" className="maps-archive-button" onClick={openArchive}>Archive</button><button type="button" className="maps-add-layer-button" onClick={() => setLayerDialogOpen(true)} aria-label="Create layer">＋</button></div>}</header>
+            <header><div><span>Layers</span><small>{layers.length}</small></div>{canEdit && <div className="maps-layer-header-actions"><button type="button" className="maps-archive-button" onClick={openArchive}>Archive</button>{canManageLayers && <button type="button" className="maps-add-layer-button" onClick={() => setLayerDialogOpen(true)} aria-label="Create layer">＋</button>}</div>}</header>
             {layers.length ? layers.map((layer) => (
               <div className="maps-layer-row" key={layer.id}>
                 <label className="maps-layer">
@@ -1927,7 +1991,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                     <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Draw in ${layer.name}`} />
                   )}
                 </label>
-                {canEdit && <button type="button" className="maps-layer-settings" onClick={() => openLayerEditor(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
+                {canManageLayers && <button type="button" className="maps-layer-settings" onClick={() => openLayerEditor(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
               </div>
             )) : (
               <div className="maps-empty-list"><strong>No layers yet</strong><p>Create a layer when you are ready to begin mapping.</p></div>
@@ -2080,6 +2144,29 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         </section>
       </main>
 
+      {teamOpen && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-team-dialog" role="dialog" aria-modal="true" aria-labelledby="maps-team-title">
+            <header><div><span>MAPS ADMINISTRATION</span><h2 id="maps-team-title">Team access</h2></div><button type="button" onClick={() => setTeamOpen(false)} aria-label="Close">×</button></header>
+            <div className="maps-team-copy"><p>Choose what each existing organization member can do in Maps. No one is assigned automatically.</p></div>
+            <div className="maps-team-list">
+              {teamLoading && !teamSnapshot && <p className="maps-team-empty">Loading organization members…</p>}
+              {teamSnapshot?.members.map((member) => {
+                const protectedMember = member.isOwner || member.userId === teamSnapshot.currentUserId;
+                return <article className="maps-team-row" key={member.userId}>
+                  <i aria-hidden="true">{member.fullName.split(/\s+/).map((part) => part[0]).slice(0, 2).join("").toUpperCase()}</i>
+                  <span><strong>{member.fullName}</strong><small>{member.email || "Organization member"}</small></span>
+                  {protectedMember ? <em>{member.isOwner ? "Owner · Administrator" : `Your access · ${mapsRoleLabel(member.mapsRole)}`}</em> : <select aria-label={`Maps access for ${member.fullName}`} value={member.mapsRole || ""} disabled={teamSavingUserId === member.userId} onChange={(event) => void updateTeamMemberRole(member, (event.target.value || null) as MapsTeamMember["mapsRole"])}><option value="">No access</option><option value="viewer">Viewer</option><option value="editor">Editor</option><option value="account_admin">Administrator</option></select>}
+                </article>;
+              })}
+              {teamSnapshot && !teamSnapshot.members.length && <p className="maps-team-empty">No organization members are available.</p>}
+            </div>
+            <div className="maps-team-guide"><div><strong>Administrator</strong><span>Manages Maps users, layers, archives, and assets.</span></div><div><strong>Editor</strong><span>Places and edits mapped assets without changing layer structure.</span></div><div><strong>Viewer</strong><span>Searches, reviews, locates, and navigates without changing data.</span></div></div>
+            <footer><a href={`/client-portal/team/?organization=${encodeURIComponent(activeAccess?.organizationId || "")}`}>Add organization members</a><button type="button" onClick={() => setTeamOpen(false)}>Done</button></footer>
+          </section>
+        </div>
+      )}
+
       {layerDialogOpen && (
         <div className="maps-dialog-backdrop" role="presentation">
           <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="new-layer-title">
@@ -2150,7 +2237,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                     <article className="maps-archive-item" key={`layer-${layer.id}`}>
                       <i style={{ background: layer.color }}>{layerIcon(layer)}</i>
                       <span><strong>{layer.name}</strong><small>Layer · {archivedFeatures.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
-                      <div><button type="button" onClick={() => void restoreArchivedLayer(layer.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "layer", id: layer.id, name: layer.name })}>Delete</button>}</div>
+                      {canManageLayers && <div><button type="button" onClick={() => void restoreArchivedLayer(layer.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "layer", id: layer.id, name: layer.name })}>Delete</button>}</div>}
                     </article>
                   ))}
                   {archivedFeatures.filter((feature) => !archivedLayers.some((layer) => layer.id === feature.layer_id)).map((feature) => (

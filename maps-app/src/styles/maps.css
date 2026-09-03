@@ -25,8 +25,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-brand > i { width: 1px; height: 26px; background: var(--maps-line); }
 .maps-brand > strong { color: rgba(255,255,255,.76); font-size: .76rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
 .maps-header-actions { display: flex; align-items: center; gap: .8rem; }
-.maps-header-actions > a { padding: .62rem .82rem; color: #eef5f8; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; background: rgba(255,255,255,.055); }
-.maps-header-actions > a:hover, .maps-header-actions > a:focus-visible { border-color: rgba(105,210,196,.48); background: rgba(105,210,196,.13); outline: 0; }
+.maps-header-actions > a, .maps-header-actions > button { padding: .62rem .82rem; color: #eef5f8; font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-decoration: none; text-transform: uppercase; border: 1px solid rgba(255,255,255,.15); border-radius: 10px; background: rgba(255,255,255,.055); cursor: pointer; }
+.maps-header-actions > a:hover, .maps-header-actions > a:focus-visible, .maps-header-actions > button:hover, .maps-header-actions > button:focus-visible { border-color: rgba(105,210,196,.48); background: rgba(105,210,196,.13); outline: 0; }
+.maps-header-actions > .maps-team-button { color: var(--maps-mint); }
 .maps-role { color: var(--maps-mint); font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; }
 .maps-organization-picker { display: flex; align-items: center; gap: .5rem; }
 .maps-organization-picker span { color: var(--maps-muted); font-size: .68rem; font-weight: 700; text-transform: uppercase; }
@@ -281,6 +282,26 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-archive-item button:disabled { opacity: .55; cursor: wait; }
 .maps-archive-empty { margin: 1.4rem 0; color: var(--maps-muted); font-size: .72rem; text-align: center; }
 .maps-archive-dialog > footer { padding: .75rem 1.2rem 1.1rem; }
+.maps-team-dialog { width: min(760px, 100%); }
+.maps-team-copy { padding: 1rem 1.2rem .55rem; color: #b9cbc6; font-size: .72rem; line-height: 1.55; }
+.maps-team-copy p { margin: 0; }
+.maps-team-list { max-height: min(48vh, 470px); overflow-y: auto; padding: .35rem 1.2rem; }
+.maps-team-row { min-height: 66px; display: grid; grid-template-columns: 40px minmax(0, 1fr) minmax(155px, auto); align-items: center; gap: .75rem; border-bottom: 1px solid rgba(255,255,255,.075); }
+.maps-team-row > i { width: 38px; height: 38px; display: grid; place-items: center; color: #07120f; border-radius: 10px; background: var(--maps-mint); font-size: .68rem; font-style: normal; font-weight: 900; }
+.maps-team-row > span { min-width: 0; display: flex; flex-direction: column; gap: .15rem; }
+.maps-team-row > span strong, .maps-team-row > span small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.maps-team-row > span strong { font-size: .75rem; }
+.maps-team-row > span small { color: var(--maps-muted); font-size: .61rem; }
+.maps-team-row > select { min-height: 40px; padding: .5rem .65rem; color: var(--maps-ink); border: 1px solid var(--maps-line); border-radius: 8px; background: var(--maps-panel-2); font-size: .66rem; font-weight: 800; }
+.maps-team-row > select:disabled { opacity: .55; cursor: wait; }
+.maps-team-row > em { color: var(--maps-mint); font-size: .61rem; font-style: normal; font-weight: 800; text-align: right; text-transform: uppercase; }
+.maps-team-empty { margin: 1rem 0; color: var(--maps-muted); font-size: .72rem; text-align: center; }
+.maps-team-guide { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; margin: .8rem 1.2rem 0; overflow: hidden; border: 1px solid var(--maps-line); border-radius: 10px; background: var(--maps-line); }
+.maps-team-guide > div { display: flex; flex-direction: column; gap: .25rem; padding: .8rem; background: #0b141e; }
+.maps-team-guide strong { color: var(--maps-mint); font-size: .66rem; }
+.maps-team-guide span { color: var(--maps-muted); font-size: .59rem; line-height: 1.45; }
+.maps-team-dialog > footer { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.2rem 1.2rem; }
+.maps-team-dialog > footer a { padding: .58rem .72rem; color: var(--maps-mint); border: 1px solid rgba(105,210,196,.3); border-radius: 8px; background: rgba(105,210,196,.07); font-size: .62rem; font-weight: 850; text-decoration: none; }
 .maps-coordinate-readout { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem; border-radius: 9px; background: rgba(105,210,196,.1); }
 .maps-coordinate-readout span { color: var(--maps-mint); font-family: ui-monospace, monospace; font-size: .66rem; }
 .maps-coordinate-readout small { color: var(--maps-muted); font-size: .6rem; }
@@ -290,7 +311,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .maps-header { height: 64px; }
   .maps-shell { height: calc(100vh - 64px); height: calc(100dvh - 64px); grid-template-columns: 1fr; }
   .maps-header-actions .maps-role, .maps-organization-picker span { display: none; }
-  .maps-header-actions > a { padding: .5rem .65rem; }
+  .maps-header-actions > a, .maps-header-actions > button { padding: .5rem .65rem; }
   .maps-sidebar { position: absolute; z-index: 50; inset: 64px auto 0 0; width: min(360px, calc(100vw - 34px)); translate: -105% 0; transition: translate .2s ease; }
   .maps-sidebar.is-open { translate: 0; }
   .maps-mobile-close, .maps-library-button { display: flex; }
@@ -326,6 +347,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .maps-archive-item { grid-template-columns: 32px minmax(0, 1fr); }
   .maps-archive-item > div { grid-column: 2; }
   .maps-gate.is-setup { top: .65rem; max-height: calc(100% - 1.3rem); translate: -50% 0; padding: 1.1rem; }
+  .maps-team-dialog { max-height: calc(100dvh - 1.3rem); overflow-y: auto; }
+  .maps-team-row { grid-template-columns: 38px minmax(0, 1fr); padding: .65rem 0; }
+  .maps-team-row > select, .maps-team-row > em { grid-column: 2; width: 100%; text-align: left; }
+  .maps-team-guide { grid-template-columns: 1fr; }
+  .maps-team-dialog > footer { align-items: stretch; flex-direction: column; gap: .6rem; }
+  .maps-team-dialog > footer a, .maps-team-dialog > footer button { text-align: center; }
   .maps-activation-modes { grid-template-columns: 1fr; }
   .maps-activation-existing label { grid-template-columns: 18px minmax(0, 1fr); }
   .maps-activation-existing em { grid-column: 2; justify-self: start; }
