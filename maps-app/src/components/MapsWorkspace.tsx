@@ -44,6 +44,12 @@ interface ActivationOptions {
   organizations: ActivationOrganization[];
 }
 
+interface ViewerIdentity {
+  name: string;
+  email: string;
+  initials: string;
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -93,6 +99,15 @@ function layerIcon(layer: MapLayer | undefined): string {
   return icons[layer.icon_key] || layer.name.slice(0, 1).toUpperCase() || "•";
 }
 
+function initialsFor(value: string): string {
+  const parts = value.trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "N";
+  const first = parts[0] || "N";
+  const last = parts[parts.length - 1] || first;
+  if (parts.length === 1) return first.slice(0, 2).toUpperCase();
+  return `${first[0] || "N"}${last[0] || ""}`.toUpperCase();
+}
+
 export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
@@ -125,6 +140,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [activationOrganizationId, setActivationOrganizationId] = useState("");
   const [newOrganizationName, setNewOrganizationName] = useState("");
   const [activating, setActivating] = useState(false);
+  const [viewer, setViewer] = useState<ViewerIdentity | null>(null);
 
   const canEdit = activeAccess?.role === "account_admin" || activeAccess?.role === "editor";
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
@@ -187,6 +203,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           setGateMessage("Sign in to open your N3XRA Maps workspace.");
           return;
         }
+        const signedInUser = sessionData.session.user;
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name, email")
+          .eq("id", signedInUser.id)
+          .maybeSingle();
+        const email = String(profile?.email || signedInUser.email || "");
+        const metadataName = typeof signedInUser.user_metadata?.full_name === "string"
+          ? signedInUser.user_metadata.full_name.trim()
+          : "";
+        const name = String(profile?.full_name || metadataName || email.split("@")[0] || "N3XRA user");
+        setViewer({ name, email, initials: initialsFor(name || email) });
         const { data, error } = await supabase.rpc("maps_access_list");
         if (error) throw error;
         const available = Array.isArray(data) ? data as OrganizationAccess[] : [];
@@ -484,8 +512,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   return (
     <div className="maps-product">
       <header className="maps-header">
-        <a className="maps-brand" href="/maps/" aria-label="N3XRA Maps home">
-          <span className="maps-brand-mark"><b>N3</b><em>XRA</em></span>
+        <a className="maps-brand" href="/" aria-label="N3XRA home">
+          <img src="/assets/n3xra_logo_transparent_small.png" alt="" />
+          <span>N3XRA</span>
           <i />
           <strong>Maps</strong>
         </a>
@@ -497,6 +526,15 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 {accessList.map((access) => <option value={access.organizationId} key={access.organizationId}>{access.organizationName}</option>)}
               </select>
             </label>
+          )}
+          {activeAccess && (
+            <div className="maps-account-context" aria-label={`Signed in to ${activeAccess.organizationName}`} title={viewer?.email || undefined}>
+              <span className="maps-account-avatar" aria-hidden="true">{viewer?.initials || initialsFor(activeAccess.organizationName)}</span>
+              <span className="maps-account-copy">
+                <small>{activeAccess.organizationName}</small>
+                <strong>{viewer?.name || "Organization member"}</strong>
+              </span>
+            </div>
           )}
           {activeAccess && <span className="maps-role">{activeAccess.role.replace("_", " ")}</span>}
           <a href="/client-portal/">Dashboard</a>
