@@ -405,7 +405,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   const locationErrorMessage = (error: GeolocationPositionError) => {
     if (error.code === error.PERMISSION_DENIED) {
-      return "Location is blocked. Use the lock or site-settings icon in Chrome, allow Location for n3xra.com, then try again.";
+      return "Location is blocked for this site. Allow Location in your browser settings, then try again.";
     }
     if (error.code === error.POSITION_UNAVAILABLE) {
       return "Your device could not determine its location. Turn on Location Services, then try again.";
@@ -435,7 +435,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     }
 
     setLocating(true);
-    setLocationError("Waiting for your device. If Chrome asks to use your location, choose Allow.");
+    setLocationError("Waiting for your device. If your browser asks to use your location, choose Allow.");
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = null;
     if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
@@ -447,7 +447,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         const permission = await navigator.permissions.query({ name: "geolocation" });
         if (requestId !== locationRequestIdRef.current) return;
         if (permission.state === "denied") {
-          stopLocating("Location is blocked. Use the site-settings icon in Chrome, allow Location for n3xra.com, then try again.");
+          stopLocating("Location is blocked for this site. Allow Location in your browser settings, then try again.");
           return;
         }
       } catch {
@@ -500,7 +500,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       locationRequestTimerRef.current = null;
       locationRequestIdRef.current += 1;
       setLocating(false);
-      setLocationError("Chrome is still waiting for location access. Use the lock or site-settings icon, allow Location for n3xra.com, then try again.");
+      setLocationError("Your browser is still waiting for location access. Allow Location for n3xra.com in your browser settings, then try again.");
     }, 20_000);
 
     navigator.geolocation.getCurrentPosition(

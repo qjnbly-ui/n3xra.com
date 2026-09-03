@@ -37,8 +37,8 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /locationRequestIdRef/);
   assert.match(workspace, /stopLocating/);
   assert.match(workspace, /Center on me/);
-  assert.match(workspace, /If Chrome asks to use your location, choose Allow/);
-  assert.match(workspace, /allow Location for n3xra\.com/);
+  assert.match(workspace, /If your browser asks to use your location, choose Allow/);
+  assert.match(workspace, /Allow Location in your browser settings/);
   assert.match(workspace, /Satellite/);
   assert.match(workspace, /attributionControl: false/);
   assert.match(workspace, /new mapboxgl\.AttributionControl\(\), "top-right"/);
@@ -216,4 +216,13 @@ test("Maps uses a clean N3XRA product header without the user identity block", a
   assert.doesNotMatch(styles, /\.maps-header \{[^}]*radial-gradient/);
   assert.match(styles, /--maps-gold: #ea9b3f/);
   assert.doesNotMatch(styles, /\.maps-account-avatar/);
+});
+
+test("Maps keeps all field controls visible above mobile browser chrome", async () => {
+  const styles = await read("maps-app/src/styles/maps.css");
+
+  assert.match(styles, /height: calc\(100dvh - 64px\)/);
+  assert.match(styles, /env\(safe-area-inset-bottom\)/);
+  assert.match(styles, /\.maps-field-tools \{ left: \.65rem; right: \.65rem/);
+  assert.doesNotMatch(styles, /\.maps-field-tools button span \{ display: none; \}/);
 });
