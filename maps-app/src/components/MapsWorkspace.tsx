@@ -12,7 +12,7 @@ import type {
   MapWorkspaceSnapshot,
   OrganizationAccess,
 } from "../lib/maps-types";
-import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolMarkup } from "../lib/map-standards";
+import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
 
 declare global {
   interface Window {
@@ -183,6 +183,14 @@ function shapeGeometry(draft: ShapeDraft): MapFeature["geometry"] {
   return { type: "Polygon", coordinates: [ring] };
 }
 
+function LayerSwatch({ layer }: { layer: Pick<MapLayer, "geometry_type" | "icon_key" | "color"> | null | undefined }) {
+  if (!layer) return <i className="maps-layer-swatch is-point" style={{ color: mapSymbolColor("marker") }}><MapSymbol iconKey="marker" /></i>;
+  if (layer.geometry_type === "point") return <i className="maps-layer-swatch is-point" style={{ color: mapSymbolColor(layer.icon_key) }}><MapSymbol iconKey={layer.icon_key} /></i>;
+  if (layer.geometry_type === "line") return <i className="maps-layer-swatch is-line" style={{ color: layer.color }} />;
+  if (layer.geometry_type === "polygon") return <i className="maps-layer-swatch is-area" style={{ color: layer.color, background: `${layer.color}2b` }} />;
+  return <i className="maps-layer-swatch is-overlay" aria-hidden="true">▧</i>;
+}
+
 function metersBetween(origin: DeviceLocation, feature: MapFeature): number | null {
   const coordinates = pointCoordinates(feature);
   if (!coordinates) return null;
@@ -315,8 +323,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [legendOpen, setLegendOpen] = useState(false);
   const [layerDialogOpen, setLayerDialogOpen] = useState(false);
-  const [newLayerDraft, setNewLayerDraft] = useState<NewLayerDraft>({ presetKey: "", name: "", description: "", geometryType: "point", iconKey: "marker", color: "#1ed7b2" });
+  const [newLayerDraft, setNewLayerDraft] = useState<NewLayerDraft>({ presetKey: "", name: "", description: "", geometryType: "point", iconKey: "marker", color: mapSymbolColor("marker") });
   const [editingLayer, setEditingLayer] = useState<MapLayer | null>(null);
+  const [editingLayerIconKey, setEditingLayerIconKey] = useState("marker");
   const [layerArchiveOpen, setLayerArchiveOpen] = useState(false);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [archivedLayers, setArchivedLayers] = useState<ArchivedLayer[]>([]);
@@ -382,6 +391,20 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       return;
     }
     setNewLayerDraft({ presetKey: preset.key, name: preset.name, description: preset.description, geometryType: preset.geometryType, iconKey: preset.iconKey, color: preset.color });
+  };
+
+  const chooseLayerGeometry = (geometryType: GeometryType) => {
+    setNewLayerDraft((current) => ({
+      ...current,
+      presetKey: "",
+      geometryType,
+      iconKey: geometryType === "point" ? current.iconKey : "marker",
+      color: geometryType === "point" ? mapSymbolColor(current.iconKey) : current.color,
+    }));
+  };
+
+  const choosePointSymbol = (iconKey: string) => {
+    setNewLayerDraft((current) => ({ ...current, presetKey: "", iconKey, color: mapSymbolColor(iconKey) }));
   };
 
   const filteredFeatures = useMemo(() => {
@@ -593,7 +616,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       button.type = "button";
       const isMoving = movingFeatureId === feature.id;
       button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}`;
-      button.style.setProperty("--marker-color", layer?.color || "#1ed7b2");
+      button.style.setProperty("--marker-color", mapSymbolColor(layer?.icon_key || "marker"));
       const label = document.createElement("span");
       label.innerHTML = mapSymbolMarkup(layer?.icon_key || "marker");
       button.append(label);
@@ -605,8 +628,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       });
       const marker = new mapboxgl.Marker({
         element: button,
-        anchor: "bottom",
-        offset: [0, -7],
+        anchor: "center",
+        offset: [0, 0],
         draggable: isMoving,
       })
         .setLngLat(coordinates)
@@ -1383,6 +1406,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!client || !activeAccess || !canManageLayers) return;
     const name = newLayerDraft.name.trim();
     const geometryType = newLayerDraft.geometryType;
+    const layerColor = geometryType === "point" ? mapSymbolColor(newLayerDraft.iconKey) : newLayerDraft.color;
     if (!name) return;
     setSaving(true);
     const { data: createdLayer, error } = await client.from("map_layers").insert({
@@ -1391,9 +1415,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       description: newLayerDraft.description.trim() || null,
       geometry_type: geometryType,
       feature_kind: geometryType === "point" ? "asset" : "reference",
-      icon_key: newLayerDraft.iconKey,
-      color: newLayerDraft.color,
-      fill_color: newLayerDraft.color,
+      icon_key: geometryType === "point" ? newLayerDraft.iconKey : "marker",
+      color: layerColor,
+      fill_color: layerColor,
       is_editable: true,
     }).select("id").single();
     const preset = STANDARD_LAYER_PRESETS.find((item) => item.key === newLayerDraft.presetKey);
@@ -1415,7 +1439,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       return;
     }
     setLayerDialogOpen(false);
-    setNewLayerDraft({ presetKey: "", name: "", description: "", geometryType: "point", iconKey: "marker", color: "#1ed7b2" });
+    setNewLayerDraft({ presetKey: "", name: "", description: "", geometryType: "point", iconKey: "marker", color: mapSymbolColor("marker") });
     await loadWorkspace(client, activeAccess);
     showToast(preset ? `${preset.name} created from the N3XRA standard` : "Layer created");
   };
@@ -1636,6 +1660,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const openLayerEditor = (layer: MapLayer) => {
     if (!canManageLayers) return;
     setEditingLayer(layer);
+    setEditingLayerIconKey(layer.icon_key || "marker");
     setLayerFieldDrafts(layerFields.filter((field) => field.layer_id === layer.id).map((field) => ({
       id: field.id,
       fieldKey: field.field_key,
@@ -1662,15 +1687,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") || "").trim();
     if (!name) return;
+    const layerColor = editingLayer.geometry_type === "point"
+      ? mapSymbolColor(editingLayerIconKey)
+      : String(form.get("color") || editingLayer.color);
     setSaving(true);
     const { data, error } = await client
       .from("map_layers")
       .update({
         name,
         description: String(form.get("description") || "").trim() || null,
-        icon_key: String(form.get("icon_key") || "marker"),
-        color: String(form.get("color") || "#1ed7b2"),
-        fill_color: String(form.get("color") || "#1ed7b2"),
+        icon_key: editingLayer.geometry_type === "point" ? editingLayerIconKey : "marker",
+        color: layerColor,
+        fill_color: layerColor,
         is_visible_by_default: form.get("is_visible_by_default") === "on",
       })
       .eq("id", editingLayer.id)
@@ -2007,7 +2035,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-layer-row" key={layer.id}>
                 <label className="maps-layer">
                   <input type="checkbox" checked={visibleLayers[layer.id] !== false} onChange={() => toggleLayer(layer.id)} />
-                  <i style={{ background: layer.color }}><MapSymbol iconKey={layer.icon_key} /></i>
+                  <LayerSwatch layer={layer} />
                   <span><strong>{layer.name}</strong><small>{layer.geometry_type} · {features.filter((feature) => feature.layer_id === layer.id).length} items</small></span>
                   {layer.geometry_type !== "raster" && layer.is_editable && canEdit && (
                     <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Draw in ${layer.name}`} />
@@ -2027,7 +2055,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 const layer = layers.find((item) => item.id === feature.layer_id);
                 return (
                   <button type="button" className={selectedFeatureId === feature.id ? "is-selected" : ""} key={feature.id} onClick={() => { setSelectedFeatureId(feature.id); setSidebarOpen(false); }}>
-                    <i style={{ background: layer?.color || "#1ed7b2" }}><MapSymbol iconKey={layer?.icon_key || "marker"} /></i>
+                    <LayerSwatch layer={layer} />
                     <span><strong>{feature.title}</strong><small>{feature.reference_code || layer?.name || "Mapped item"}</small></span>
                     <em>›</em>
                   </button>
@@ -2090,7 +2118,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {legendOpen && <aside className="maps-legend" aria-label="Map legend">
             <header><div><span>MAP LEGEND</span><strong>{activeAccess?.organizationName}</strong></div><button type="button" onClick={() => setLegendOpen(false)} aria-label="Close legend">×</button></header>
             <div>{layers.filter((layer) => visibleLayers[layer.id] !== false).map((layer) => <article key={layer.id}>
-              {layer.geometry_type === "point" ? <i style={{ background: layer.color }}><MapSymbol iconKey={layer.icon_key} /></i> : layer.geometry_type === "line" ? <i className="is-line" style={{ color: layer.color }} /> : <i className="is-area" style={{ color: layer.color, background: `${layer.color}2b` }} />}
+              <LayerSwatch layer={layer} />
               <span><strong>{layer.name}</strong><small>{features.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
             </article>)}</div>
             {!layers.some((layer) => visibleLayers[layer.id] !== false) && <p>No visible layers.</p>}
@@ -2117,7 +2145,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {selectedFeature && !movingFeatureId && !editingShapeId && !directionsTargetId && (
             <article className="maps-detail-card">
               <button type="button" className="maps-detail-close" onClick={() => setSelectedFeatureId(null)} aria-label="Close mapped item">×</button>
-              <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
+              <div className="maps-detail-icon" style={{ color: mapSymbolColor(selectedLayer?.icon_key || "marker") }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
               <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
@@ -2206,16 +2234,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>MAP STRUCTURE</span><h2 id="new-layer-title">Create a layer</h2></div><button type="button" onClick={() => setLayerDialogOpen(false)} aria-label="Close">×</button></header>
             <form onSubmit={(event) => void saveLayer(event)}>
               <label className="maps-preset-select"><span>Start with a standard</span><select value={newLayerDraft.presetKey} onChange={(event) => chooseLayerPreset(event.target.value)}><option value="">Custom layer</option>{["Water", "Sanitary sewer", "Stormwater", "Reference"].map((group) => <optgroup label={group} key={group}>{STANDARD_LAYER_PRESETS.filter((preset) => preset.group === group).map((preset) => <option value={preset.key} key={preset.key}>{preset.name}</option>)}</optgroup>)}</select></label>
-              {selectedNewLayerPreset && <div className="maps-standard-note"><MapSymbol iconKey={selectedNewLayerPreset.iconKey} /><span><strong>N3XRA recommended standard</strong><small>{selectedNewLayerPreset.standardNote} Everything below can be changed for your system.</small></span></div>}
+              {selectedNewLayerPreset && <div className="maps-standard-note"><LayerSwatch layer={{ geometry_type: selectedNewLayerPreset.geometryType, icon_key: selectedNewLayerPreset.iconKey, color: selectedNewLayerPreset.color }} /><span><strong>N3XRA recommended standard</strong><small>{selectedNewLayerPreset.standardNote} Names, details, and line or boundary colors can be adapted for your system.</small></span></div>}
               <label><span>Layer name</span><input name="name" value={newLayerDraft.name} onChange={(event) => setNewLayerDraft((current) => ({ ...current, name: event.target.value }))} required maxLength={100} placeholder="Meters, valves, district boundary…" /></label>
               <label><span>Description</span><input name="description" value={newLayerDraft.description} onChange={(event) => setNewLayerDraft((current) => ({ ...current, description: event.target.value }))} maxLength={180} placeholder="Optional" /></label>
-              <div className="maps-form-grid">
-                <label><span>Geometry</span><select name="geometry_type" value={newLayerDraft.geometryType} onChange={(event) => setNewLayerDraft((current) => ({ ...current, geometryType: event.target.value as GeometryType }))}><option value="point">Points</option><option value="line">Lines</option><option value="polygon">Polygons</option><option value="raster">Map overlay</option></select></label>
-                <label><span>Symbol</span><select name="icon_key" value={newLayerDraft.iconKey} onChange={(event) => setNewLayerDraft((current) => ({ ...current, iconKey: event.target.value }))}>{MAP_SYMBOLS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
-                <label><span>Color</span><input name="color" type="color" value={newLayerDraft.color} onChange={(event) => setNewLayerDraft((current) => ({ ...current, color: event.target.value }))} /></label>
+              <label><span>Geometry</span><select name="geometry_type" value={newLayerDraft.geometryType} onChange={(event) => chooseLayerGeometry(event.target.value as GeometryType)}><option value="point">Points</option><option value="line">Lines</option><option value="polygon">Polygons</option><option value="raster">Map overlay</option></select></label>
+              {newLayerDraft.geometryType === "point" && <fieldset className="maps-symbol-fieldset"><legend>Choose an asset symbol</legend><div className="maps-symbol-picker">{MAP_SYMBOLS.map(([key, label]) => <button type="button" style={{ "--symbol-color": mapSymbolColor(key) } as React.CSSProperties} className={newLayerDraft.iconKey === key ? "is-selected" : ""} onClick={() => choosePointSymbol(key)} key={key} aria-pressed={newLayerDraft.iconKey === key}><MapSymbol iconKey={key} /><span>{label}</span></button>)}</div><small>Each symbol uses its predefined utility color so maps stay consistent.</small></fieldset>}
+              {(newLayerDraft.geometryType === "line" || newLayerDraft.geometryType === "polygon") && <label className="maps-style-color"><span>{newLayerDraft.geometryType === "line" ? "Line color" : "Boundary color"}</span><input name="color" type="color" value={newLayerDraft.color} onChange={(event) => setNewLayerDraft((current) => ({ ...current, presetKey: "", color: event.target.value }))} /></label>}
+              {newLayerDraft.geometryType === "raster" && <div className="maps-overlay-note"><strong>Map overlay</strong><span>Overlay source and opacity controls will appear when file imports are enabled. No asset symbol is needed.</span></div>}
+              <div className={`maps-layer-preview is-${newLayerDraft.geometryType}`}>
+                {newLayerDraft.geometryType === "point" ? <i style={{ color: mapSymbolColor(newLayerDraft.iconKey) }}><MapSymbol iconKey={newLayerDraft.iconKey} /></i> : newLayerDraft.geometryType === "line" ? <i className="is-line" style={{ color: newLayerDraft.color }} /> : newLayerDraft.geometryType === "polygon" ? <i className="is-area" style={{ color: newLayerDraft.color, background: `${newLayerDraft.color}2b` }} /> : <i className="is-overlay">▧</i>}
+                <span><strong>{newLayerDraft.name || "Layer preview"}</strong><small>{newLayerDraft.geometryType}{selectedNewLayerPreset ? ` · ${selectedNewLayerPreset.fields.length} recommended fields included` : ""}</small></span>
               </div>
-              <div className="maps-layer-preview"><i style={{ background: newLayerDraft.color }}><MapSymbol iconKey={newLayerDraft.iconKey} /></i><span><strong>{newLayerDraft.name || "Layer preview"}</strong><small>{newLayerDraft.geometryType}{selectedNewLayerPreset ? ` · ${selectedNewLayerPreset.fields.length} recommended fields included` : ""}</small></span></div>
-              <p>Standards are recommended starting points, not locked rules. Point, line, and polygon layers can be drawn directly on the map.</p>
+              <p>Standards are recommended starting points. Point symbols stay standardized; line and polygon colors can be adjusted for your system.</p>
               <footer><button type="button" onClick={() => setLayerDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Creating…" : "Create layer"}</button></footer>
             </form>
           </section>
@@ -2229,11 +2259,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <form onSubmit={(event) => void saveLayerDetails(event)}>
               <label><span>Layer name</span><input name="name" required maxLength={100} defaultValue={editingLayer.name} /></label>
               <label><span>Description</span><input name="description" maxLength={500} defaultValue={editingLayer.description || ""} placeholder="Optional" /></label>
-              <div className="maps-form-grid maps-layer-edit-grid">
-                <label><span>Geometry</span><input value={editingLayer.geometry_type} disabled /></label>
-                <label><span>Symbol</span><select name="icon_key" defaultValue={editingLayer.icon_key}>{MAP_SYMBOLS.map(([key, label]) => <option value={key} key={key}>{label}</option>)}</select></label>
-                <label><span>Color</span><input name="color" type="color" defaultValue={editingLayer.color} /></label>
-              </div>
+              <label><span>Geometry</span><input value={editingLayer.geometry_type} disabled /></label>
+              {editingLayer.geometry_type === "point" && <fieldset className="maps-symbol-fieldset"><legend>Asset symbol</legend><div className="maps-symbol-picker">{MAP_SYMBOLS.map(([key, label]) => <button type="button" style={{ "--symbol-color": mapSymbolColor(key) } as React.CSSProperties} className={editingLayerIconKey === key ? "is-selected" : ""} onClick={() => setEditingLayerIconKey(key)} key={key} aria-pressed={editingLayerIconKey === key}><MapSymbol iconKey={key} /><span>{label}</span></button>)}</div><small>Symbol colors are predefined to keep every map consistent.</small></fieldset>}
+              {(editingLayer.geometry_type === "line" || editingLayer.geometry_type === "polygon") && <label className="maps-style-color"><span>{editingLayer.geometry_type === "line" ? "Line color" : "Boundary color"}</span><input name="color" type="color" defaultValue={editingLayer.color} /></label>}
+              {editingLayer.geometry_type === "raster" && <div className="maps-overlay-note"><strong>Map overlay</strong><span>This layer has no asset symbol or utility color.</span></div>}
               <label className="maps-check-row"><input name="is_visible_by_default" type="checkbox" defaultChecked={editingLayer.is_visible_by_default} /><span>Show this layer by default</span></label>
               <section className="maps-custom-fields-editor">
                 <header><div><strong>Custom asset fields</strong><span>These fields appear on every item in this layer.</span></div><button type="button" onClick={addLayerFieldDraft}>＋ Add field</button></header>
@@ -2271,14 +2300,14 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <>
                   {archivedLayers.map((layer) => (
                     <article className="maps-archive-item" key={`layer-${layer.id}`}>
-                      <i style={{ background: layer.color }}><MapSymbol iconKey={layer.icon_key} /></i>
+                      <LayerSwatch layer={layer} />
                       <span><strong>{layer.name}</strong><small>Layer · {archivedFeatures.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
                       {canManageLayers && <div><button type="button" onClick={() => void restoreArchivedLayer(layer.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "layer", id: layer.id, name: layer.name })}>Delete</button>}</div>}
                     </article>
                   ))}
                   {archivedFeatures.filter((feature) => !archivedLayers.some((layer) => layer.id === feature.layer_id)).map((feature) => (
                     <article className="maps-archive-item" key={`feature-${feature.id}`}>
-                      <i><MapSymbol iconKey={layers.find((layer) => layer.id === feature.layer_id)?.icon_key || "marker"} /></i>
+                      <LayerSwatch layer={[...layers, ...archivedLayers].find((layer) => layer.id === feature.layer_id)} />
                       <span><strong>{feature.title}</strong><small>Mapped item · {feature.reference_code || layers.find((layer) => layer.id === feature.layer_id)?.name || "Location"}</small></span>
                       <div><button type="button" onClick={() => void restoreArchivedFeature(feature.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "feature", id: feature.id, name: feature.title })}>Delete</button>}</div>
                     </article>
