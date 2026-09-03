@@ -68,7 +68,7 @@ test("Maps has a public product presentation and a separate signed-in workspace"
   ]);
 
   assert.match(landing, /Every asset\.<br \/><em>Right where it belongs\.<\/em>/);
-  assert.match(landing, /HOW IT WORKS/);
+  assert.match(landing, /How it works/);
   assert.match(landing, /Points for meters, valves, hydrants/);
   assert.match(landing, /href="\/maps\/app\/"/);
   assert.match(app, /<MapsWorkspace client:load/);
@@ -78,15 +78,19 @@ test("Maps has a public product presentation and a separate signed-in workspace"
 });
 
 test("Maps presentation is native-width on phones and product footers load everywhere", async () => {
-  const [landingStyles, projectCards, navigation] = await Promise.all([
-    read("maps-app/src/styles/maps-landing.css"),
+  const [landing, productStyles, projectCards, navigation] = await Promise.all([
+    read("maps-app/src/pages/index.astro"),
+    read("maps-app/src/styles/maps-product.css"),
     read("project-cards/index.html"),
     read("assets/site-nav.js"),
   ]);
 
-  assert.match(landingStyles, /\.preview-body aside \{ display: none; \}/);
-  assert.match(landingStyles, /\.maps-product-preview \{ width: 100%; max-width: 520px; margin: 0 auto; transform: none; \}/);
-  assert.doesNotMatch(landingStyles, /transform: scale\(\.4/);
+  assert.match(landing, /\/assets\/project-cards\.css\?v=4/);
+  assert.match(landing, /class="site-topbar home-topbar cards-topbar"/);
+  assert.match(landing, /<nav class="desktop-nav" aria-label="Primary"><a href="\/projects\/">Projects<\/a><a href="\/services\/">Services<\/a><a href="\/support\/">Support<\/a><a href="\/#software">Software<\/a><\/nav>/);
+  assert.match(landing, /class="cards-footer"/);
+  assert.match(productStyles, /\.maps-preview-body aside \{ display: none; \}/);
+  assert.doesNotMatch(productStyles, /:root|--ml-|transform: scale/);
   assert.match(projectCards, /site-nav\.js\?v=6/);
   assert.match(navigation, /footer\.site-footer\.home-footer, footer\.cards-footer/);
 });
