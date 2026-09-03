@@ -66,6 +66,7 @@ export interface MapFeaturePhoto {
   caption: string | null;
   mime_type: string;
   size_bytes: number;
+  organization_file_id: string | null;
   created_at: string;
 }
 

@@ -57,6 +57,8 @@ function locationFiles() {
         return websiteFiles();
     if (activeLocation === "projects")
         return organizationFiles.filter((file) => folders.some((folder) => folder.id === file.folder_id && folder.source_product === "project_cards"));
+    if (activeLocation === "maps")
+        return organizationFiles.filter((file) => folders.some((folder) => folder.id === file.folder_id && folder.source_product === "maps"));
     return [];
 }
 function fileType(file) {
@@ -76,6 +78,8 @@ function renderTree() {
         return;
     const privateFolders = folders.filter((folder) => folder.source_product === "files_assets");
     const projectFolders = folders.filter((folder) => folder.source_product === "project_cards");
+    const mapFolders = folders.filter((folder) => folder.source_product === "maps");
+    const mapAssetFolders = mapFolders.filter((folder) => folder.parent_id);
     const button = (location, name, count, className = "", badge = "") => `<button class="files-folder ${className}${activeLocation === location ? " is-current" : ""}" type="button" data-location="${escape(location)}"><i>▰</i><span><strong>${escape(name)}</strong><small>${count} file${count === 1 ? "" : "s"}</small></span>${badge ? `<em>${escape(badge)}</em>` : ""}</button>`;
     target.innerHTML = [
         button("all", "All files", allFiles().length, "", "Private"),
@@ -89,6 +93,8 @@ function renderTree() {
         }),
         button("projects", "Project Cards", projectFolders.reduce((total, folder) => total + organizationFiles.filter((file) => file.folder_id === folder.id).length, 0), "", "Private"),
         ...projectFolders.map((folder) => button(`folder:${folder.id}`, folder.name, organizationFiles.filter((file) => file.folder_id === folder.id).length, "is-child")),
+        button("maps", "Maps", mapFolders.reduce((total, folder) => total + organizationFiles.filter((file) => file.folder_id === folder.id).length, 0), "", "Private"),
+        ...mapAssetFolders.map((folder) => button(`folder:${folder.id}`, folder.name, organizationFiles.filter((file) => file.folder_id === folder.id).length, "is-child")),
     ].join("");
 }
 function locationName() {
@@ -100,6 +106,8 @@ function locationName() {
         return "Websites";
     if (activeLocation === "projects")
         return "Project Cards";
+    if (activeLocation === "maps")
+        return "Maps";
     if (activeLocation.startsWith("folder:"))
         return folders.find((folder) => folder.id === activeLocation.slice(7))?.name || "Folder";
     if (activeLocation.startsWith("website:")) {
@@ -139,7 +147,7 @@ function syncActions() {
     const upload = one("#files-upload");
     const label = document.querySelector('label[for="files-upload"]');
     const folderButton = one("#files-new-folder");
-    const allowed = canManage() && activeLocation !== "websites" && activeLocation !== "projects" && activeLocation !== "all";
+    const allowed = canManage() && activeLocation !== "websites" && activeLocation !== "projects" && activeLocation !== "maps" && activeLocation !== "all";
     if (upload)
         upload.disabled = !allowed;
     if (label) {
@@ -148,7 +156,7 @@ function syncActions() {
         label.textContent = websiteLocation ? "Upload website files" : "Upload files";
     }
     if (folderButton)
-        folderButton.hidden = !canManage() || activeLocation.startsWith("website:") || activeLocation === "websites" || activeLocation === "projects";
+        folderButton.hidden = !canManage() || activeLocation.startsWith("website:") || activeLocation === "websites" || activeLocation === "projects" || activeLocation === "maps";
 }
 async function loadLibrary() {
     if (!activeOrganization)

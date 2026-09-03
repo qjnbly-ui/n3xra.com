@@ -448,3 +448,47 @@ test("Maps administrators assign product roles while editors and viewers remain 
   assert.match(migration, /map_layers_insert[\s\S]*organization_product_role\(organization_id, 'maps'\)\) = 'account_admin'/);
   assert.match(migration, /map_layer_fields_insert[\s\S]*organization_product_role\(organization_id, 'maps'\)\) = 'account_admin'/);
 });
+
+test("Maps provides original standards-based symbols, presets, and a live legend", async () => {
+  const [workspace, standards, styles] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/map-standards.tsx"),
+    read("maps-app/src/styles/maps.css"),
+  ]);
+
+  assert.match(standards, /STANDARD_LAYER_PRESETS/);
+  assert.match(standards, /Blue follows the APWA\/811 potable-water identification convention/);
+  assert.match(standards, /Green follows the APWA\/811 sewer and drainage convention/);
+  assert.match(standards, /Purple follows the APWA\/811 reclaimed-water convention/);
+  assert.match(standards, /Water meters/);
+  assert.match(standards, /Water valves/);
+  assert.match(standards, /Fire hydrants/);
+  assert.match(standards, /Sewer manholes/);
+  assert.match(standards, /Tax parcels/);
+  assert.match(standards, /mapSymbolMarkup/);
+  assert.match(workspace, /N3XRA recommended standard/);
+  assert.match(workspace, /Everything below can be changed for your system/);
+  assert.match(workspace, /Legend updates automatically|Updates automatically from your visible layers/);
+  assert.match(workspace, /map_layer_fields/);
+  assert.match(styles, /\.maps-legend/);
+  assert.match(styles, /\.maps-standard-note/);
+});
+
+test("Maps photos are registered in each organization's Files and Assets library", async () => {
+  const [migration, filesApp, workspace] = await Promise.all([
+    read("supabase/migrations/20260903222840_link_maps_photos_to_organization_files.sql"),
+    read("client-portal/files-app.js"),
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+  ]);
+
+  assert.match(migration, /source_product in \('files_assets', 'websites', 'project_cards', 'maps'\)/);
+  assert.match(migration, /organization_file_id uuid[\s\S]*references public\.organization_files\(id\) on delete cascade/);
+  assert.match(migration, /private\.link_map_photo_to_organization_files/);
+  assert.match(migration, /security definer[\s\S]*set search_path = ''/);
+  assert.match(migration, /organization_product_role\(new\.organization_id, 'maps'\) not in \('account_admin', 'editor'\)/);
+  assert.match(migration, /'maps-asset-photos'/);
+  assert.match(migration, /revoke all on function private\.link_map_photo_to_organization_files\(\) from public, anon, authenticated/);
+  assert.match(filesApp, /activeLocation === "maps"/);
+  assert.match(filesApp, /button\("maps", "Maps"/);
+  assert.match(workspace, /organization_file_id/);
+});
