@@ -26,7 +26,12 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   ]);
 
   assert.match(workspace, /watchPosition/);
+  assert.match(workspace, /getCurrentPosition/);
   assert.match(workspace, /enableHighAccuracy: true/);
+  assert.match(workspace, /enableHighAccuracy: false/);
+  assert.match(workspace, /Locating…/);
+  assert.match(workspace, /Center on me/);
+  assert.match(workspace, /allow Location for n3xra\.com/);
   assert.match(workspace, /Satellite/);
   assert.match(workspace, /create_map_point/);
   assert.match(migration, /create extension if not exists postgis/);

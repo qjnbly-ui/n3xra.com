@@ -114,6 +114,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const featureMarkersRef = useRef<Map<string, Marker>>(new Map());
   const locationMarkerRef = useRef<Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
+  const locationRequestTimerRef = useRef<number | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [gate, setGate] = useState<GateState>("loading");
   const [gateMessage, setGateMessage] = useState("Opening your maps workspace…");
@@ -135,6 +136,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [toast, setToast] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
   const [locationError, setLocationError] = useState("");
+  const [locating, setLocating] = useState(false);
   const [activationOptions, setActivationOptions] = useState<ActivationOptions | null>(null);
   const [activationMode, setActivationMode] = useState<ActivationMode>("existing");
   const [activationOrganizationId, setActivationOrganizationId] = useState("");
@@ -341,6 +343,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   useEffect(() => () => {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
   }, []);
 
   const chooseOrganization = async (organizationId: string) => {
@@ -396,32 +399,108 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     }
   };
 
-  const startLocating = () => {
-    if (!navigator.geolocation) {
-      setLocationError("Location is not available on this device.");
-      return;
-    }
-    setLocationError("");
-    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
-    watchIdRef.current = navigator.geolocation.watchPosition((position) => {
-      const nextLocation: DeviceLocation = {
-        longitude: position.coords.longitude,
-        latitude: position.coords.latitude,
-        accuracyMeters: position.coords.accuracy,
-      };
-      setDeviceLocation(nextLocation);
-      const map = mapRef.current;
-      if (!map) return;
+  const centerOnLocation = useCallback((location: DeviceLocation) => {
+    const map = mapRef.current;
+    if (!map) return;
+    map.easeTo({
+      center: [location.longitude, location.latitude],
+      zoom: Math.max(map.getZoom(), 17),
+      duration: 850,
+    });
+  }, []);
+
+  const applyPosition = useCallback((position: GeolocationPosition, shouldCenter: boolean) => {
+    const nextLocation: DeviceLocation = {
+      longitude: position.coords.longitude,
+      latitude: position.coords.latitude,
+      accuracyMeters: position.coords.accuracy,
+    };
+    setDeviceLocation(nextLocation);
+    const map = mapRef.current;
+    if (map) {
       if (!locationMarkerRef.current) {
         const element = document.createElement("div");
         element.className = "maps-user-location";
         locationMarkerRef.current = new mapboxgl.Marker({ element }).addTo(map);
       }
       locationMarkerRef.current.setLngLat([nextLocation.longitude, nextLocation.latitude]);
-      if (!selectedFeatureId) map.easeTo({ center: [nextLocation.longitude, nextLocation.latitude], zoom: Math.max(map.getZoom(), 17) });
-    }, () => {
-      setLocationError("Allow precise location access to use field locating.");
-    }, { enableHighAccuracy: true, maximumAge: 1_000, timeout: 15_000 });
+    }
+    if (shouldCenter) centerOnLocation(nextLocation);
+  }, [centerOnLocation]);
+
+  const locationErrorMessage = (error: GeolocationPositionError) => {
+    if (error.code === error.PERMISSION_DENIED) {
+      return "Location is blocked. Use the lock or site-settings icon in Chrome, allow Location for n3xra.com, then try again.";
+    }
+    if (error.code === error.POSITION_UNAVAILABLE) {
+      return "Your device could not determine its location. Turn on Location Services, then try again.";
+    }
+    return "Your location took too long to respond. Check Location Services and try again.";
+  };
+
+  const startLocating = () => {
+    if (!navigator.geolocation) {
+      setLocationError("Location is not available on this device.");
+      return;
+    }
+    if (deviceLocation) {
+      centerOnLocation(deviceLocation);
+      setLocationError("");
+      return;
+    }
+
+    setLocating(true);
+    setLocationError("");
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+    if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+
+    const beginWatch = () => {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => applyPosition(position, false),
+        (error) => setLocationError(locationErrorMessage(error)),
+        { enableHighAccuracy: true, maximumAge: 2_000, timeout: 20_000 },
+      );
+    };
+    const finish = (position: GeolocationPosition) => {
+      if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+      locationRequestTimerRef.current = null;
+      applyPosition(position, true);
+      setLocating(false);
+      setLocationError("");
+      beginWatch();
+    };
+    const fail = (error: GeolocationPositionError, allowFallback: boolean) => {
+      if (allowFallback && error.code !== error.PERMISSION_DENIED) {
+        navigator.geolocation.getCurrentPosition(
+          finish,
+          (fallbackError) => {
+            if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+            locationRequestTimerRef.current = null;
+            setLocating(false);
+            setLocationError(locationErrorMessage(fallbackError));
+          },
+          { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
+        );
+        return;
+      }
+      if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+      locationRequestTimerRef.current = null;
+      setLocating(false);
+      setLocationError(locationErrorMessage(error));
+    };
+
+    locationRequestTimerRef.current = window.setTimeout(() => {
+      locationRequestTimerRef.current = null;
+      setLocating(false);
+      setLocationError("Chrome is still waiting for location access. Use the lock or site-settings icon, allow Location for n3xra.com, then try again.");
+    }, 16_000);
+
+    navigator.geolocation.getCurrentPosition(
+      finish,
+      (error) => fail(error, true),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 12_000 },
+    );
   };
 
   const placeAtCurrentLocation = () => {
@@ -636,7 +715,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && (
             <div className="maps-field-tools">
-              <button type="button" onClick={startLocating} title="Find my location">◎ <span>Locate me</span></button>
+              <button type="button" onClick={startLocating} disabled={locating} className={deviceLocation ? "is-active" : ""} title="Find my location">◎ <span>{locating ? "Locating…" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
               {canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}
               {canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}
             </div>
@@ -659,7 +738,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <span>FIELD LOCATION</span>
                 <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
                 <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
-                <button type="button" onClick={startLocating}>Use my location</button>
+                <button type="button" onClick={startLocating} disabled={locating}>{locating ? "Locating…" : deviceLocation ? "Center on me" : "Use my location"}</button>
               </div>
             </article>
           )}
