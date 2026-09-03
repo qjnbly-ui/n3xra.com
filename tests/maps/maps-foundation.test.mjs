@@ -330,3 +330,32 @@ test("Maps provides internal driving directions to a selected point", async () =
   assert.match(styles, /\.maps-route-steps/);
   assert.match(styles, /\.maps-current-turn/);
 });
+
+test("Maps asset records support custom fields, private photos, and future customer references", async () => {
+  const [workspace, types, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903203527_maps_asset_records.sql"),
+  ]);
+
+  assert.match(workspace, /Custom asset fields/);
+  assert.match(workspace, /Customer\/account reference/);
+  assert.match(workspace, /MAPS_PHOTO_BUCKET = "maps-asset-photos"/);
+  assert.match(workspace, /createSignedUrl/);
+  assert.match(workspace, /uploadFeaturePhoto/);
+  assert.match(workspace, /Object\.values\(feature\.properties/);
+  assert.match(types, /interface MapLayerField/);
+  assert.match(types, /customer_reference: string \| null/);
+  assert.match(styles, /\.maps-asset-photos/);
+  assert.match(styles, /\.maps-custom-fields-editor/);
+
+  assert.match(migration, /create table public\.map_layer_fields/);
+  assert.match(migration, /create table public\.map_feature_photos/);
+  assert.match(migration, /alter table public\.map_layer_fields enable row level security/);
+  assert.match(migration, /alter table public\.map_feature_photos enable row level security/);
+  assert.match(migration, /grant select, insert, update, delete on public\.map_layer_fields to authenticated/);
+  assert.match(migration, /'maps-asset-photos'/);
+  assert.match(migration, /public\.organization_product_role\(feature\.organization_id, 'maps'\)/);
+  assert.match(migration, /owner_id = \(select auth\.uid\(\)\)::text/);
+});

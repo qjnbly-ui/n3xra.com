@@ -6,7 +6,9 @@ import type {
   DeviceLocation,
   GeometryType,
   MapFeature,
+  MapFeaturePhoto,
   MapLayer,
+  MapLayerField,
   MapWorkspaceSnapshot,
   OrganizationAccess,
 } from "../lib/maps-types";
@@ -92,6 +94,15 @@ interface NavigationProgress {
   stepIndex: number;
 }
 
+interface LayerFieldDraft {
+  id?: string;
+  fieldKey: string;
+  label: string;
+  fieldType: MapLayerField["field_type"];
+  optionsText: string;
+  isRequired: boolean;
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -102,6 +113,7 @@ const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
 const DRIVING_ROUTE_SOURCE_ID = "maps-driving-route";
 const DRIVING_ROUTE_CASING_ID = "maps-driving-route-casing";
 const DRIVING_ROUTE_LINE_ID = "maps-driving-route-line";
+const MAPS_PHOTO_BUCKET = "maps-asset-photos";
 
 function pointCoordinates(feature: MapFeature): [number, number] | null {
   if (feature.geometry.type !== "Point" || !Array.isArray(feature.geometry.coordinates)) return null;
@@ -184,6 +196,26 @@ function navigationProgress(route: DrivingRoute, location: DeviceLocation): Navi
   };
 }
 
+function fieldKeyFromLabel(label: string, fallback: string): string {
+  const normalized = label.trim().toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+  const prefixed = /^[a-z]/.test(normalized) ? normalized : `field_${normalized}`;
+  return (prefixed || fallback).slice(0, 50);
+}
+
+function readCustomProperties(form: FormData, fields: MapLayerField[]): Record<string, unknown> {
+  return Object.fromEntries(fields.map((field) => {
+    const name = `custom_${field.field_key}`;
+    if (field.field_type === "boolean") return [field.field_key, form.get(name) === "on"];
+    const value = String(form.get(name) || "").trim();
+    if (!value) return [field.field_key, null];
+    if (field.field_type === "number") {
+      const numberValue = Number(value);
+      return [field.field_key, Number.isFinite(numberValue) ? numberValue : value];
+    }
+    return [field.field_key, value];
+  }));
+}
+
 function layerIcon(layer: Pick<MapLayer, "icon_key" | "name"> | undefined): string {
   if (!layer) return "•";
   const icons: Record<string, string> = {
@@ -217,6 +249,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [activeAccess, setActiveAccess] = useState<OrganizationAccess | null>(null);
   const [layers, setLayers] = useState<MapLayer[]>([]);
   const [features, setFeatures] = useState<MapFeature[]>([]);
+  const [layerFields, setLayerFields] = useState<MapLayerField[]>([]);
+  const [featurePhotos, setFeaturePhotos] = useState<MapFeaturePhoto[]>([]);
+  const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
+  const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
+  const [photoUploading, setPhotoUploading] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>({});
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
@@ -266,6 +303,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedDistance = selectedFeature && deviceLocation ? metersBetween(deviceLocation, selectedFeature) : null;
   const directionsTarget = features.find((feature) => feature.id === directionsTargetId) || null;
+  const selectedFields = layerFields.filter((field) => field.layer_id === selectedFeature?.layer_id);
+  const selectedPhotos = featurePhotos.filter((photo) => photo.feature_id === selectedFeatureId);
 
   const filteredFeatures = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -274,7 +313,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       .filter((feature) => {
         if (!query) return true;
         const layer = layers.find((item) => item.id === feature.layer_id);
-        return [feature.title, feature.reference_code || "", feature.description || "", layer?.name || ""]
+        return [feature.title, feature.reference_code || "", feature.address || "", feature.customer_reference || "", feature.description || "", Object.values(feature.properties || {}).join(" "), layer?.name || ""]
           .some((value) => value.toLowerCase().includes(query));
       })
       .sort((left, right) => left.title.localeCompare(right.title));
@@ -337,15 +376,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
     setGate("loading");
     setGateMessage("Loading map layers and assets…");
-    const { data, error } = await supabase.rpc("maps_workspace_snapshot", {
-      input_organization_id: access.organizationId,
-    });
-    if (error) throw error;
-    const snapshot = data as unknown as MapWorkspaceSnapshot;
+    const [workspaceResult, fieldsResult, photosResult] = await Promise.all([
+      supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
+      supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
+      supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
+    ]);
+    if (workspaceResult.error || fieldsResult.error || photosResult.error) throw workspaceResult.error || fieldsResult.error || photosResult.error;
+    const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
     const nextFeatures = Array.isArray(snapshot.features) ? snapshot.features : [];
     setLayers(nextLayers);
     setFeatures(nextFeatures);
+    setLayerFields((fieldsResult.data || []) as MapLayerField[]);
+    setFeaturePhotos((photosResult.data || []) as MapFeaturePhoto[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current)
       ? current
@@ -522,6 +565,28 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     const coordinates = pointCoordinates(selectedFeature);
     if (coordinates) map.easeTo({ center: coordinates, zoom: Math.max(map.getZoom(), 17), duration: 650 });
   }, [selectedFeature]);
+
+  useEffect(() => {
+    if (!client || !selectedFeatureId) {
+      setPhotoUrls({});
+      return;
+    }
+    const photos = featurePhotos.filter((photo) => photo.feature_id === selectedFeatureId);
+    if (!photos.length) {
+      setPhotoUrls({});
+      return;
+    }
+    let active = true;
+    void Promise.all(photos.map(async (photo) => {
+      const { data } = await client.storage.from(MAPS_PHOTO_BUCKET).createSignedUrl(photo.storage_path, 3_600);
+      return [photo.id, data?.signedUrl || ""] as const;
+    })).then((entries) => {
+      if (active) setPhotoUrls(Object.fromEntries(entries.filter((entry) => entry[1])));
+    });
+    return () => {
+      active = false;
+    };
+  }, [client, featurePhotos, selectedFeatureId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1017,6 +1082,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     event.preventDefault();
     if (!client || !activeAccess || !pendingPoint || !selectedLayerId || !canEdit) return;
     const form = new FormData(event.currentTarget);
+    const fields = layerFields.filter((field) => field.layer_id === selectedLayerId);
     setSaving(true);
     const { data, error } = await client.rpc("create_map_point", {
       input_organization_id: activeAccess.organizationId,
@@ -1029,15 +1095,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       input_accuracy_m: pendingPoint.accuracyMeters,
       input_placement_method: pendingPoint.placementMethod,
     });
-    setSaving(false);
     if (error) {
+      setSaving(false);
       showToast(error.message);
       return;
+    }
+    const featureId = String(data || "");
+    const detailResult = await client.from("map_features").update({
+      address: String(form.get("address") || "").trim() || null,
+      customer_reference: String(form.get("customer_reference") || "").trim() || null,
+      properties: readCustomProperties(form, fields),
+    }).eq("id", featureId).eq("organization_id", activeAccess.organizationId).select("id").single();
+    setSaving(false);
+    if (detailResult.error) {
+      showToast(`Location saved, but its asset details need attention: ${detailResult.error.message}`);
     }
     setFeatureDialogOpen(false);
     setPendingPoint(null);
     await loadWorkspace(client, activeAccess);
-    setSelectedFeatureId(String(data || ""));
+    setSelectedFeatureId(featureId);
     showToast("Location saved");
   };
 
@@ -1046,6 +1122,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!client || !activeAccess || !selectedFeature || !canEdit) return;
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title") || "").trim();
+    const fields = layerFields.filter((field) => field.layer_id === selectedFeature.layer_id);
     if (!title) return;
     setSaving(true);
     const { data, error } = await client
@@ -1053,8 +1130,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       .update({
         title,
         reference_code: String(form.get("reference_code") || "").trim() || null,
+        address: String(form.get("address") || "").trim() || null,
+        customer_reference: String(form.get("customer_reference") || "").trim() || null,
         description: String(form.get("description") || "").trim() || null,
         status: String(form.get("status") || "active"),
+        properties: { ...selectedFeature.properties, ...readCustomProperties(form, fields) },
       })
       .eq("id", selectedFeature.id)
       .eq("organization_id", activeAccess.organizationId)
@@ -1068,6 +1148,61 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setFeatureEditOpen(false);
     await loadWorkspace(client, activeAccess);
     showToast("Mapped item updated");
+  };
+
+  const uploadFeaturePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !client || !activeAccess || !selectedFeature || !canEdit) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!allowedTypes.includes(file.type)) {
+      showToast("Use a JPG, PNG, WebP, HEIC, or HEIF image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      showToast("Photos must be 10 MB or smaller.");
+      return;
+    }
+    const extension = (file.name.split(".").pop() || "jpg").toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+    const storagePath = `${activeAccess.organizationId}/${selectedFeature.id}/${crypto.randomUUID()}.${extension}`;
+    setPhotoUploading(true);
+    const uploadResult = await client.storage.from(MAPS_PHOTO_BUCKET).upload(storagePath, file, { contentType: file.type, upsert: false });
+    if (uploadResult.error) {
+      setPhotoUploading(false);
+      showToast(uploadResult.error.message);
+      return;
+    }
+    const recordResult = await client.from("map_feature_photos").insert({
+      organization_id: activeAccess.organizationId,
+      feature_id: selectedFeature.id,
+      storage_path: storagePath,
+      caption: file.name.slice(0, 500),
+      mime_type: file.type,
+      size_bytes: file.size,
+    });
+    if (recordResult.error) {
+      await client.storage.from(MAPS_PHOTO_BUCKET).remove([storagePath]);
+      setPhotoUploading(false);
+      showToast(recordResult.error.message);
+      return;
+    }
+    await loadWorkspace(client, activeAccess);
+    setPhotoUploading(false);
+    showToast("Photo added");
+  };
+
+  const deleteFeaturePhoto = async (photo: MapFeaturePhoto) => {
+    if (!client || !activeAccess || !canEdit) return;
+    setPhotoUploading(true);
+    const storageResult = await client.storage.from(MAPS_PHOTO_BUCKET).remove([photo.storage_path]);
+    const recordResult = storageResult.error ? null : await client.from("map_feature_photos").delete().eq("id", photo.id).eq("organization_id", activeAccess.organizationId);
+    setPhotoUploading(false);
+    if (storageResult.error || recordResult?.error) {
+      showToast(storageResult.error?.message || recordResult?.error?.message || "Photo could not be deleted.");
+      return;
+    }
+    await loadWorkspace(client, activeAccess);
+    showToast("Photo deleted");
   };
 
   const archiveFeature = async () => {
@@ -1123,6 +1258,28 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     void loadArchive();
   };
 
+  const openLayerEditor = (layer: MapLayer) => {
+    setEditingLayer(layer);
+    setLayerFieldDrafts(layerFields.filter((field) => field.layer_id === layer.id).map((field) => ({
+      id: field.id,
+      fieldKey: field.field_key,
+      label: field.label,
+      fieldType: field.field_type,
+      optionsText: field.options.join(", "),
+      isRequired: field.is_required,
+    })));
+  };
+
+  const addLayerFieldDraft = () => {
+    setLayerFieldDrafts((current) => [...current, {
+      fieldKey: "",
+      label: "",
+      fieldType: "text",
+      optionsText: "",
+      isRequired: false,
+    }]);
+  };
+
   const saveLayerDetails = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !editingLayer || !canEdit) return;
@@ -1144,9 +1301,39 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       .eq("organization_id", activeAccess.organizationId)
       .select("id")
       .single();
-    setSaving(false);
     if (error || !data) {
+      setSaving(false);
       showToast(error?.message || "That layer could not be updated.");
+      return;
+    }
+    const normalizedFields = layerFieldDrafts.filter((field) => field.label.trim()).map((field, index) => ({
+      organization_id: activeAccess.organizationId,
+      layer_id: editingLayer.id,
+      field_key: field.fieldKey || fieldKeyFromLabel(field.label, `field_${index + 1}`),
+      label: field.label.trim(),
+      field_type: field.fieldType,
+      options: field.fieldType === "select" ? field.optionsText.split(",").map((option) => option.trim()).filter(Boolean) : [],
+      is_required: field.isRequired,
+      sort_order: (index + 1) * 10,
+    }));
+    const uniqueKeys = new Set(normalizedFields.map((field) => field.field_key));
+    if (uniqueKeys.size !== normalizedFields.length) {
+      setSaving(false);
+      showToast("Custom field names must be unique within a layer.");
+      return;
+    }
+    const upsertResult = normalizedFields.length
+      ? await client.from("map_layer_fields").upsert(normalizedFields, { onConflict: "organization_id,layer_id,field_key" })
+      : { error: null };
+    let deleteResult: { error: { message: string } | null } = { error: null };
+    if (!upsertResult.error) {
+      let deleteQuery = client.from("map_layer_fields").delete().eq("organization_id", activeAccess.organizationId).eq("layer_id", editingLayer.id);
+      if (normalizedFields.length) deleteQuery = deleteQuery.not("field_key", "in", `(${normalizedFields.map((field) => field.field_key).join(",")})`);
+      deleteResult = await deleteQuery;
+    }
+    setSaving(false);
+    if (upsertResult.error || deleteResult.error) {
+      showToast(upsertResult.error?.message || deleteResult.error?.message || "Custom fields could not be saved.");
       return;
     }
     setEditingLayer(null);
@@ -1344,7 +1531,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                     <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Add new locations to ${layer.name}`} />
                   )}
                 </label>
-                {canEdit && <button type="button" className="maps-layer-settings" onClick={() => setEditingLayer(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
+                {canEdit && <button type="button" className="maps-layer-settings" onClick={() => openLayerEditor(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
               </div>
             )) : (
               <div className="maps-empty-list"><strong>No layers yet</strong><p>Create a layer when you are ready to begin mapping.</p></div>
@@ -1442,7 +1629,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
                 {selectedFeature.location_accuracy_m !== null && <div><dt>Recorded accuracy</dt><dd>±{Math.round(selectedFeature.location_accuracy_m * 3.28084)} ft</dd></div>}
+                {selectedFeature.address && <div className="maps-detail-wide"><dt>Address</dt><dd>{selectedFeature.address}</dd></div>}
+                {selectedFeature.customer_reference && <div className="maps-detail-wide"><dt>Customer reference</dt><dd>{selectedFeature.customer_reference}</dd></div>}
+                {selectedFields.map((field) => {
+                  const value = selectedFeature.properties?.[field.field_key];
+                  if (value === null || value === undefined || value === "") return null;
+                  return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
+                })}
               </dl>
+              <div className="maps-coordinate-detail">{pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ")}</div>
+              <section className="maps-asset-photos">
+                <header><span>PHOTOS</span>{canEdit && <label className={photoUploading ? "is-disabled" : ""}>＋ Add photo<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={photoUploading} onChange={(event) => void uploadFeaturePhoto(event)} /></label>}</header>
+                {selectedPhotos.length ? <div>{selectedPhotos.map((photo) => <figure key={photo.id}>{photoUrls[photo.id] ? <img src={photoUrls[photo.id]} alt={photo.caption || selectedFeature.title} /> : <span>Loading…</span>}<figcaption>{photo.caption || "Asset photo"}</figcaption>{canEdit && <button type="button" disabled={photoUploading} onClick={() => void deleteFeaturePhoto(photo)} aria-label={`Delete ${photo.caption || "asset photo"}`}>×</button>}</figure>)}</div> : <p>No photos added yet.</p>}
+              </section>
               <div className="maps-proximity">
                 <span>FIELD LOCATION</span>
                 <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
@@ -1514,6 +1713,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <label><span>Color</span><input name="color" type="color" defaultValue={editingLayer.color} /></label>
               </div>
               <label className="maps-check-row"><input name="is_visible_by_default" type="checkbox" defaultChecked={editingLayer.is_visible_by_default} /><span>Show this layer by default</span></label>
+              <section className="maps-custom-fields-editor">
+                <header><div><strong>Custom asset fields</strong><span>These fields appear on every item in this layer.</span></div><button type="button" onClick={addLayerFieldDraft}>＋ Add field</button></header>
+                {layerFieldDrafts.length ? <div>{layerFieldDrafts.map((field, index) => <article key={field.id || `new-${index}`}>
+                  <input aria-label={`Custom field ${index + 1} label`} value={field.label} onChange={(event) => setLayerFieldDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, label: event.target.value } : item))} placeholder="Field name" maxLength={100} required />
+                  <select aria-label={`Custom field ${index + 1} type`} value={field.fieldType} onChange={(event) => setLayerFieldDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, fieldType: event.target.value as LayerFieldDraft["fieldType"] } : item))}><option value="text">Text</option><option value="number">Number</option><option value="date">Date</option><option value="boolean">Yes / No</option><option value="select">Choice list</option></select>
+                  <label><input type="checkbox" checked={field.isRequired} onChange={(event) => setLayerFieldDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, isRequired: event.target.checked } : item))} /><span>Required</span></label>
+                  <button type="button" className="is-remove" onClick={() => setLayerFieldDrafts((current) => current.filter((_, itemIndex) => itemIndex !== index))} aria-label={`Remove ${field.label || `custom field ${index + 1}`}`}>×</button>
+                  {field.fieldType === "select" && <input className="maps-custom-field-options" value={field.optionsText} onChange={(event) => setLayerFieldDrafts((current) => current.map((item, itemIndex) => itemIndex === index ? { ...item, optionsText: event.target.value } : item))} placeholder="Choices separated by commas" />}
+                </article>)}</div> : <p>No custom fields yet.</p>}
+              </section>
               <p>Changing these settings updates every mapped item displayed in this layer.</p>
               <footer className="maps-layer-edit-footer"><button type="button" className="is-archive" onClick={() => setLayerArchiveOpen(true)}>Archive layer</button><span><button type="button" onClick={() => setEditingLayer(null)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></span></footer>
             </form>
@@ -1579,6 +1788,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <label><span>Layer</span><select value={selectedLayerId} onChange={(event) => setSelectedLayerId(event.target.value)}>{layers.filter((layer) => layer.geometry_type === "point" && layer.is_editable).map((layer) => <option value={layer.id} key={layer.id}>{layer.name}</option>)}</select></label>
               <label><span>Title</span><input name="title" required maxLength={140} placeholder="Name this location" /></label>
               <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>
+              <label><span>Address or location description</span><input name="address" maxLength={500} placeholder="Optional" /></label>
+              <label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} placeholder="Optional — does not connect a customer account yet" /></label>
+              {layerFields.filter((field) => field.layer_id === selectedLayerId).map((field) => <label key={field.id}><span>{field.label}{field.is_required ? " *" : ""}</span>{field.field_type === "select" ? <select name={`custom_${field.field_key}`} required={field.is_required}><option value="">Select…</option>{field.options.map((option) => <option value={option} key={option}>{option}</option>)}</select> : field.field_type === "boolean" ? <input name={`custom_${field.field_key}`} type="checkbox" /> : <input name={`custom_${field.field_key}`} type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} required={field.is_required} />}</label>)}
               <label><span>Notes</span><textarea name="description" maxLength={1_000} rows={3} placeholder="Optional field notes" /></label>
               <div className="maps-coordinate-readout"><span>{pendingPoint.latitude.toFixed(7)}, {pendingPoint.longitude.toFixed(7)}</span><small>{pendingPoint.accuracyMeters === null ? "Placed manually" : `Device accuracy ±${Math.round(pendingPoint.accuracyMeters * 3.28084)} ft`}</small></div>
               <footer><button type="button" onClick={() => setFeatureDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save location"}</button></footer>
@@ -1595,7 +1807,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <label><span>Layer</span><input value={selectedLayer?.name || "Mapped item"} disabled /></label>
               <label><span>Title</span><input name="title" required maxLength={140} defaultValue={selectedFeature.title} /></label>
               <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} defaultValue={selectedFeature.reference_code || ""} placeholder="Optional" /></label>
+              <label><span>Address or location description</span><input name="address" maxLength={500} defaultValue={selectedFeature.address || ""} placeholder="Optional" /></label>
+              <label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} defaultValue={selectedFeature.customer_reference || ""} placeholder="Optional — does not connect a customer account yet" /></label>
               <label><span>Status</span><select name="status" defaultValue={selectedFeature.status}><option value="active">Active</option><option value="inactive">Inactive</option><option value="unknown">Unknown</option></select></label>
+              {selectedFields.map((field) => <label key={field.id}><span>{field.label}{field.is_required ? " *" : ""}</span>{field.field_type === "select" ? <select name={`custom_${field.field_key}`} required={field.is_required} defaultValue={String(selectedFeature.properties?.[field.field_key] ?? "")}><option value="">Select…</option>{field.options.map((option) => <option value={option} key={option}>{option}</option>)}</select> : field.field_type === "boolean" ? <input name={`custom_${field.field_key}`} type="checkbox" defaultChecked={Boolean(selectedFeature.properties?.[field.field_key])} /> : <input name={`custom_${field.field_key}`} type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} required={field.is_required} defaultValue={String(selectedFeature.properties?.[field.field_key] ?? "")} />}</label>)}
               <label><span>Notes</span><textarea name="description" maxLength={4_000} rows={4} defaultValue={selectedFeature.description || ""} placeholder="Optional field notes" /></label>
               <p>This changes the item details without moving its mapped location.</p>
               <footer><button type="button" onClick={() => setFeatureEditOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></footer>

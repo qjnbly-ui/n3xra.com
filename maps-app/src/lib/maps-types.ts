@@ -33,6 +33,8 @@ export interface MapFeature {
   layer_id: string;
   title: string;
   reference_code: string | null;
+  address: string | null;
+  customer_reference: string | null;
   description: string | null;
   status: "active" | "inactive" | "unknown";
   geometry_type: GeometryType;
@@ -42,6 +44,29 @@ export interface MapFeature {
   properties: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+}
+
+export interface MapLayerField {
+  id: string;
+  organization_id: string;
+  layer_id: string;
+  field_key: string;
+  label: string;
+  field_type: "text" | "number" | "date" | "boolean" | "select";
+  options: string[];
+  is_required: boolean;
+  sort_order: number;
+}
+
+export interface MapFeaturePhoto {
+  id: string;
+  organization_id: string;
+  feature_id: string;
+  storage_path: string;
+  caption: string | null;
+  mime_type: string;
+  size_bytes: number;
+  created_at: string;
 }
 
 export interface GeoJsonGeometry {
