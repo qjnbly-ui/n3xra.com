@@ -59,6 +59,9 @@ const viralsSummary = document.getElementById("virals-summary");
 const websitePortalSummary = document.getElementById("website-portal-summary");
 const websitePortalLink = document.getElementById("website-portal-link");
 const openRecordsButton = document.getElementById("open-records-button");
+const mapsProductCard = document.getElementById("maps-product-card");
+const mapsProductSummary = document.getElementById("maps-product-summary");
+const mapsProductLink = document.getElementById("maps-product-link");
 const communicationsProductCard = document.getElementById("communications-product-card");
 const communicationsProductSummary = document.getElementById("communications-product-summary");
 const communicationsProductLink = document.getElementById("communications-product-link");
@@ -114,6 +117,7 @@ let musicProfile = null;
 let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
+let mapsAccess = [];
 let communicationsEntitlement = null;
 let projectCardsEntitlement = null;
 let filesAssetsEntitlement = null;
@@ -632,6 +636,12 @@ async function loadCommunicationsEntitlement() {
   communicationsEntitlement = data || null;
 }
 
+async function loadMapsAccess() {
+  const { data, error } = await supabase.rpc("maps_access_list");
+  if (error) throw error;
+  mapsAccess = Array.isArray(data) ? data : [];
+}
+
 async function loadProjectCardsEntitlement() {
   const [membershipResult, ownedResult] = await Promise.all([
     supabase
@@ -782,6 +792,12 @@ async function renderClientDashboardPreview(accountUserId) {
     : "Activate email and text communications for your organization from one secure billing flow.";
   makePreviewActionSafe(communicationsProductLink, { label: communications.connected ? "Open Communications" : "Activate Communications" });
 
+  const maps = products.maps || {};
+  mapsProductSummary.textContent = maps.connected
+    ? "Connected to N3XRA Maps. Map layers and locations are hidden in this preview."
+    : "Map assets, infrastructure, service areas, and field locations. Paid plans are coming soon.";
+  makePreviewActionSafe(mapsProductLink, { label: maps.connected ? "Open Maps" : "Request Maps Access" });
+
   const projectCards = products.project_cards || {};
   projectCardsProductSummary.textContent = projectCards.connected
     ? "Connected to N3XRA Project Cards. Project and card contents are hidden."
@@ -844,6 +860,7 @@ async function renderClientDashboardPreview(accountUserId) {
 
   [
     [recordsAppCard, Boolean(records.connected)],
+    [mapsProductCard, Boolean(maps.connected)],
     [communicationsProductCard, Boolean(communications.connected)],
     [projectCardsProductCard, Boolean(projectCards.connected)],
     [filesAssetsProductCard, Boolean(filesAssets.connected)],
@@ -987,6 +1004,7 @@ async function renderDashboard(message = "") {
     loadInvestmentInterest(),
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
+    loadMapsAccess(),
     loadCommunicationsEntitlement(),
     loadProjectCardsEntitlement(),
     loadFilesAssetsEntitlement(),
@@ -1029,6 +1047,16 @@ async function renderDashboard(message = "") {
     communicationsProductLink.textContent = hasCommunicationsAccess
       ? "Open Communications"
       : "Activate Communications";
+  }
+
+  const activeMapsAccess = mapsAccess[0] || null;
+  const hasMapsAccess = Boolean(activeMapsAccess?.organizationId);
+  if (mapsProductSummary && mapsProductLink) {
+    mapsProductSummary.textContent = hasMapsAccess
+      ? `Connected to ${activeMapsAccess.organizationName || "an organization"}. Map assets, layers, and field locations from one workspace.`
+      : "Map assets, infrastructure, service areas, and field locations. Paid plans are coming soon.";
+    mapsProductLink.href = hasMapsAccess ? "/maps/app/" : "/support/?product=maps";
+    mapsProductLink.textContent = hasMapsAccess ? "Open Maps" : "Request Maps Access";
   }
 
   const hasProjectCardsAccess = Boolean(projectCardsEntitlement?.organization_id);
@@ -1118,6 +1146,7 @@ async function renderDashboard(message = "") {
 
   [
     [recordsAppCard, hasRecordsAccess],
+    [mapsProductCard, hasMapsAccess],
     [communicationsProductCard, hasCommunicationsAccess],
     [projectCardsProductCard, hasProjectCardsAccess],
     [filesAssetsProductCard, hasFilesAssetsAccess],

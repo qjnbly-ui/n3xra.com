@@ -1,0 +1,10 @@
+{
+  "extends": "astro/tsconfigs/strictest",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true
+  },
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["../maps"]
+}

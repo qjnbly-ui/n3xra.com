@@ -17,7 +17,7 @@
   <link rel="stylesheet" href="/account/account.css?v=13">
   <link rel="stylesheet" href="/assets/home-shell.css?v=1">
   <script src="/shared/config.js"></script>
-  <script src="/assets/site-nav.js?v=5"></script>
+  <script src="/assets/site-nav.js?v=6"></script>
   <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
@@ -224,6 +224,15 @@
                     <p id="records-summary">Manage records, files, documents, and meeting notes.</p>
                   </div>
                   <button class="btn secondary block" id="open-records-button" type="button">Open Records</button>
+                </article>
+                <article class="app-card hidden" id="maps-product-card">
+                  <div>
+                    <span class="app-access-badge">Available</span>
+                    <p class="auth-kicker">Asset and infrastructure mapping</p>
+                    <h3>N3XRA Maps</h3>
+                    <p id="maps-product-summary">Map assets, infrastructure, service areas, and field locations. Paid plans are coming soon.</p>
+                  </div>
+                  <a class="btn secondary block button-link" id="maps-product-link" href="/support/?product=maps">Request Maps Access</a>
                 </article>
                 <article class="app-card hidden" id="communications-product-card">
                   <div>
@@ -550,6 +559,6 @@
       window.addEventListener("scroll", updateHeader, { passive: true });
     })();
   </script>
-  <script type="module" src="/account/account.js?v=20260902-client-dashboard-preview"></script>
+  <script type="module" src="/account/account.js?v=20260903-maps-product"></script>
 </body>
 </html>

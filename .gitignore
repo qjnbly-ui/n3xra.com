@@ -10,3 +10,6 @@ assets/site-assistant/
 .DS_Store
 .vercel/
 .env.local
+**/.env.local
+**/.astro/
+/maps/

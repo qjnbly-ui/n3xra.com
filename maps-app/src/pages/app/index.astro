@@ -1,0 +1,7 @@
+---
+import MapsWorkspace from "../../components/MapsWorkspace";
+import "../../styles/maps.css";
+import platformConfig from "../../../../shared/config.js?raw";
+const mapboxToken = import.meta.env.PUBLIC_MAPBOX_TOKEN || "";
+---
+<!doctype html><html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" /><meta name="robots" content="noindex,nofollow,noarchive" /><meta name="theme-color" content="#07100f" /><title>N3XRA Maps | Workspace</title><link rel="icon" href="/assets/n3xra_logo_transparent_small.png" /><link rel="preconnect" href="https://fonts.googleapis.com" /><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin /><link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" /><script is:inline set:html={platformConfig}></script></head><body><MapsWorkspace client:load mapboxToken={mapboxToken} /></body></html>
