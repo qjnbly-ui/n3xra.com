@@ -241,6 +241,8 @@ test("Maps keeps saved points anchored, frames saved data, and archives deleted 
   assert.match(workspace, /fittedOrganizationRef/);
   assert.match(workspace, /projection: "mercator"/);
   assert.match(workspace, /anchor: "bottom",[\s\S]*?offset: \[0, -7\]/);
+  assert.match(styles, /\.maps-marker \{[^}]*position: absolute/);
+  assert.doesNotMatch(styles, /\.maps-marker \{[^}]*position: relative/);
   assert.match(workspace, /Delete item/);
   assert.match(workspace, /\.update\(\{ archived_at: new Date\(\)\.toISOString\(\) \}\)/);
   assert.match(workspace, /Its saved record is archived so it can be recovered later/);

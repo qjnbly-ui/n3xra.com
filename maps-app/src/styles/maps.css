@@ -129,7 +129,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-activation-submit { min-height: 46px; color: #06110f; border: 0; border-radius: 9px; background: var(--maps-mint); font-size: .72rem; font-weight: 900; cursor: pointer; }
 .maps-activation-submit:disabled { opacity: .58; cursor: wait; }
 
-.maps-marker { position: relative; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; color: #06100f; border: 0; background: transparent; font-size: .7rem; font-weight: 900; cursor: pointer; }
+.maps-marker { position: absolute; width: 34px; height: 34px; display: grid; place-items: center; padding: 0; color: #06100f; border: 0; background: transparent; font-size: .7rem; font-weight: 900; cursor: pointer; }
 .maps-marker::before { content: ""; position: absolute; inset: 0; border: 3px solid #fff; border-radius: 50% 50% 50% 8px; background: var(--marker-color); box-shadow: 0 7px 18px rgba(0,0,0,.35); transform: rotate(-45deg); }
 .maps-marker::after { content: ""; position: absolute; inset: -7px; border: 2px solid transparent; border-radius: 50% 50% 50% 8px; transform: rotate(-45deg); }
 .maps-marker.is-selected { z-index: 2; }
