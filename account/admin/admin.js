@@ -142,6 +142,12 @@ const productAdminApps = {
       workspace: ["Contact Cards", "Manage customer cards, public addresses, publishing, and physical-card requests.", "/n3xra-admin/contact-cards/"],
     },
   },
+  maps: {
+    label: "Maps",
+    sections: {
+      requests: ["Maps Access Requests", "Review and decide Maps early-access requests.", "/maps/admin/"],
+    },
+  },
 };
 
 const embeddedProductStyles = `

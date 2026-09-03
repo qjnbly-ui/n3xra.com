@@ -71,7 +71,7 @@ test("Maps has a public product presentation and a separate signed-in workspace"
   assert.match(landing, /Points for meters, valves, hydrants/);
   assert.match(landing, /href="\/maps\/app\/"/);
   assert.match(app, /<MapsWorkspace client:load/);
-  assert.match(accountSource, /hasMapsAccess \? "\/maps\/app\/"/);
+  assert.match(accountSource, /mapsProductLink\.href = "\/maps\/app\/"/);
   assert.match(routeMigration, /portal_path = '\/maps\/app\/'/);
   assert.doesNotMatch(landing, /Bly Water|sample organization|demo organization/i);
 });
@@ -118,4 +118,39 @@ test("Every public Software footer lists Maps as one ordinary link", async () =>
     assert.match(softwareFooter, /<a href="\/maps\/">Maps<\/a>/, `${page} should list Maps in Software`);
     assert.equal((softwareFooter.match(/href="\/maps\/"/g) || []).length, 1, `${page} should list Maps once`);
   }
+});
+
+test("Maps early access is requested by the account and decided in a dedicated admin workspace", async () => {
+  const [migration, account, accountPage, adminPage, adminComponent, adminNavigation, landing] = await Promise.all([
+    read("supabase/migrations/20260903140400_maps_early_access_approval.sql"),
+    read("account/account.js"),
+    read("account/index.html"),
+    read("maps-app/src/pages/admin/index.astro"),
+    read("maps-app/src/components/MapsAdmin.tsx"),
+    read("account/admin/admin-navigation.js"),
+    read("maps-app/src/pages/index.astro"),
+  ]);
+
+  assert.match(migration, /create table(?: if not exists)? public\.maps_access_requests/);
+  assert.match(migration, /status in \('pending', 'approved', 'declined'\)/);
+  assert.match(migration, /alter table public\.maps_access_requests enable row level security/);
+  assert.match(migration, /user_id = \(select auth\.uid\(\)\)/);
+  assert.match(migration, /or \(select public\.is_platform_admin\(\)\)/);
+  assert.match(migration, /create or replace function public\.maps_request_early_access\(\)/);
+  assert.match(migration, /revoke all on function public\.maps_request_early_access\(\) from public, anon/);
+  assert.doesNotMatch(migration, /insert into public\.organizations|Bly Water|sample organization/i);
+
+  assert.match(account, /rpc\("maps_request_early_access"\)/);
+  assert.match(account, /maps_access_requests/);
+  assert.match(account, /Pending Approval/);
+  assert.match(account, /mapsAccessRequest\?\.status === "approved"/);
+  assert.match(accountPage, /id="maps-product-link" href="#">Request Early Access/);
+  assert.match(landing, /href="\/account\/\?product=maps#available-apps-section">Request early access/);
+
+  assert.match(adminPage, /<MapsAdmin client:load/);
+  assert.match(adminComponent, /Approve access/);
+  assert.match(adminComponent, /No organization, customer, layer, pin, or example data will be created/);
+  assert.match(adminComponent, /\.from\("maps_access_requests"\)/);
+  assert.match(adminNavigation, /label: "Maps"/);
+  assert.match(adminNavigation, /"\/maps\/admin\/"/);
 });

@@ -173,8 +173,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         const available = Array.isArray(data) ? data as OrganizationAccess[] : [];
         setAccessList(available);
         if (!available.length) {
+          const { data: request, error: requestError } = await supabase
+            .from("maps_access_requests")
+            .select("status")
+            .eq("user_id", sessionData.session.user.id)
+            .maybeSingle();
+          if (requestError && requestError.code !== "PGRST116") throw requestError;
           setGate("unassigned");
-          setGateMessage("Maps has not been activated for one of your organizations yet.");
+          setGateMessage(request?.status === "approved"
+            ? "Your early access is approved. The next setup step will create your blank Maps workspace."
+            : request?.status === "pending"
+              ? "Your Maps early-access request is awaiting N3XRA approval."
+              : "Request Maps early access from your N3XRA dashboard.");
           return;
         }
         const storedId = window.localStorage.getItem(ACTIVE_ORGANIZATION_KEY);
@@ -479,8 +489,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <p>N3XRA MAPS</p>
               <h2>{gate === "loading" ? "Opening Maps" : gate === "signed-out" ? "Sign in to continue" : gate === "unassigned" ? "Ready for activation" : "Maps needs attention"}</h2>
               <span>{gateMessage}</span>
-              {gate === "signed-out" && <a href="/client-portal/login/">Sign in</a>}
-              {gate === "unassigned" && <a href="/client-portal/">Return to dashboard</a>}
+              {gate === "signed-out" && <a href="/account/?next=/maps/app/">Sign in</a>}
+              {gate === "unassigned" && <a href="/account/#available-apps-section">Return to dashboard</a>}
             </div>
           )}
 

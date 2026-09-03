@@ -118,6 +118,7 @@ let viralsProfile = null;
 let websiteServiceRequest = null;
 let loanAccount = null;
 let mapsAccess = [];
+let mapsAccessRequest = null;
 let communicationsEntitlement = null;
 let projectCardsEntitlement = null;
 let filesAssetsEntitlement = null;
@@ -642,6 +643,73 @@ async function loadMapsAccess() {
   mapsAccess = Array.isArray(data) ? data : [];
 }
 
+async function loadMapsAccessRequest() {
+  const { data, error } = await supabase
+    .from("maps_access_requests")
+    .select("id,status,requested_at,reviewed_at,admin_note")
+    .eq("user_id", currentSession.user.id)
+    .maybeSingle();
+  if (error && error.code !== "PGRST116") throw error;
+  mapsAccessRequest = data || null;
+}
+
+function renderMapsProductState() {
+  if (!mapsProductSummary || !mapsProductLink) return;
+  const activeAccess = mapsAccess[0] || null;
+  const hasWorkspaceAccess = Boolean(activeAccess?.organizationId);
+  const requestStatus = String(mapsAccessRequest?.status || "");
+  mapsProductLink.removeAttribute("aria-disabled");
+  delete mapsProductLink.dataset.mapsRequestAction;
+
+  if (hasWorkspaceAccess) {
+    mapsProductSummary.textContent = `Connected to ${activeAccess.organizationName || "an organization"}. Map assets, layers, and field locations from one workspace.`;
+    mapsProductLink.href = "/maps/app/";
+    mapsProductLink.textContent = "Open Maps";
+    return;
+  }
+  if (requestStatus === "approved") {
+    mapsProductSummary.textContent = "Your Maps early access is approved. Open Maps to begin setting up your blank workspace.";
+    mapsProductLink.href = "/maps/app/";
+    mapsProductLink.textContent = "Open Maps";
+    return;
+  }
+  if (requestStatus === "pending") {
+    mapsProductSummary.textContent = "Your Maps early-access request is awaiting N3XRA approval.";
+    mapsProductLink.href = "#";
+    mapsProductLink.textContent = "Pending Approval";
+    mapsProductLink.setAttribute("aria-disabled", "true");
+    return;
+  }
+
+  mapsProductSummary.textContent = requestStatus === "declined"
+    ? "Your previous request was not approved. You may submit a new request when you are ready."
+    : "Map assets, infrastructure, service areas, and field locations. Early access requires approval.";
+  mapsProductLink.href = "#";
+  mapsProductLink.textContent = requestStatus === "declined" ? "Request Again" : "Request Early Access";
+  mapsProductLink.dataset.mapsRequestAction = "true";
+}
+
+async function requestMapsEarlyAccess(event) {
+  if (mapsProductLink?.dataset.mapsRequestAction !== "true") {
+    if (mapsProductLink?.getAttribute("aria-disabled") === "true") event.preventDefault();
+    return;
+  }
+  event.preventDefault();
+  if (!supabase || !currentSession) return;
+  mapsProductLink.textContent = "Sending Request…";
+  mapsProductLink.setAttribute("aria-disabled", "true");
+  const { data, error } = await supabase.rpc("maps_request_early_access");
+  if (error) {
+    mapsProductLink.removeAttribute("aria-disabled");
+    renderMapsProductState();
+    setStatus(error.message || "Maps access could not be requested.", "error");
+    return;
+  }
+  mapsAccessRequest = data || { status: "pending" };
+  renderMapsProductState();
+  setStatus("Your Maps early-access request is pending approval.", "success");
+}
+
 async function loadProjectCardsEntitlement() {
   const [membershipResult, ownedResult] = await Promise.all([
     supabase
@@ -1005,6 +1073,7 @@ async function renderDashboard(message = "") {
     loadWebsiteServiceRequest(),
     loadLoanAccount(),
     loadMapsAccess(),
+    loadMapsAccessRequest(),
     loadCommunicationsEntitlement(),
     loadProjectCardsEntitlement(),
     loadFilesAssetsEntitlement(),
@@ -1050,14 +1119,8 @@ async function renderDashboard(message = "") {
   }
 
   const activeMapsAccess = mapsAccess[0] || null;
-  const hasMapsAccess = Boolean(activeMapsAccess?.organizationId);
-  if (mapsProductSummary && mapsProductLink) {
-    mapsProductSummary.textContent = hasMapsAccess
-      ? `Connected to ${activeMapsAccess.organizationName || "an organization"}. Map assets, layers, and field locations from one workspace.`
-      : "Map assets, infrastructure, service areas, and field locations. Paid plans are coming soon.";
-    mapsProductLink.href = hasMapsAccess ? "/maps/app/" : "/support/?product=maps";
-    mapsProductLink.textContent = hasMapsAccess ? "Open Maps" : "Request Maps Access";
-  }
+  const hasMapsAccess = Boolean(activeMapsAccess?.organizationId) || mapsAccessRequest?.status === "approved";
+  renderMapsProductState();
 
   const hasProjectCardsAccess = Boolean(projectCardsEntitlement?.organization_id);
   const projectCardsOrganizationId = projectCardsEntitlement?.organization_id || organizationAdminAccess?.id || "";
@@ -1696,6 +1759,7 @@ function bindEvents() {
     });
   });
   openRecordsButton.addEventListener("click", openRecords);
+  mapsProductLink?.addEventListener("click", requestMapsEarlyAccess);
   openAdminViralsButton?.addEventListener("click", openAdminVirals);
   openAdminMusicButton?.addEventListener("click", openAdminMusic);
   openMusicButton?.addEventListener("click", openMusic);
