@@ -37,6 +37,7 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /window\.isSecureContext/);
   assert.match(workspace, /locationRequestIdRef/);
   assert.match(workspace, /stopLocating/);
+  assert.match(workspace, /new mapboxgl\.Marker\(\{ element \}\)[\s\S]*?\.setLngLat\(coordinates\)[\s\S]*?\.addTo\(map\)/);
   assert.match(workspace, /Center on me/);
   assert.match(workspace, /If your browser asks to use your location, choose Allow/);
   assert.match(workspace, /Allow Location in your browser settings/);

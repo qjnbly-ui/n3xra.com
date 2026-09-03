@@ -394,12 +394,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setDeviceLocation(nextLocation);
     const map = mapRef.current;
     if (map) {
+      const coordinates: [number, number] = [nextLocation.longitude, nextLocation.latitude];
       if (!locationMarkerRef.current) {
         const element = document.createElement("div");
         element.className = "maps-user-location";
-        locationMarkerRef.current = new mapboxgl.Marker({ element }).addTo(map);
+        locationMarkerRef.current = new mapboxgl.Marker({ element })
+          .setLngLat(coordinates)
+          .addTo(map);
+      } else {
+        locationMarkerRef.current.setLngLat(coordinates);
       }
-      locationMarkerRef.current.setLngLat([nextLocation.longitude, nextLocation.latitude]);
     }
     if (shouldCenter) centerOnLocation(nextLocation);
   }, [centerOnLocation]);
