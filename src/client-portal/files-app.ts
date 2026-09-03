@@ -3,7 +3,7 @@ import { getStoredActiveOrganizationId, setStoredActiveOrganizationId } from "/s
 
 interface Organization { id: string; name: string }
 interface Membership { organization_id: string; role: string; organization: Organization | Organization[] | null }
-interface Folder { id: string; organization_id: string; parent_id: string | null; name: string; source_product: "files_assets" | "project_cards"; source_entity_id: string | null; is_system: boolean }
+interface Folder { id: string; organization_id: string; parent_id: string | null; name: string; source_product: "files_assets" | "project_cards" | "maps"; source_entity_id: string | null; is_system: boolean }
 interface OrganizationFile { id: string; organization_id: string; folder_id: string | null; display_name: string; original_filename: string; storage_bucket: string | null; storage_path: string | null; mime_type: string | null; size_bytes: number; shared_with_n3xra: boolean; created_at: string; updated_at: string; source: "private" }
 interface Website { id: string; organization_id: string; name: string }
 interface WebsiteAsset { id: string; website_id: string; label: string; category: string; current_version_id: string | null }
@@ -67,6 +67,7 @@ function locationFiles(): LibraryFile[] {
   }
   if (activeLocation === "websites") return websiteFiles();
   if (activeLocation === "projects") return organizationFiles.filter((file) => folders.some((folder) => folder.id === file.folder_id && folder.source_product === "project_cards"));
+  if (activeLocation === "maps") return organizationFiles.filter((file) => folders.some((folder) => folder.id === file.folder_id && folder.source_product === "maps"));
   return [];
 }
 
@@ -84,6 +85,8 @@ function renderTree(): void {
   if (!target || !activeOrganization) return;
   const privateFolders = folders.filter((folder) => folder.source_product === "files_assets");
   const projectFolders = folders.filter((folder) => folder.source_product === "project_cards");
+  const mapFolders = folders.filter((folder) => folder.source_product === "maps");
+  const mapAssetFolders = mapFolders.filter((folder) => folder.parent_id);
   const button = (location: string, name: string, count: number, className = "", badge = "") => `<button class="files-folder ${className}${activeLocation === location ? " is-current" : ""}" type="button" data-location="${escape(location)}"><i>▰</i><span><strong>${escape(name)}</strong><small>${count} file${count === 1 ? "" : "s"}</small></span>${badge ? `<em>${escape(badge)}</em>` : ""}</button>`;
   target.innerHTML = [
     button("all", "All files", allFiles().length, "", "Private"),
@@ -97,6 +100,8 @@ function renderTree(): void {
     }),
     button("projects", "Project Cards", projectFolders.reduce((total, folder) => total + organizationFiles.filter((file) => file.folder_id === folder.id).length, 0), "", "Private"),
     ...projectFolders.map((folder) => button(`folder:${folder.id}`, folder.name, organizationFiles.filter((file) => file.folder_id === folder.id).length, "is-child")),
+    button("maps", "Maps", mapFolders.reduce((total, folder) => total + organizationFiles.filter((file) => file.folder_id === folder.id).length, 0), "", "Private"),
+    ...mapAssetFolders.map((folder) => button(`folder:${folder.id}`, folder.name, organizationFiles.filter((file) => file.folder_id === folder.id).length, "is-child")),
   ].join("");
 }
 
@@ -105,6 +110,7 @@ function locationName(): string {
   if (activeLocation === "private") return "Private files";
   if (activeLocation === "websites") return "Websites";
   if (activeLocation === "projects") return "Project Cards";
+  if (activeLocation === "maps") return "Maps";
   if (activeLocation.startsWith("folder:")) return folders.find((folder) => folder.id === activeLocation.slice(7))?.name || "Folder";
   if (activeLocation.startsWith("website:")) {
     const [, websiteId = "", category = ""] = activeLocation.split(":");
@@ -141,10 +147,10 @@ function syncActions(): void {
   const upload = one<HTMLInputElement>("#files-upload");
   const label = document.querySelector<HTMLLabelElement>('label[for="files-upload"]');
   const folderButton = one<HTMLButtonElement>("#files-new-folder");
-  const allowed = canManage() && activeLocation !== "websites" && activeLocation !== "projects" && activeLocation !== "all";
+  const allowed = canManage() && activeLocation !== "websites" && activeLocation !== "projects" && activeLocation !== "maps" && activeLocation !== "all";
   if (upload) upload.disabled = !allowed;
   if (label) { label.style.opacity = allowed ? "1" : ".45"; label.style.pointerEvents = allowed ? "auto" : "none"; label.textContent = websiteLocation ? "Upload website files" : "Upload files"; }
-  if (folderButton) folderButton.hidden = !canManage() || activeLocation.startsWith("website:") || activeLocation === "websites" || activeLocation === "projects";
+  if (folderButton) folderButton.hidden = !canManage() || activeLocation.startsWith("website:") || activeLocation === "websites" || activeLocation === "projects" || activeLocation === "maps";
 }
 
 async function loadLibrary(): Promise<void> {
