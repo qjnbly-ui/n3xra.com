@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import mapboxgl, { Map as MapboxMap, Marker } from "mapbox-gl";
+import mapboxgl, { GeoJSONSource, Map as MapboxMap, Marker } from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
@@ -70,6 +70,19 @@ interface PermanentDeleteTarget {
   name: string;
 }
 
+interface DrivingRouteStep {
+  instruction: string;
+  roadName: string;
+  distanceMeters: number;
+}
+
+interface DrivingRoute {
+  distanceMeters: number;
+  durationSeconds: number;
+  coordinates: [number, number][];
+  steps: DrivingRouteStep[];
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -77,6 +90,9 @@ type ActivationMode = "existing" | "new";
 const ACTIVE_ORGANIZATION_KEY = "records-active-organization-id";
 const STANDARD_STYLE = "mapbox://styles/mapbox/standard";
 const SATELLITE_STYLE = "mapbox://styles/mapbox/satellite-streets-v12";
+const DRIVING_ROUTE_SOURCE_ID = "maps-driving-route";
+const DRIVING_ROUTE_CASING_ID = "maps-driving-route-casing";
+const DRIVING_ROUTE_LINE_ID = "maps-driving-route-line";
 
 function pointCoordinates(feature: MapFeature): [number, number] | null {
   if (feature.geometry.type !== "Point" || !Array.isArray(feature.geometry.coordinates)) return null;
@@ -106,6 +122,20 @@ function formatDistance(meters: number): string {
   return `${(feet / 5_280).toFixed(2)} mi away`;
 }
 
+function formatRouteDistance(meters: number): string {
+  const miles = meters / 1_609.344;
+  if (miles < 0.1) return `${Math.max(1, Math.round(meters * 3.28084))} ft`;
+  return `${miles.toFixed(miles < 10 ? 1 : 0)} mi`;
+}
+
+function formatRouteDuration(seconds: number): string {
+  const minutes = Math.max(1, Math.round(seconds / 60));
+  if (minutes < 60) return `${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
+}
+
 function layerIcon(layer: Pick<MapLayer, "icon_key" | "name"> | undefined): string {
   if (!layer) return "•";
   const icons: Record<string, string> = {
@@ -127,6 +157,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const watchIdRef = useRef<number | null>(null);
   const locationRequestTimerRef = useRef<number | null>(null);
   const locationRequestIdRef = useRef(0);
+  const pendingDirectionsTargetRef = useRef<string | null>(null);
   const fittedOrganizationRef = useRef<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [gate, setGate] = useState<GateState>("loading");
@@ -162,6 +193,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
   const [locationError, setLocationError] = useState("");
   const [locating, setLocating] = useState(false);
+  const [directionsTargetId, setDirectionsTargetId] = useState<string | null>(null);
+  const [drivingRoute, setDrivingRoute] = useState<DrivingRoute | null>(null);
+  const [directionsLoading, setDirectionsLoading] = useState(false);
+  const [directionsError, setDirectionsError] = useState("");
   const [activationOptions, setActivationOptions] = useState<ActivationOptions | null>(null);
   const [activationMode, setActivationMode] = useState<ActivationMode>("existing");
   const [activationOrganizationId, setActivationOrganizationId] = useState("");
@@ -173,6 +208,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedDistance = selectedFeature && deviceLocation ? metersBetween(deviceLocation, selectedFeature) : null;
+  const directionsTarget = features.find((feature) => feature.id === directionsTargetId) || null;
 
   const filteredFeatures = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -190,6 +226,48 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const showToast = useCallback((message: string) => {
     setToast(message);
     window.setTimeout(() => setToast(""), 3_000);
+  }, []);
+
+  const drawDrivingRoute = useCallback((coordinates: [number, number][]) => {
+    const map = mapRef.current;
+    if (!map || !map.isStyleLoaded() || coordinates.length < 2) return;
+    const routeData = {
+      type: "Feature" as const,
+      properties: {},
+      geometry: { type: "LineString" as const, coordinates },
+    };
+    const existingSource = map.getSource(DRIVING_ROUTE_SOURCE_ID) as GeoJSONSource | undefined;
+    if (existingSource) {
+      existingSource.setData(routeData);
+      return;
+    }
+    map.addSource(DRIVING_ROUTE_SOURCE_ID, { type: "geojson", data: routeData });
+    map.addLayer({
+      id: DRIVING_ROUTE_CASING_ID,
+      type: "line",
+      source: DRIVING_ROUTE_SOURCE_ID,
+      paint: { "line-color": "#07120f", "line-width": 9, "line-opacity": 0.75 },
+      layout: { "line-cap": "round", "line-join": "round" },
+    });
+    map.addLayer({
+      id: DRIVING_ROUTE_LINE_ID,
+      type: "line",
+      source: DRIVING_ROUTE_SOURCE_ID,
+      paint: { "line-color": "#69d2c4", "line-width": 5 },
+      layout: { "line-cap": "round", "line-join": "round" },
+    });
+  }, []);
+
+  const clearDrivingRoute = useCallback(() => {
+    const map = mapRef.current;
+    if (map?.getLayer(DRIVING_ROUTE_LINE_ID)) map.removeLayer(DRIVING_ROUTE_LINE_ID);
+    if (map?.getLayer(DRIVING_ROUTE_CASING_ID)) map.removeLayer(DRIVING_ROUTE_CASING_ID);
+    if (map?.getSource(DRIVING_ROUTE_SOURCE_ID)) map.removeSource(DRIVING_ROUTE_SOURCE_ID);
+    pendingDirectionsTargetRef.current = null;
+    setDirectionsTargetId(null);
+    setDrivingRoute(null);
+    setDirectionsError("");
+    setDirectionsLoading(false);
   }, []);
 
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
@@ -301,6 +379,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!map) return;
     map.setStyle(basemap === "satellite" ? SATELLITE_STYLE : STANDARD_STYLE);
   }, [basemap]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !drivingRoute) return;
+    const renderRoute = () => drawDrivingRoute(drivingRoute.coordinates);
+    if (map.isStyleLoaded()) renderRoute();
+    else map.once("style.load", renderRoute);
+    return () => {
+      map.off("style.load", renderRoute);
+    };
+  }, [basemap, drawDrivingRoute, drivingRoute]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -601,6 +690,105 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
     );
   };
+
+  const requestDrivingRoute = useCallback(async (targetId: string, origin: DeviceLocation) => {
+    const target = features.find((feature) => feature.id === targetId);
+    const destination = target ? pointCoordinates(target) : null;
+    if (!target || !destination || !mapboxToken) {
+      setDirectionsError("Directions are not available for this mapped item.");
+      return;
+    }
+    setDirectionsTargetId(target.id);
+    const currentMap = mapRef.current;
+    if (currentMap?.getLayer(DRIVING_ROUTE_LINE_ID)) currentMap.removeLayer(DRIVING_ROUTE_LINE_ID);
+    if (currentMap?.getLayer(DRIVING_ROUTE_CASING_ID)) currentMap.removeLayer(DRIVING_ROUTE_CASING_ID);
+    if (currentMap?.getSource(DRIVING_ROUTE_SOURCE_ID)) currentMap.removeSource(DRIVING_ROUTE_SOURCE_ID);
+    setDrivingRoute(null);
+    setDirectionsLoading(true);
+    setDirectionsError("");
+    try {
+      const coordinates = `${origin.longitude},${origin.latitude};${destination[0]},${destination[1]}`;
+      const parameters = new URLSearchParams({
+        alternatives: "false",
+        geometries: "geojson",
+        overview: "full",
+        steps: "true",
+        voice_instructions: "false",
+        banner_instructions: "false",
+        access_token: mapboxToken,
+      });
+      const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?${parameters}`);
+      const result = await response.json() as {
+        code?: string;
+        message?: string;
+        routes?: Array<{
+          distance: number;
+          duration: number;
+          geometry: { coordinates: [number, number][] };
+          legs: Array<{ steps: Array<{ distance: number; name?: string; maneuver?: { instruction?: string } }> }>;
+        }>;
+      };
+      const route = result.routes?.[0];
+      if (!response.ok || result.code !== "Ok" || !route?.geometry?.coordinates?.length) {
+        throw new Error(result.message || "No driving route could be found.");
+      }
+      const nextRoute: DrivingRoute = {
+        distanceMeters: route.distance,
+        durationSeconds: route.duration,
+        coordinates: route.geometry.coordinates,
+        steps: route.legs.flatMap((leg) => leg.steps.map((step) => ({
+          instruction: step.maneuver?.instruction || step.name || "Continue",
+          roadName: step.name || "",
+          distanceMeters: step.distance,
+        }))),
+      };
+      setDrivingRoute(nextRoute);
+      drawDrivingRoute(nextRoute.coordinates);
+      const map = mapRef.current;
+      if (map) {
+        const first = nextRoute.coordinates[0]!;
+        const bounds = nextRoute.coordinates.reduce(
+          (currentBounds, coordinate) => currentBounds.extend(coordinate),
+          new mapboxgl.LngLatBounds(first, first),
+        );
+        map.fitBounds(bounds, {
+          padding: window.innerWidth <= 860
+            ? { top: 90, right: 35, bottom: 300, left: 35 }
+            : { top: 90, right: 90, bottom: 90, left: 420 },
+          maxZoom: 17,
+          duration: 850,
+        });
+      }
+    } catch (error) {
+      console.warn("Driving directions could not be loaded.", error);
+      setDrivingRoute(null);
+      setDirectionsError(error instanceof Error ? error.message : "Driving directions could not be loaded.");
+    } finally {
+      setDirectionsLoading(false);
+    }
+  }, [drawDrivingRoute, features, mapboxToken]);
+
+  const startDirections = (feature: MapFeature) => {
+    if (feature.geometry.type !== "Point") {
+      setDirectionsError("Directions are only available for point locations right now.");
+      return;
+    }
+    setDirectionsTargetId(feature.id);
+    if (deviceLocation) {
+      void requestDrivingRoute(feature.id, deviceLocation);
+      return;
+    }
+    pendingDirectionsTargetRef.current = feature.id;
+    setDirectionsError("Finding your location before building the route…");
+    startLocating();
+  };
+
+  useEffect(() => {
+    const targetId = pendingDirectionsTargetRef.current;
+    if (!targetId || !deviceLocation) return;
+    pendingDirectionsTargetRef.current = null;
+    void requestDrivingRoute(targetId, deviceLocation);
+  }, [deviceLocation, requestDrivingRoute]);
 
   const placeAtCurrentLocation = () => {
     if (!deviceLocation) {
@@ -1064,13 +1252,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
-          {selectedFeature && !movingFeatureId && (
+          {selectedFeature && !movingFeatureId && !directionsTargetId && (
             <article className="maps-detail-card">
               <button type="button" className="maps-detail-close" onClick={() => setSelectedFeatureId(null)} aria-label="Close mapped item">×</button>
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              {canEdit && <div className="maps-detail-actions"><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></div>}
+              <div className="maps-detail-actions"><button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -1082,6 +1270,27 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
                 <button type="button" onClick={locating ? () => stopLocating() : startLocating}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
               </div>
+            </article>
+          )}
+
+          {directionsTarget && !movingFeatureId && (
+            <article className="maps-route-card" aria-live="polite">
+              <button type="button" className="maps-detail-close" onClick={clearDrivingRoute} aria-label="Close directions">×</button>
+              <span className="maps-route-eyebrow">DRIVING DIRECTIONS</span>
+              <h2>{directionsTarget.title}</h2>
+              {drivingRoute && <div className="maps-route-summary"><strong>{formatRouteDuration(drivingRoute.durationSeconds)}</strong><span>{formatRouteDistance(drivingRoute.distanceMeters)}</span></div>}
+              {directionsLoading && <p className="maps-route-status">Building the best available driving route…</p>}
+              {directionsError && <p className="maps-route-error">{directionsError}</p>}
+              {drivingRoute && (
+                <ol className="maps-route-steps">
+                  {drivingRoute.steps.map((step, index) => <li key={`${step.instruction}-${index}`}><span>{index + 1}</span><div><strong>{step.instruction}</strong>{step.roadName && step.roadName !== step.instruction && <small>{step.roadName}</small>}</div><em>{formatRouteDistance(step.distanceMeters)}</em></li>)}
+                </ol>
+              )}
+              <div className="maps-route-actions">
+                <button type="button" disabled={!deviceLocation || directionsLoading} onClick={() => deviceLocation && void requestDrivingRoute(directionsTarget.id, deviceLocation)}>{directionsLoading ? "Updating…" : "Update route"}</button>
+                <button type="button" onClick={clearDrivingRoute}>Close directions</button>
+              </div>
+              <small className="maps-route-note">Route guidance is a preview. Follow posted signs and road conditions.</small>
             </article>
           )}
         </section>

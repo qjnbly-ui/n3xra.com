@@ -301,3 +301,23 @@ test("Mapped points can be repositioned with review before saving", async () => 
   assert.match(migration, /layer\.archived_at is null/);
   assert.match(migration, /revoke all on function public\.move_map_point[\s\S]*from public, anon/);
 });
+
+test("Maps provides internal driving directions to a selected point", async () => {
+  const [workspace, styles] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+  ]);
+
+  assert.match(workspace, /directions\/v5\/mapbox\/driving-traffic/);
+  assert.match(workspace, /geometries: "geojson"/);
+  assert.match(workspace, /overview: "full"/);
+  assert.match(workspace, /steps: "true"/);
+  assert.match(workspace, /DRIVING_ROUTE_SOURCE_ID = "maps-driving-route"/);
+  assert.match(workspace, />Directions<\/button>/);
+  assert.match(workspace, /Update route/);
+  assert.match(workspace, /Close directions/);
+  assert.match(workspace, /Finding your location before building the route/);
+  assert.match(workspace, /Route guidance is a preview/);
+  assert.match(styles, /\.maps-route-card/);
+  assert.match(styles, /\.maps-route-steps/);
+});
