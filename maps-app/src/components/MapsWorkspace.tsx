@@ -450,7 +450,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     }
 
     setLocating(true);
-    setLocationError("");
+    setLocationError("Waiting for your device. If Chrome asks to use your location, choose Allow.");
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = null;
     if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
