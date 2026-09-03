@@ -359,3 +359,30 @@ test("Maps asset records support custom fields, private photos, and future custo
   assert.match(migration, /public\.organization_product_role\(feature\.organization_id, 'maps'\)/);
   assert.match(migration, /owner_id = \(select auth\.uid\(\)\)::text/);
 });
+
+test("Maps draws and securely saves line and polygon features", async () => {
+  const [workspace, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903205103_maps_shape_drawing.sql"),
+  ]);
+
+  assert.match(workspace, /SAVED_SHAPES_SOURCE_ID = "maps-saved-shapes"/);
+  assert.match(workspace, /DRAFT_SHAPE_SOURCE_ID = "maps-draft-shape"/);
+  assert.match(workspace, /Draw line/);
+  assert.match(workspace, /Draw boundary/);
+  assert.match(workspace, /Undo point/);
+  assert.match(workspace, /Finish line/);
+  assert.match(workspace, /Finish boundary/);
+  assert.match(workspace, /rpc\("create_map_shape"/);
+  assert.match(workspace, /geometryCoordinates\(selectedFeature\.geometry\)/);
+  assert.match(styles, /\.maps-drawing-banner/);
+
+  assert.match(migration, /create or replace function public\.create_map_shape/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /layer\.geometry_type in \('line', 'polygon'\)/);
+  assert.match(migration, /extensions\.st_geomfromgeojson/);
+  assert.match(migration, /extensions\.st_isvalid/);
+  assert.match(migration, /extensions\.st_npoints\(parsed_geometry\) > 5001/);
+  assert.match(migration, /revoke all on function public\.create_map_shape[\s\S]*from public, anon/);
+});

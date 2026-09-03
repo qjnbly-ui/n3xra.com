@@ -94,6 +94,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-field-tools { position: absolute; z-index: 8; right: 1rem; bottom: 1rem; display: flex; gap: .55rem; }
 .maps-field-tools button { min-height: 46px; display: flex; align-items: center; gap: .5rem; padding: 0 .9rem; color: #f4f7fb; border: 1px solid rgba(105,210,196,.34); border-radius: 12px; background: rgba(12,20,29,.94); box-shadow: 0 12px 30px rgba(0,0,0,.28); font-size: .72rem; font-weight: 800; cursor: pointer; backdrop-filter: blur(12px); }
 .maps-field-tools button:hover, .maps-field-tools button.is-active { color: #06110f; background: var(--maps-mint); }
+.maps-field-tools button:disabled { opacity: .42; cursor: not-allowed; }
+.maps-field-tools button:disabled:hover { color: #f4f7fb; background: rgba(12,20,29,.94); }
 .maps-location-error { position: absolute; z-index: 9; right: 1rem; bottom: 72px; max-width: 320px; margin: 0; padding: .65rem .85rem; color: #5d211e; border: 1px solid #e4a29c; border-radius: 9px; background: #fff1ef; font-size: .68rem; font-weight: 700; }
 .maps-location-error.is-waiting { max-width: 270px; color: #123a35; border-color: rgba(27,139,123,.38); background: rgba(235,251,248,.96); font-weight: 750; }
 
@@ -259,6 +261,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-move-banner { position: absolute; z-index: 9; top: 1rem; left: 50%; display: flex; align-items: center; gap: .55rem; translate: -50% 0; padding: .7rem .85rem; color: #f5f8f7; border: 1px solid rgba(234,155,63,.35); border-radius: 10px; background: rgba(12,20,29,.94); box-shadow: 0 12px 30px rgba(0,0,0,.28); backdrop-filter: blur(12px); }
 .maps-move-banner strong { color: var(--maps-lime); font-size: .66rem; white-space: nowrap; }
 .maps-move-banner span { color: #b8c8c3; font-size: .62rem; white-space: nowrap; }
+.maps-drawing-banner { border-color: rgba(105,210,196,.42); }
+.maps-drawing-banner strong { color: var(--maps-mint); }
 .maps-dialog-backdrop-front { z-index: 110; }
 .maps-archive-dialog { width: min(680px, 100%); }
 .maps-archive-content { max-height: min(58vh, 520px); overflow-y: auto; padding: .55rem 1.2rem; }

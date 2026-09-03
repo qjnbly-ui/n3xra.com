@@ -33,6 +33,12 @@ interface PointCoordinates {
   accuracyMeters: number | null;
 }
 
+interface ShapeDraft {
+  layerId: string;
+  geometryType: "line" | "polygon";
+  coordinates: [number, number][];
+}
+
 interface ActivationOrganization {
   id: string;
   name: string;
@@ -114,12 +120,40 @@ const DRIVING_ROUTE_SOURCE_ID = "maps-driving-route";
 const DRIVING_ROUTE_CASING_ID = "maps-driving-route-casing";
 const DRIVING_ROUTE_LINE_ID = "maps-driving-route-line";
 const MAPS_PHOTO_BUCKET = "maps-asset-photos";
+const SAVED_SHAPES_SOURCE_ID = "maps-saved-shapes";
+const SAVED_SHAPES_FILL_ID = "maps-saved-shapes-fill";
+const SAVED_SHAPES_LINE_ID = "maps-saved-shapes-line";
+const DRAFT_SHAPE_SOURCE_ID = "maps-draft-shape";
+const DRAFT_SHAPE_FILL_ID = "maps-draft-shape-fill";
+const DRAFT_SHAPE_LINE_ID = "maps-draft-shape-line";
+const DRAFT_SHAPE_VERTICES_ID = "maps-draft-shape-vertices";
 
 function pointCoordinates(feature: MapFeature): [number, number] | null {
   if (feature.geometry.type !== "Point" || !Array.isArray(feature.geometry.coordinates)) return null;
   const [longitude, latitude] = feature.geometry.coordinates as unknown[];
   if (typeof longitude !== "number" || typeof latitude !== "number") return null;
   return [longitude, latitude];
+}
+
+function geometryCoordinates(geometry: MapFeature["geometry"]): [number, number][] {
+  const pairs: [number, number][] = [];
+  const visit = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 2 && typeof value[0] === "number" && typeof value[1] === "number") {
+      pairs.push([value[0], value[1]]);
+      return;
+    }
+    value.forEach(visit);
+  };
+  visit(geometry.coordinates);
+  return pairs;
+}
+
+function shapeGeometry(draft: ShapeDraft): MapFeature["geometry"] {
+  if (draft.geometryType === "line") return { type: "LineString", coordinates: draft.coordinates };
+  const first = draft.coordinates[0];
+  const ring = first ? [...draft.coordinates, first] : draft.coordinates;
+  return { type: "Polygon", coordinates: [ring] };
 }
 
 function metersBetween(origin: DeviceLocation, feature: MapFeature): number | null {
@@ -276,6 +310,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [mapReady, setMapReady] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
+  const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
+  const [pendingShape, setPendingShape] = useState<ShapeDraft | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
@@ -305,6 +341,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const directionsTarget = features.find((feature) => feature.id === directionsTargetId) || null;
   const selectedFields = layerFields.filter((field) => field.layer_id === selectedFeature?.layer_id);
   const selectedPhotos = featurePhotos.filter((photo) => photo.feature_id === selectedFeatureId);
+  const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
 
   const filteredFeatures = useMemo(() => {
     const query = search.trim().toLowerCase();
@@ -390,9 +427,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setLayerFields((fieldsResult.data || []) as MapLayerField[]);
     setFeaturePhotos((photosResult.data || []) as MapFeaturePhoto[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
-    setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current)
+    setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
-      : nextLayers.find((layer) => layer.geometry_type === "point" && layer.is_editable)?.id || "");
+      : nextLayers.find((layer) => layer.is_editable && layer.geometry_type !== "raster")?.id || "");
     setActiveAccess({ ...access, role: snapshot.role || access.role });
     setGate("ready");
   }, []);
@@ -542,9 +579,124 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map || !mapReady) return;
+    const data = {
+      type: "FeatureCollection" as const,
+      features: features.filter((feature) => feature.geometry.type === "LineString" || feature.geometry.type === "Polygon")
+        .filter((feature) => visibleLayers[feature.layer_id] !== false)
+        .map((feature) => {
+          const layer = layers.find((item) => item.id === feature.layer_id);
+          return {
+            type: "Feature" as const,
+            properties: {
+              featureId: feature.id,
+              color: layer?.color || "#1ed7b2",
+              fillColor: layer?.fill_color || layer?.color || "#1ed7b2",
+              opacity: layer?.opacity ?? 0.75,
+              selected: feature.id === selectedFeatureId,
+            },
+            geometry: feature.geometry,
+          };
+        }),
+    };
+    const handleShapeClick = (event: mapboxgl.MapLayerMouseEvent) => {
+      if (shapeDraft) return;
+      const featureId = (event.features?.[0] as { properties?: { featureId?: unknown } } | undefined)?.properties?.featureId;
+      if (typeof featureId === "string") {
+        setSelectedFeatureId(featureId);
+        setSidebarOpen(false);
+      }
+    };
+    const showPointer = () => { map.getCanvas().style.cursor = "pointer"; };
+    const clearPointer = () => { if (!shapeDraft) map.getCanvas().style.cursor = ""; };
+    const render = () => {
+      if (map.getSource(SAVED_SHAPES_SOURCE_ID)) {
+        (map.getSource(SAVED_SHAPES_SOURCE_ID) as GeoJSONSource).setData(data);
+      } else {
+        map.addSource(SAVED_SHAPES_SOURCE_ID, { type: "geojson", data });
+        map.addLayer({
+          id: SAVED_SHAPES_FILL_ID,
+          type: "fill",
+          source: SAVED_SHAPES_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Polygon"],
+          paint: {
+            "fill-color": ["get", "fillColor"],
+            "fill-opacity": ["case", ["get", "selected"], 0.35, ["*", ["get", "opacity"], 0.2]],
+          },
+        });
+        map.addLayer({
+          id: SAVED_SHAPES_LINE_ID,
+          type: "line",
+          source: SAVED_SHAPES_SOURCE_ID,
+          paint: {
+            "line-color": ["get", "color"],
+            "line-width": ["case", ["get", "selected"], 7, 4],
+            "line-opacity": ["case", ["get", "selected"], 1, ["get", "opacity"]],
+          },
+          layout: { "line-cap": "round", "line-join": "round" },
+        });
+      }
+      map.on("click", SAVED_SHAPES_FILL_ID, handleShapeClick);
+      map.on("click", SAVED_SHAPES_LINE_ID, handleShapeClick);
+      map.on("mouseenter", SAVED_SHAPES_FILL_ID, showPointer);
+      map.on("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
+      map.on("mouseleave", SAVED_SHAPES_FILL_ID, clearPointer);
+      map.on("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
+    };
+    if (map.isStyleLoaded()) render();
+    else map.once("style.load", render);
+    return () => {
+      map.off("style.load", render);
+      map.off("click", SAVED_SHAPES_FILL_ID, handleShapeClick);
+      map.off("mouseenter", SAVED_SHAPES_FILL_ID, showPointer);
+      map.off("mouseleave", SAVED_SHAPES_FILL_ID, clearPointer);
+      map.off("click", SAVED_SHAPES_LINE_ID, handleShapeClick);
+      map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
+      map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
+    };
+  }, [basemap, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const draft = shapeDraft || pendingShape;
+    if (!map || !mapReady || !draft) return;
+    const layer = layers.find((item) => item.id === draft.layerId);
+    const shape = shapeGeometry(draft);
+    const drawableShape = draft.geometryType === "line" ? draft.coordinates.length >= 2 : draft.coordinates.length >= 3;
+    const data = {
+      type: "FeatureCollection" as const,
+      features: [
+        ...(drawableShape ? [{ type: "Feature" as const, properties: { kind: "shape" }, geometry: shape }] : []),
+        ...(draft.coordinates.length ? [{ type: "Feature" as const, properties: { kind: "vertices" }, geometry: { type: "MultiPoint" as const, coordinates: draft.coordinates } }] : []),
+      ],
+    };
+    const render = () => {
+      const existing = map.getSource(DRAFT_SHAPE_SOURCE_ID) as GeoJSONSource | undefined;
+      if (existing) {
+        existing.setData(data);
+        return;
+      }
+      map.addSource(DRAFT_SHAPE_SOURCE_ID, { type: "geojson", data });
+      map.addLayer({ id: DRAFT_SHAPE_FILL_ID, type: "fill", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": layer?.fill_color || layer?.color || "#1ed7b2", "fill-opacity": 0.28 } });
+      map.addLayer({ id: DRAFT_SHAPE_LINE_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": layer?.color || "#1ed7b2", "line-width": 5, "line-dasharray": [2, 1] }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: DRAFT_SHAPE_VERTICES_ID, type: "circle", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "vertices"], paint: { "circle-radius": 6, "circle-color": "#f5a23c", "circle-stroke-color": "#08131d", "circle-stroke-width": 2 } });
+    };
+    if (map.isStyleLoaded()) render();
+    else map.once("style.load", render);
+    return () => {
+      map.off("style.load", render);
+      if (map.getLayer(DRAFT_SHAPE_VERTICES_ID)) map.removeLayer(DRAFT_SHAPE_VERTICES_ID);
+      if (map.getLayer(DRAFT_SHAPE_LINE_ID)) map.removeLayer(DRAFT_SHAPE_LINE_ID);
+      if (map.getLayer(DRAFT_SHAPE_FILL_ID)) map.removeLayer(DRAFT_SHAPE_FILL_ID);
+      if (map.getSource(DRAFT_SHAPE_SOURCE_ID)) map.removeSource(DRAFT_SHAPE_SOURCE_ID);
+    };
+  }, [basemap, layers, mapReady, pendingShape, shapeDraft]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     const organizationId = activeAccess?.organizationId;
     if (!map || !mapReady || !organizationId || fittedOrganizationRef.current === organizationId) return;
-    const coordinates = features.map(pointCoordinates).filter((point): point is [number, number] => point !== null);
+    const coordinates = features.flatMap((feature) => geometryCoordinates(feature.geometry));
     fittedOrganizationRef.current = organizationId;
     if (!coordinates.length) return;
     if (coordinates.length === 1) {
@@ -562,8 +714,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedFeature) return;
-    const coordinates = pointCoordinates(selectedFeature);
-    if (coordinates) map.easeTo({ center: coordinates, zoom: Math.max(map.getZoom(), 17), duration: 650 });
+    const coordinates = geometryCoordinates(selectedFeature.geometry);
+    if (!coordinates.length) return;
+    if (coordinates.length === 1) {
+      map.easeTo({ center: coordinates[0]!, zoom: Math.max(map.getZoom(), 17), duration: 650 });
+      return;
+    }
+    const bounds = coordinates.slice(1).reduce(
+      (currentBounds, coordinate) => currentBounds.extend(coordinate),
+      new mapboxgl.LngLatBounds(coordinates[0]!, coordinates[0]!),
+    );
+    map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 650 });
   }, [selectedFeature]);
 
   useEffect(() => {
@@ -608,6 +769,23 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().style.cursor = "";
     };
   }, [placementMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !shapeDraft) return;
+    const handleShapeClick = (event: mapboxgl.MapMouseEvent) => {
+      setShapeDraft((current) => current ? {
+        ...current,
+        coordinates: [...current.coordinates, [event.lngLat.lng, event.lngLat.lat]],
+      } : current);
+    };
+    map.getCanvas().style.cursor = "crosshair";
+    map.on("click", handleShapeClick);
+    return () => {
+      map.off("click", handleShapeClick);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [shapeDraft?.layerId, shapeDraft?.geometryType]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1117,6 +1295,39 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Location saved");
   };
 
+  const saveShape = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !pendingShape || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const fields = layerFields.filter((field) => field.layer_id === pendingShape.layerId);
+    setSaving(true);
+    const { data, error } = await client.rpc("create_map_shape", {
+      input_organization_id: activeAccess.organizationId,
+      input_layer_id: pendingShape.layerId,
+      input_title: String(form.get("title") || "").trim(),
+      input_reference_code: String(form.get("reference_code") || "").trim() || null,
+      input_description: String(form.get("description") || "").trim() || null,
+      input_geometry: shapeGeometry(pendingShape),
+    });
+    if (error) {
+      setSaving(false);
+      showToast(error.message);
+      return;
+    }
+    const featureId = String(data || "");
+    const detailResult = await client.from("map_features").update({
+      address: String(form.get("address") || "").trim() || null,
+      customer_reference: String(form.get("customer_reference") || "").trim() || null,
+      properties: readCustomProperties(form, fields),
+    }).eq("id", featureId).eq("organization_id", activeAccess.organizationId).select("id").single();
+    setSaving(false);
+    if (detailResult.error) showToast(`Shape saved, but its details need attention: ${detailResult.error.message}`);
+    setPendingShape(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(featureId);
+    showToast(pendingShape.geometryType === "line" ? "Line saved" : "Boundary saved");
+  };
+
   const saveFeatureDetails = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedFeature || !canEdit) return;
@@ -1477,12 +1688,41 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   };
 
   const beginManualPlacement = () => {
-    if (!selectedLayerId) {
-      showToast("Create or select a point layer first.");
+    if (!activeDrawingLayer) {
+      showToast("Create or select an editable layer first.");
       return;
     }
-    setPlacementMode(true);
-    showToast("Click the map to place the asset.");
+    setSelectedFeatureId(null);
+    if (activeDrawingLayer.geometry_type === "point") {
+      setPlacementMode(true);
+      showToast("Click the map to place the asset.");
+      return;
+    }
+    if (activeDrawingLayer.geometry_type === "line" || activeDrawingLayer.geometry_type === "polygon") {
+      setShapeDraft({ layerId: activeDrawingLayer.id, geometryType: activeDrawingLayer.geometry_type, coordinates: [] });
+      showToast(activeDrawingLayer.geometry_type === "line" ? "Click the map to draw the line." : "Click the map to draw the boundary.");
+      return;
+    }
+    showToast("Map overlays will be added with the import tools.");
+  };
+
+  const undoShapeVertex = () => setShapeDraft((current) => current ? { ...current, coordinates: current.coordinates.slice(0, -1) } : current);
+
+  const cancelShapeDrawing = () => {
+    setShapeDraft(null);
+    setPendingShape(null);
+    showToast("Drawing canceled");
+  };
+
+  const finishShapeDrawing = () => {
+    if (!shapeDraft) return;
+    const minimum = shapeDraft.geometryType === "line" ? 2 : 3;
+    if (shapeDraft.coordinates.length < minimum) {
+      showToast(shapeDraft.geometryType === "line" ? "Add at least two points to finish the line." : "Add at least three points to finish the boundary.");
+      return;
+    }
+    setPendingShape(shapeDraft);
+    setShapeDraft(null);
   };
 
   return (
@@ -1527,8 +1767,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   <input type="checkbox" checked={visibleLayers[layer.id] !== false} onChange={() => toggleLayer(layer.id)} />
                   <i style={{ background: layer.color }}>{layerIcon(layer)}</i>
                   <span><strong>{layer.name}</strong><small>{layer.geometry_type} · {features.filter((feature) => feature.layer_id === layer.id).length} items</small></span>
-                  {layer.geometry_type === "point" && canEdit && (
-                    <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Add new locations to ${layer.name}`} />
+                  {layer.geometry_type !== "raster" && layer.is_editable && canEdit && (
+                    <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Draw in ${layer.name}`} />
                   )}
                 </label>
                 {canEdit && <button type="button" className="maps-layer-settings" onClick={() => openLayerEditor(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
@@ -1606,15 +1846,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
-              {movingFeatureId ? (
+              {shapeDraft ? (
+                <><button type="button" onClick={cancelShapeDrawing}>× <span>Cancel</span></button><button type="button" onClick={undoShapeVertex} disabled={!shapeDraft.coordinates.length}>↶ <span>Undo point</span></button><button type="button" className="is-active" onClick={finishShapeDrawing}>✓ <span>{shapeDraft.geometryType === "line" ? "Finish line" : "Finish boundary"}</span></button></>
+              ) : movingFeatureId ? (
                 <><button type="button" onClick={cancelMoveFeature}>× <span>Cancel move</span></button><button type="button" onClick={proposeMoveFromGps}>◎ <span>{deviceLocation ? "Use GPS" : "Locate me"}</span></button></>
               ) : (
-                <><button type="button" onClick={locating ? () => stopLocating() : startLocating} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>{canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}{canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}</>
+                <><button type="button" onClick={locating ? () => stopLocating() : startLocating} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>{canEdit && activeDrawingLayer && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : activeDrawingLayer.geometry_type === "line" ? "Draw line" : activeDrawingLayer.geometry_type === "polygon" ? "Draw boundary" : "Place pin"}</span></button>}{canEdit && activeDrawingLayer?.geometry_type === "point" && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}</>
               )}
             </div>
           )}
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
+          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeDraft.coordinates.length} point{shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue</span></div>}
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
@@ -1624,7 +1867,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              <div className="maps-detail-actions"><button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button><button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button><button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
+              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -1637,17 +1880,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
                 })}
               </dl>
-              <div className="maps-coordinate-detail">{pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ")}</div>
+              <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
               <section className="maps-asset-photos">
                 <header><span>PHOTOS</span>{canEdit && <label className={photoUploading ? "is-disabled" : ""}>＋ Add photo<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={photoUploading} onChange={(event) => void uploadFeaturePhoto(event)} /></label>}</header>
                 {selectedPhotos.length ? <div>{selectedPhotos.map((photo) => <figure key={photo.id}>{photoUrls[photo.id] ? <img src={photoUrls[photo.id]} alt={photo.caption || selectedFeature.title} /> : <span>Loading…</span>}<figcaption>{photo.caption || "Asset photo"}</figcaption>{canEdit && <button type="button" disabled={photoUploading} onClick={() => void deleteFeaturePhoto(photo)} aria-label={`Delete ${photo.caption || "asset photo"}`}>×</button>}</figure>)}</div> : <p>No photos added yet.</p>}
               </section>
-              <div className="maps-proximity">
+              {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
                 <span>FIELD LOCATION</span>
                 <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
                 <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
                 <button type="button" onClick={locating ? () => stopLocating() : startLocating}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
-              </div>
+              </div>}
             </article>
           )}
 
@@ -1693,7 +1936,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <label><span>Marker</span><select name="icon_key"><option value="marker">Marker</option><option value="meter">Meter</option><option value="valve">Valve</option><option value="hydrant">Hydrant</option><option value="pump">Pump</option><option value="manhole">Manhole</option><option value="boundary">Boundary</option></select></label>
                 <label><span>Color</span><input name="color" type="color" defaultValue="#1ed7b2" /></label>
               </div>
-              <p>Point layers can be mapped now. Line, polygon, and overlay layers are prepared for the next drawing and import tools.</p>
+              <p>Point, line, and polygon layers can be drawn directly on the map. Raster overlays will use the upcoming import tools.</p>
               <footer><button type="button" onClick={() => setLayerDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Creating…" : "Create layer"}</button></footer>
             </form>
           </section>
@@ -1794,6 +2037,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <label><span>Notes</span><textarea name="description" maxLength={1_000} rows={3} placeholder="Optional field notes" /></label>
               <div className="maps-coordinate-readout"><span>{pendingPoint.latitude.toFixed(7)}, {pendingPoint.longitude.toFixed(7)}</span><small>{pendingPoint.accuracyMeters === null ? "Placed manually" : `Device accuracy ±${Math.round(pendingPoint.accuracyMeters * 3.28084)} ft`}</small></div>
               <footer><button type="button" onClick={() => setFeatureDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save location"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {pendingShape && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="new-shape-title">
+            <header><div><span>NEW {pendingShape.geometryType === "line" ? "LINE" : "BOUNDARY"}</span><h2 id="new-shape-title">Save drawn {pendingShape.geometryType === "line" ? "line" : "boundary"}</h2></div><button type="button" onClick={cancelShapeDrawing} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void saveShape(event)}>
+              <label><span>Layer</span><input value={layers.find((layer) => layer.id === pendingShape.layerId)?.name || "Map layer"} disabled /></label>
+              <label><span>Title</span><input name="title" required maxLength={140} placeholder={pendingShape.geometryType === "line" ? "Water main, service line…" : "District boundary, tax area…"} /></label>
+              <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>
+              <label><span>Address or location description</span><input name="address" maxLength={500} placeholder="Optional" /></label>
+              <label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} placeholder="Optional — does not connect a customer account yet" /></label>
+              {layerFields.filter((field) => field.layer_id === pendingShape.layerId).map((field) => <label key={field.id}><span>{field.label}{field.is_required ? " *" : ""}</span>{field.field_type === "select" ? <select name={`custom_${field.field_key}`} required={field.is_required}><option value="">Select…</option>{field.options.map((option) => <option value={option} key={option}>{option}</option>)}</select> : field.field_type === "boolean" ? <input name={`custom_${field.field_key}`} type="checkbox" /> : <input name={`custom_${field.field_key}`} type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} required={field.is_required} />}</label>)}
+              <label><span>Notes</span><textarea name="description" maxLength={4_000} rows={3} placeholder="Optional field notes" /></label>
+              <div className="maps-coordinate-readout"><span>{pendingShape.coordinates.length} mapped points</span><small>The saved shape stays tied to this layer and organization.</small></div>
+              <footer><button type="button" onClick={cancelShapeDrawing}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : pendingShape.geometryType === "line" ? "Save line" : "Save boundary"}</button></footer>
             </form>
           </section>
         </div>
