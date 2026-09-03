@@ -44,6 +44,32 @@ interface ActivationOptions {
   organizations: ActivationOrganization[];
 }
 
+interface ArchivedLayer {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  geometry_type: GeometryType;
+  icon_key: string;
+  color: string;
+  archived_at: string;
+}
+
+interface ArchivedFeature {
+  id: string;
+  organization_id: string;
+  layer_id: string;
+  title: string;
+  reference_code: string | null;
+  archived_at: string;
+}
+
+interface PermanentDeleteTarget {
+  type: "layer" | "feature";
+  id: string;
+  name: string;
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -80,7 +106,7 @@ function formatDistance(meters: number): string {
   return `${(feet / 5_280).toFixed(2)} mi away`;
 }
 
-function layerIcon(layer: MapLayer | undefined): string {
+function layerIcon(layer: Pick<MapLayer, "icon_key" | "name"> | undefined): string {
   if (!layer) return "•";
   const icons: Record<string, string> = {
     meter: "M",
@@ -116,6 +142,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [basemap, setBasemap] = useState<BasemapStyle>("standard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [layerDialogOpen, setLayerDialogOpen] = useState(false);
+  const [editingLayer, setEditingLayer] = useState<MapLayer | null>(null);
+  const [layerArchiveOpen, setLayerArchiveOpen] = useState(false);
+  const [archiveOpen, setArchiveOpen] = useState(false);
+  const [archivedLayers, setArchivedLayers] = useState<ArchivedLayer[]>([]);
+  const [archivedFeatures, setArchivedFeatures] = useState<ArchivedFeature[]>([]);
+  const [archiveLoading, setArchiveLoading] = useState(false);
+  const [permanentDeleteTarget, setPermanentDeleteTarget] = useState<PermanentDeleteTarget | null>(null);
   const [featureDialogOpen, setFeatureDialogOpen] = useState(false);
   const [featureEditOpen, setFeatureEditOpen] = useState(false);
   const [featureDeleteOpen, setFeatureDeleteOpen] = useState(false);
@@ -134,6 +167,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [activating, setActivating] = useState(false);
 
   const canEdit = activeAccess?.role === "account_admin" || activeAccess?.role === "editor";
+  const canPermanentlyDelete = activeAccess?.role === "account_admin";
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedDistance = selectedFeature && deviceLocation ? metersBetween(deviceLocation, selectedFeature) : null;
@@ -656,6 +690,144 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Mapped item deleted");
   };
 
+  const loadArchive = async (supabase = client, access = activeAccess) => {
+    if (!supabase || !access) return;
+    setArchiveLoading(true);
+    const [layerResult, featureResult] = await Promise.all([
+      supabase
+        .from("map_layers")
+        .select("id, organization_id, name, description, geometry_type, icon_key, color, archived_at")
+        .eq("organization_id", access.organizationId)
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false }),
+      supabase
+        .from("map_features")
+        .select("id, organization_id, layer_id, title, reference_code, archived_at")
+        .eq("organization_id", access.organizationId)
+        .not("archived_at", "is", null)
+        .order("archived_at", { ascending: false }),
+    ]);
+    setArchiveLoading(false);
+    if (layerResult.error || featureResult.error) {
+      showToast(layerResult.error?.message || featureResult.error?.message || "Archive could not be loaded.");
+      return;
+    }
+    setArchivedLayers((layerResult.data || []) as ArchivedLayer[]);
+    setArchivedFeatures((featureResult.data || []) as ArchivedFeature[]);
+  };
+
+  const openArchive = () => {
+    setArchiveOpen(true);
+    void loadArchive();
+  };
+
+  const saveLayerDetails = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !editingLayer || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    if (!name) return;
+    setSaving(true);
+    const { data, error } = await client
+      .from("map_layers")
+      .update({
+        name,
+        description: String(form.get("description") || "").trim() || null,
+        icon_key: String(form.get("icon_key") || "marker"),
+        color: String(form.get("color") || "#1ed7b2"),
+        fill_color: String(form.get("color") || "#1ed7b2"),
+        is_visible_by_default: form.get("is_visible_by_default") === "on",
+      })
+      .eq("id", editingLayer.id)
+      .eq("organization_id", activeAccess.organizationId)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That layer could not be updated.");
+      return;
+    }
+    setEditingLayer(null);
+    await loadWorkspace(client, activeAccess);
+    showToast("Layer updated");
+  };
+
+  const archiveLayer = async () => {
+    if (!client || !activeAccess || !editingLayer || !canEdit) return;
+    setSaving(true);
+    const { error } = await client.rpc("maps_archive_layer", {
+      input_organization_id: activeAccess.organizationId,
+      input_layer_id: editingLayer.id,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message);
+      return;
+    }
+    setLayerArchiveOpen(false);
+    setEditingLayer(null);
+    setSelectedFeatureId(null);
+    await loadWorkspace(client, activeAccess);
+    showToast("Layer moved to Archive");
+  };
+
+  const restoreArchivedLayer = async (layerId: string) => {
+    if (!client || !activeAccess || !canEdit) return;
+    setSaving(true);
+    const { error } = await client.rpc("maps_restore_layer", {
+      input_organization_id: activeAccess.organizationId,
+      input_layer_id: layerId,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message);
+      return;
+    }
+    await Promise.all([loadWorkspace(client, activeAccess), loadArchive(client, activeAccess)]);
+    showToast("Layer restored");
+  };
+
+  const restoreArchivedFeature = async (featureId: string) => {
+    if (!client || !activeAccess || !canEdit) return;
+    setSaving(true);
+    const { data, error } = await client
+      .from("map_features")
+      .update({ archived_at: null })
+      .eq("id", featureId)
+      .eq("organization_id", activeAccess.organizationId)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That mapped item could not be restored.");
+      return;
+    }
+    await Promise.all([loadWorkspace(client, activeAccess), loadArchive(client, activeAccess)]);
+    showToast("Mapped item restored");
+  };
+
+  const permanentlyDeleteArchivedItem = async () => {
+    if (!client || !activeAccess || !permanentDeleteTarget || !canPermanentlyDelete) return;
+    const table = permanentDeleteTarget.type === "layer" ? "map_layers" : "map_features";
+    setSaving(true);
+    const { data, error } = await client
+      .from(table)
+      .delete()
+      .eq("id", permanentDeleteTarget.id)
+      .eq("organization_id", activeAccess.organizationId)
+      .not("archived_at", "is", null)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That archived item could not be permanently deleted.");
+      return;
+    }
+    setPermanentDeleteTarget(null);
+    await loadArchive(client, activeAccess);
+    showToast("Archived item permanently deleted");
+  };
+
   const toggleLayer = (layerId: string) => {
     setVisibleLayers((current) => ({ ...current, [layerId]: current[layerId] === false }));
   };
@@ -704,16 +876,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           </label>
 
           <section className="maps-layers">
-            <header><div><span>Layers</span><small>{layers.length}</small></div>{canEdit && <button type="button" onClick={() => setLayerDialogOpen(true)}>＋</button>}</header>
+            <header><div><span>Layers</span><small>{layers.length}</small></div>{canEdit && <div className="maps-layer-header-actions"><button type="button" className="maps-archive-button" onClick={openArchive}>Archive</button><button type="button" className="maps-add-layer-button" onClick={() => setLayerDialogOpen(true)} aria-label="Create layer">＋</button></div>}</header>
             {layers.length ? layers.map((layer) => (
-              <label className="maps-layer" key={layer.id}>
-                <input type="checkbox" checked={visibleLayers[layer.id] !== false} onChange={() => toggleLayer(layer.id)} />
-                <i style={{ background: layer.color }}>{layerIcon(layer)}</i>
-                <span><strong>{layer.name}</strong><small>{layer.geometry_type} · {features.filter((feature) => feature.layer_id === layer.id).length} items</small></span>
-                {layer.geometry_type === "point" && canEdit && (
-                  <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Add new locations to ${layer.name}`} />
-                )}
-              </label>
+              <div className="maps-layer-row" key={layer.id}>
+                <label className="maps-layer">
+                  <input type="checkbox" checked={visibleLayers[layer.id] !== false} onChange={() => toggleLayer(layer.id)} />
+                  <i style={{ background: layer.color }}>{layerIcon(layer)}</i>
+                  <span><strong>{layer.name}</strong><small>{layer.geometry_type} · {features.filter((feature) => feature.layer_id === layer.id).length} items</small></span>
+                  {layer.geometry_type === "point" && canEdit && (
+                    <input className="maps-layer-radio" type="radio" name="active-layer" checked={selectedLayerId === layer.id} onChange={() => setSelectedLayerId(layer.id)} aria-label={`Add new locations to ${layer.name}`} />
+                  )}
+                </label>
+                {canEdit && <button type="button" className="maps-layer-settings" onClick={() => setEditingLayer(layer)} aria-label={`Edit ${layer.name} layer`}>•••</button>}
+              </div>
             )) : (
               <div className="maps-empty-list"><strong>No layers yet</strong><p>Create a layer when you are ready to begin mapping.</p></div>
             )}
@@ -833,6 +1008,76 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <p>Point layers can be mapped now. Line, polygon, and overlay layers are prepared for the next drawing and import tools.</p>
               <footer><button type="button" onClick={() => setLayerDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Creating…" : "Create layer"}</button></footer>
             </form>
+          </section>
+        </div>
+      )}
+
+      {editingLayer && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="edit-layer-title">
+            <header><div><span>MAP STRUCTURE</span><h2 id="edit-layer-title">Edit layer</h2></div><button type="button" onClick={() => setEditingLayer(null)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void saveLayerDetails(event)}>
+              <label><span>Layer name</span><input name="name" required maxLength={100} defaultValue={editingLayer.name} /></label>
+              <label><span>Description</span><input name="description" maxLength={500} defaultValue={editingLayer.description || ""} placeholder="Optional" /></label>
+              <div className="maps-form-grid maps-layer-edit-grid">
+                <label><span>Geometry</span><input value={editingLayer.geometry_type} disabled /></label>
+                <label><span>Marker</span><select name="icon_key" defaultValue={editingLayer.icon_key}><option value="marker">Marker</option><option value="meter">Meter</option><option value="valve">Valve</option><option value="hydrant">Hydrant</option><option value="pump">Pump</option><option value="manhole">Manhole</option><option value="boundary">Boundary</option></select></label>
+                <label><span>Color</span><input name="color" type="color" defaultValue={editingLayer.color} /></label>
+              </div>
+              <label className="maps-check-row"><input name="is_visible_by_default" type="checkbox" defaultChecked={editingLayer.is_visible_by_default} /><span>Show this layer by default</span></label>
+              <p>Changing these settings updates every mapped item displayed in this layer.</p>
+              <footer className="maps-layer-edit-footer"><button type="button" className="is-archive" onClick={() => setLayerArchiveOpen(true)}>Archive layer</button><span><button type="button" onClick={() => setEditingLayer(null)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Save changes"}</button></span></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {layerArchiveOpen && editingLayer && (
+        <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="archive-layer-title">
+            <header><div><span>MAP LAYER</span><h2 id="archive-layer-title">Archive {editingLayer.name}?</h2></div><button type="button" onClick={() => setLayerArchiveOpen(false)} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy"><p>The layer and its {features.filter((feature) => feature.layer_id === editingLayer.id).length} mapped items will leave the active map. You can restore them from Archive.</p></div>
+            <footer><button type="button" onClick={() => setLayerArchiveOpen(false)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void archiveLayer()}>{saving ? "Archiving…" : "Archive layer"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {archiveOpen && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-archive-dialog" role="dialog" aria-modal="true" aria-labelledby="maps-archive-title">
+            <header><div><span>MAP LIBRARY</span><h2 id="maps-archive-title">Archive</h2></div><button type="button" onClick={() => setArchiveOpen(false)} aria-label="Close">×</button></header>
+            <div className="maps-archive-content">
+              {archiveLoading ? <p className="maps-archive-empty">Loading archived items…</p> : (
+                <>
+                  {archivedLayers.map((layer) => (
+                    <article className="maps-archive-item" key={`layer-${layer.id}`}>
+                      <i style={{ background: layer.color }}>{layerIcon(layer)}</i>
+                      <span><strong>{layer.name}</strong><small>Layer · {archivedFeatures.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
+                      <div><button type="button" onClick={() => void restoreArchivedLayer(layer.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "layer", id: layer.id, name: layer.name })}>Delete</button>}</div>
+                    </article>
+                  ))}
+                  {archivedFeatures.filter((feature) => !archivedLayers.some((layer) => layer.id === feature.layer_id)).map((feature) => (
+                    <article className="maps-archive-item" key={`feature-${feature.id}`}>
+                      <i>{layerIcon(layers.find((layer) => layer.id === feature.layer_id))}</i>
+                      <span><strong>{feature.title}</strong><small>Mapped item · {feature.reference_code || layers.find((layer) => layer.id === feature.layer_id)?.name || "Location"}</small></span>
+                      <div><button type="button" onClick={() => void restoreArchivedFeature(feature.id)} disabled={saving}>Restore</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setPermanentDeleteTarget({ type: "feature", id: feature.id, name: feature.title })}>Delete</button>}</div>
+                    </article>
+                  ))}
+                  {!archivedLayers.length && !archivedFeatures.length && <p className="maps-archive-empty">Archive is empty.</p>}
+                </>
+              )}
+            </div>
+            <footer><button type="button" onClick={() => setArchiveOpen(false)}>Done</button></footer>
+          </section>
+        </div>
+      )}
+
+      {permanentDeleteTarget && (
+        <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="permanent-delete-title">
+            <header><div><span>PERMANENT DELETE</span><h2 id="permanent-delete-title">Delete {permanentDeleteTarget.name} forever?</h2></div><button type="button" onClick={() => setPermanentDeleteTarget(null)} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy"><p>This cannot be undone. {permanentDeleteTarget.type === "layer" ? "The layer and every mapped item inside it will be permanently removed." : "The mapped item will be permanently removed."}</p></div>
+            <footer><button type="button" onClick={() => setPermanentDeleteTarget(null)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void permanentlyDeleteArchivedItem()}>{saving ? "Deleting…" : "Delete forever"}</button></footer>
           </section>
         </div>
       )}

@@ -246,3 +246,30 @@ test("Maps keeps saved points anchored, frames saved data, and archives deleted 
   assert.doesNotMatch(styles, /\.maps-marker \{[^}]*rotate:/);
   assert.doesNotMatch(styles, /\.maps-marker\.is-selected \{[^}]*scale:/);
 });
+
+test("Maps layers can be edited, archived, restored, and permanently deleted by account admins", async () => {
+  const [workspace, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903192631_maps_layer_archive_management.sql"),
+  ]);
+
+  assert.match(workspace, /Edit layer/);
+  assert.match(workspace, /Archive layer/);
+  assert.match(workspace, /maps_archive_layer/);
+  assert.match(workspace, /maps_restore_layer/);
+  assert.match(workspace, /Delete forever/);
+  assert.match(workspace, /canPermanentlyDelete = activeAccess\?\.role === "account_admin"/);
+  assert.match(workspace, /\.from\("map_layers"\)[\s\S]*?\.not\("archived_at", "is", null\)/);
+  assert.match(workspace, /\.from\("map_features"\)[\s\S]*?\.not\("archived_at", "is", null\)/);
+  assert.match(styles, /\.maps-archive-dialog/);
+
+  assert.match(migration, /create policy "map_layers_delete_archived"/);
+  assert.match(migration, /create policy "map_features_delete_archived"/);
+  assert.match(migration, /organization_product_role\(organization_id, 'maps'\)\) = 'account_admin'/);
+  assert.match(migration, /archived_at is not null/);
+  assert.match(migration, /security invoker/g);
+  assert.match(migration, /and archived_at = archived_timestamp/);
+  assert.match(migration, /revoke all on function public\.maps_archive_layer\(uuid, uuid\) from public, anon/);
+  assert.match(migration, /grant execute on function public\.maps_restore_layer\(uuid, uuid\) to authenticated/);
+});
