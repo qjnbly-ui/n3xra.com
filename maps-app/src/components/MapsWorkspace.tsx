@@ -508,6 +508,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       style: STANDARD_STYLE,
       center: [-98.5795, 39.8283],
       zoom: 3.2,
+      projection: "mercator",
       attributionControl: false,
       logoPosition: "top-right",
     });
@@ -568,7 +569,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         setSelectedFeatureId(feature.id);
         setSidebarOpen(false);
       });
-      const marker = new mapboxgl.Marker({ element: button, anchor: "bottom", draggable: isMoving })
+      const marker = new mapboxgl.Marker({
+        element: button,
+        anchor: "bottom",
+        offset: [0, -7],
+        draggable: isMoving,
+      })
         .setLngLat(coordinates)
         .addTo(map);
       if (isMoving) {
