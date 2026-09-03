@@ -29,7 +29,10 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /getCurrentPosition/);
   assert.match(workspace, /enableHighAccuracy: true/);
   assert.match(workspace, /enableHighAccuracy: false/);
-  assert.match(workspace, /Locating…/);
+  assert.match(workspace, /Cancel location search/);
+  assert.match(workspace, /navigator\.permissions\.query/);
+  assert.match(workspace, /locationRequestIdRef/);
+  assert.match(workspace, /stopLocating/);
   assert.match(workspace, /Center on me/);
   assert.match(workspace, /If Chrome asks to use your location, choose Allow/);
   assert.match(workspace, /allow Location for n3xra\.com/);

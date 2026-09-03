@@ -100,6 +100,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const locationMarkerRef = useRef<Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const locationRequestTimerRef = useRef<number | null>(null);
+  const locationRequestIdRef = useRef(0);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [gate, setGate] = useState<GateState>("loading");
   const [gateMessage, setGateMessage] = useState("Opening your maps workspace…");
@@ -411,7 +412,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     return "Your location took too long to respond. Check Location Services and try again.";
   };
 
-  const startLocating = () => {
+  const stopLocating = (message = "Location search canceled. You can try again whenever you are ready.") => {
+    locationRequestIdRef.current += 1;
+    if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+    locationRequestTimerRef.current = null;
+    if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
+    watchIdRef.current = null;
+    setLocating(false);
+    setLocationError(message);
+  };
+
+  const startLocating = async () => {
     if (!navigator.geolocation) {
       setLocationError("Location is not available on this device.");
       return;
@@ -427,15 +438,33 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (watchIdRef.current !== null) navigator.geolocation.clearWatch(watchIdRef.current);
     watchIdRef.current = null;
     if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
+    const requestId = locationRequestIdRef.current + 1;
+    locationRequestIdRef.current = requestId;
+
+    if (navigator.permissions) {
+      try {
+        const permission = await navigator.permissions.query({ name: "geolocation" });
+        if (requestId !== locationRequestIdRef.current) return;
+        if (permission.state === "denied") {
+          stopLocating("Location is blocked. Use the site-settings icon in Chrome, allow Location for n3xra.com, then try again.");
+          return;
+        }
+      } catch {
+        // Some browsers do not expose geolocation through the Permissions API.
+      }
+    }
 
     const beginWatch = () => {
       watchIdRef.current = navigator.geolocation.watchPosition(
-        (position) => applyPosition(position, false),
+        (position) => {
+          if (requestId === locationRequestIdRef.current) applyPosition(position, false);
+        },
         (error) => setLocationError(locationErrorMessage(error)),
         { enableHighAccuracy: true, maximumAge: 2_000, timeout: 20_000 },
       );
     };
     const finish = (position: GeolocationPosition) => {
+      if (requestId !== locationRequestIdRef.current) return;
       if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
       locationRequestTimerRef.current = null;
       applyPosition(position, true);
@@ -444,10 +473,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       beginWatch();
     };
     const fail = (error: GeolocationPositionError, allowFallback: boolean) => {
+      if (requestId !== locationRequestIdRef.current) return;
       if (allowFallback && error.code !== error.PERMISSION_DENIED) {
         navigator.geolocation.getCurrentPosition(
           finish,
           (fallbackError) => {
+            if (requestId !== locationRequestIdRef.current) return;
             if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
             locationRequestTimerRef.current = null;
             setLocating(false);
@@ -464,10 +495,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     };
 
     locationRequestTimerRef.current = window.setTimeout(() => {
+      if (requestId !== locationRequestIdRef.current) return;
       locationRequestTimerRef.current = null;
+      locationRequestIdRef.current += 1;
       setLocating(false);
       setLocationError("Chrome is still waiting for location access. Use the lock or site-settings icon, allow Location for n3xra.com, then try again.");
-    }, 16_000);
+    }, 20_000);
 
     navigator.geolocation.getCurrentPosition(
       finish,
@@ -478,7 +511,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   const placeAtCurrentLocation = () => {
     if (!deviceLocation) {
-      startLocating();
+      if (!locating) void startLocating();
       showToast("Waiting for a precise device location…");
       return;
     }
@@ -708,13 +741,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && (
             <div className="maps-field-tools">
-              <button type="button" onClick={startLocating} disabled={locating} className={deviceLocation ? "is-active" : ""} title="Find my location">◎ <span>{locating ? "Locating…" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
+              <button type="button" onClick={locating ? () => stopLocating() : () => void startLocating()} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
               {canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}
               {canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}
             </div>
           )}
 
-          {locationError && <p className="maps-location-error">{locationError}</p>}
+          {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
           {selectedFeature && (
             <article className="maps-detail-card">
@@ -732,7 +765,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <span>FIELD LOCATION</span>
                 <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
                 <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
-                <button type="button" onClick={startLocating} disabled={locating}>{locating ? "Locating…" : deviceLocation ? "Center on me" : "Use my location"}</button>
+                <button type="button" onClick={locating ? () => stopLocating() : () => void startLocating()}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
               </div>
             </article>
           )}

@@ -89,6 +89,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-field-tools button { min-height: 46px; display: flex; align-items: center; gap: .5rem; padding: 0 .9rem; color: #f4f7fb; border: 1px solid rgba(105,210,196,.34); border-radius: 12px; background: rgba(12,20,29,.94); box-shadow: 0 12px 30px rgba(0,0,0,.28); font-size: .72rem; font-weight: 800; cursor: pointer; backdrop-filter: blur(12px); }
 .maps-field-tools button:hover, .maps-field-tools button.is-active { color: #06110f; background: var(--maps-mint); }
 .maps-location-error { position: absolute; z-index: 9; right: 1rem; bottom: 72px; max-width: 320px; margin: 0; padding: .65rem .85rem; color: #5d211e; border: 1px solid #e4a29c; border-radius: 9px; background: #fff1ef; font-size: .68rem; font-weight: 700; }
+.maps-location-error.is-waiting { max-width: 270px; color: #123a35; border-color: rgba(27,139,123,.38); background: rgba(235,251,248,.96); font-weight: 750; }
 
 .maps-gate { position: absolute; z-index: 7; left: 50%; top: 50%; width: min(420px, calc(100% - 2rem)); translate: -50% -50%; display: flex; align-items: center; flex-direction: column; padding: 2rem; color: #eef4f8; text-align: center; border: 1px solid var(--maps-line); border-radius: 20px; background: linear-gradient(145deg, rgba(12,21,30,.97), rgba(16,25,37,.95)); box-shadow: 0 30px 80px rgba(0,0,0,.36); backdrop-filter: blur(18px); }
 .maps-gate-mark { color: var(--maps-mint); font-size: 2.2rem; }
