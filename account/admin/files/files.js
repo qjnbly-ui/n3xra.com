@@ -16,6 +16,7 @@ let filePreviewObserver = null;
 const fullQualityFilePreviewCache = new Map();
 const expandedFolderPaths = new Set();
 const selectedFileKeys = new Set();
+let pendingMoveFileIds = [];
 const WEBSITE_PRIVATE_BUCKET = "website-assets-private";
 const WEBSITE_PUBLIC_BUCKET = "website-assets-public";
 const WEBSITE_FOLDER_LABELS = {
@@ -169,6 +170,26 @@ function pathParts(value) {
   return String(value || "").split(/[\\/]+/).filter(Boolean);
 }
 
+function fileFolderPath(file) {
+  return pathParts(file?.name).slice(0, -1).join("/");
+}
+
+function availableMoveFolders() {
+  const folders = new Set([""]);
+  const addFolder = (path) => {
+    const normalized = pathParts(path).join("/");
+    if (!normalized || normalized === "Websites" || normalized.startsWith("Websites/") || normalized === "Client shares" || normalized.startsWith("Client shares/")) return;
+    folders.add(normalized);
+  };
+  fileState.folders.forEach((folder) => addFolder(folder.path));
+  fileState.files.filter((file) => file.source === "n3xra").forEach((file) => {
+    const parts = pathParts(file.name).slice(0, -1);
+    parts.forEach((_, index) => addFolder(parts.slice(0, index + 1).join("/")));
+  });
+  addFolder("Business Records");
+  return [...folders].sort((left, right) => left ? right ? naturalFilenameCollator.compare(left, right) : 1 : -1);
+}
+
 function websiteFolderSegment(value) {
   return String(value || "Website").replace(/[\\/]+/g, "-").trim() || "Website";
 }
@@ -309,13 +330,14 @@ function renderFileSelectionActions() {
   const status = document.getElementById("n3xra-file-selection-status");
   const clearButton = document.getElementById("n3xra-clear-selection");
   const downloadButton = document.getElementById("n3xra-download-selected");
+  const moveButton = document.getElementById("n3xra-move-selected");
   const publishButton = document.getElementById("n3xra-publish-selected");
   const approveButton = document.getElementById("n3xra-approve-selected");
   const rejectButton = document.getElementById("n3xra-reject-selected");
   const copyButton = document.getElementById("n3xra-copy-selected-links");
   const refreshButton = document.getElementById("n3xra-refresh-selected-cdn");
   const deleteButton = document.getElementById("n3xra-delete-selected");
-  if (!toolbar || !status || !clearButton || !downloadButton || !publishButton || !approveButton || !rejectButton || !copyButton || !refreshButton || !deleteButton) return;
+  if (!toolbar || !status || !clearButton || !downloadButton || !moveButton || !publishButton || !approveButton || !rejectButton || !copyButton || !refreshButton || !deleteButton) return;
   const availableKeys = new Set(fileState.files.map(fileSelectionKey));
   [...selectedFileKeys].forEach((key) => { if (!availableKeys.has(key)) selectedFileKeys.delete(key); });
   const selected = selectedFiles();
@@ -328,6 +350,9 @@ function renderFileSelectionActions() {
   downloadButton.hidden = selected.length === 0;
   status.textContent = `${selected.length} file${selected.length === 1 ? "" : "s"} selected`;
   downloadButton.textContent = `Download selected (${selected.length})`;
+  const movableCount = selected.filter((file) => file.source === "n3xra").length;
+  moveButton.hidden = movableCount === 0 || movableCount !== selected.length;
+  moveButton.textContent = `Move selected (${movableCount})`;
   approveButton.hidden = pendingCount === 0;
   approveButton.textContent = `Approve pending (${pendingCount})`;
   rejectButton.hidden = pendingCount === 0;
@@ -400,7 +425,7 @@ function renderFiles() {
       ${websiteFile ? `<span class="n3xra-file-access is-status is-${fileEscape(libraryState.key)}"${libraryState.title ? ` title="${fileEscape(libraryState.title)}"` : ""}><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : clientSharedFile ? `<span class="n3xra-file-access is-status"><span aria-hidden="true">●</span>${fileEscape(accessLabel)}</span>` : `<button class="n3xra-file-access" type="button" data-file-manage-access="${fileEscape(file.id)}"><span aria-hidden="true">●</span>${accessLabel}</button>`}
       <time datetime="${fileEscape(file.created_at)}">${fileEscape(fileDate(file.created_at))}</time>
       <span class="n3xra-file-size">${fileEscape(fileSize(file.size_bytes))}</span>
-      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile || clientSharedFile ? "" : `<button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}${clientSharedFile ? "" : `<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button>`}</div></details>
+      <details class="n3xra-file-menu"><summary aria-label="Actions for ${fileEscape(file.name)}">•••</summary><div class="n3xra-file-menu-popover"><button type="button" data-file-open="${fileEscape(file.id)}">Open</button><button type="button" data-file-download="${fileEscape(file.id)}">Download</button>${cdnActions}${websiteFile || clientSharedFile ? "" : `<button type="button" data-file-move="${fileEscape(file.id)}">Move to folder</button><button type="button" data-file-manage-access="${fileEscape(file.id)}">Manage access</button>`}${clientSharedFile ? "" : `<button class="is-danger" type="button" data-file-delete="${fileEscape(file.id)}">Delete</button>`}</div></details>
       ${websiteFile || clientSharedFile ? "" : `<section class="n3xra-access-panel" id="file-access-${fileEscape(file.id)}" hidden><div class="n3xra-access-head"><div><strong>Manage access</strong><span>Choose the administrators who can open this file.</span></div><button type="button" data-file-close-access="${fileEscape(file.id)}" aria-label="Close access controls">×</button></div><div class="n3xra-access-options">${fileState.admins.map((admin) => `<label><input type="checkbox" data-file-access="${fileEscape(file.id)}" value="${fileEscape(admin.user_id)}"${access.has(String(admin.user_id)) ? " checked" : ""}>${fileEscape(admin.email)}${admin.role === "owner" ? " (owner)" : ""}</label>`).join("")}</div><div class="n3xra-access-actions"><button class="portal-button portal-button-secondary" type="button" data-file-close-access="${fileEscape(file.id)}">Cancel</button><button class="portal-button" type="button" data-file-save-access="${fileEscape(file.id)}">Save access</button></div></section>`}
     </article>`;
   }).join("");
@@ -1092,6 +1117,63 @@ function movePreview(direction) {
   void openFile(file.id, file.source);
 }
 
+function closeMoveDialog() {
+  const modal = document.getElementById("file-move-modal");
+  if (modal) modal.hidden = true;
+  pendingMoveFileIds = [];
+  document.body.classList.remove("n3xra-modal-open");
+}
+
+function openMoveDialog(files) {
+  const movable = files.filter((file) => file?.source === "n3xra");
+  if (!movable.length || movable.length !== files.length) return;
+  const modal = document.getElementById("file-move-modal");
+  const title = document.getElementById("file-move-title");
+  const copy = document.getElementById("file-move-copy");
+  const select = document.getElementById("file-move-destination");
+  if (!modal || !title || !copy || !select) return;
+  pendingMoveFileIds = movable.map((file) => file.id);
+  title.textContent = movable.length === 1 ? "Move file" : `Move ${movable.length} files`;
+  copy.textContent = movable.length === 1
+    ? `Choose where “${pathParts(movable[0].name).at(-1)}” should appear.`
+    : "Choose the folder where the selected files should appear.";
+  const currentFolders = new Set(movable.map(fileFolderPath));
+  select.innerHTML = availableMoveFolders().map((folder) => {
+    const depth = pathParts(folder).length;
+    const label = folder ? `${"— ".repeat(Math.max(0, depth - 1))}${pathParts(folder).at(-1)}` : "Files (top level)";
+    const selected = currentFolders.size === 1 && currentFolders.has(folder) ? " selected" : "";
+    return `<option value="${fileEscape(folder)}"${selected}>${fileEscape(label)}</option>`;
+  }).join("");
+  modal.hidden = false;
+  document.body.classList.add("n3xra-modal-open");
+  select.focus();
+}
+
+async function submitMove(event) {
+  event.preventDefault();
+  if (!pendingMoveFileIds.length) return;
+  const select = document.getElementById("file-move-destination");
+  const button = document.getElementById("file-move-confirm");
+  const destinationFolder = String(select?.value || "");
+  const count = pendingMoveFileIds.length;
+  if (button) button.disabled = true;
+  fileStatus(`Moving ${count === 1 ? "file" : `${count} files`}…`);
+  try {
+    await fileInvoke("move-n3xra-files", { fileIds: [...pendingMoveFileIds], destinationFolder });
+    closeMoveDialog();
+    selectedFileKeys.clear();
+    currentFolderPath = destinationFolder;
+    const destinationParts = pathParts(destinationFolder);
+    destinationParts.slice(0, -1).forEach((_, index) => expandedFolderPaths.add(destinationParts.slice(0, index + 1).join("/")));
+    await loadFiles();
+    fileStatus(`${count} file${count === 1 ? "" : "s"} moved.`, "success");
+  } catch (error) {
+    fileStatus(error.message || "The file could not be moved.", "error");
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
 function confirmAction({ title, copy: message, confirmLabel, danger = false }) {
   const modal = document.getElementById("file-confirm-modal");
   const titleElement = document.getElementById("file-confirm-title");
@@ -1314,6 +1396,7 @@ export async function startFiles({ supabase, session, invoke }) {
     if (menuSummary) document.querySelectorAll(".n3xra-file-menu[open]").forEach((item) => { if (item !== menu) item.removeAttribute("open"); });
     const open = event.target.closest("[data-file-open]");
     const download = event.target.closest("[data-file-download]");
+    const move = event.target.closest("[data-file-move]");
     const remove = event.target.closest("[data-file-delete]");
     const publish = event.target.closest("[data-file-publish]");
     const unpublish = event.target.closest("[data-file-unpublish]");
@@ -1342,6 +1425,11 @@ export async function startFiles({ supabase, session, invoke }) {
     }
     if (open) { menu?.removeAttribute("open"); openFile(open.dataset.fileOpen); return; }
     if (download) { menu?.removeAttribute("open"); downloadFile(download.dataset.fileDownload); }
+    if (move) {
+      menu?.removeAttribute("open");
+      const file = fileState.files.find((item) => item.source === "n3xra" && String(item.id) === String(move.dataset.fileMove));
+      if (file) openMoveDialog([file]);
+    }
     if (publish) { menu?.removeAttribute("open"); publishFile(publish.dataset.filePublish); }
     if (unpublish) { menu?.removeAttribute("open"); unpublishFile(unpublish.dataset.fileUnpublish); }
     if (copyCdn) { menu?.removeAttribute("open"); copyCdnLink(copyCdn.dataset.fileCopyCdn); }
@@ -1355,12 +1443,15 @@ export async function startFiles({ supabase, session, invoke }) {
     renderFiles();
   });
   document.getElementById("n3xra-download-selected")?.addEventListener("click", downloadSelectedFiles);
+  document.getElementById("n3xra-move-selected")?.addEventListener("click", () => openMoveDialog(selectedFiles()));
   document.getElementById("n3xra-approve-selected")?.addEventListener("click", approveSelectedWebsiteFiles);
   document.getElementById("n3xra-reject-selected")?.addEventListener("click", rejectSelectedWebsiteFiles);
   document.getElementById("n3xra-publish-selected")?.addEventListener("click", publishSelectedFiles);
   document.getElementById("n3xra-copy-selected-links")?.addEventListener("click", copySelectedPublishedLinks);
   document.getElementById("n3xra-refresh-selected-cdn")?.addEventListener("click", refreshSelectedWebsiteCdnFiles);
   document.getElementById("n3xra-delete-selected")?.addEventListener("click", deleteSelectedFiles);
+  document.getElementById("file-move-form")?.addEventListener("submit", submitMove);
+  document.querySelectorAll("[data-move-cancel]").forEach((element) => element.addEventListener("click", closeMoveDialog));
   document.getElementById("n3xra-folder-tree")?.addEventListener("click", (event) => {
     const removeFolder = event.target.closest("[data-folder-delete]");
     const folder = event.target.closest("[data-tree-folder]");
@@ -1392,6 +1483,11 @@ export async function startFiles({ supabase, session, invoke }) {
   document.getElementById("file-preview-previous")?.addEventListener("click", () => movePreview(-1));
   document.getElementById("file-preview-next")?.addEventListener("click", () => movePreview(1));
   document.addEventListener("keydown", (event) => {
+    const moveModal = document.getElementById("file-move-modal");
+    if (event.key === "Escape" && moveModal && !moveModal.hidden) {
+      closeMoveDialog();
+      return;
+    }
     const modal = document.getElementById("file-preview-modal");
     if (modal?.hidden) return;
     if (event.key === "Escape") closePreview();

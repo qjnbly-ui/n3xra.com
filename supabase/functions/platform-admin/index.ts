@@ -1766,6 +1766,57 @@ Deno.serve(async (request) => {
       return jsonResponse({ ok: true, file });
     }
 
+    if (action === "move-n3xra-files") {
+      const fileIds = Array.isArray(payload.fileIds)
+        ? Array.from(new Set(payload.fileIds.map((value) => String(value || "").trim()).filter(isValidUuid)))
+        : [];
+      const destinationInput = String(payload.destinationFolder || "").trim().replace(/^\/+|\/+$/g, "");
+      const destinationFolder = destinationInput ? n3xraFolderPath(destinationInput) : "";
+      if (!fileIds.length || fileIds.length > 100) return jsonResponse({ error: "Choose between 1 and 100 valid files to move." }, 400);
+      if (destinationInput && !destinationFolder) return jsonResponse({ error: "Choose a valid destination folder." }, 400);
+      if (destinationFolder && isManagedN3xraFolder(destinationFolder)) return jsonResponse({ error: "Files in this location are managed by their product." }, 400);
+
+      const [{ data: allFiles, error: filesError }, { data: grants, error: grantsError }, { data: folders, error: foldersError }] = await Promise.all([
+        adminClient.from("n3xra_files").select("id,name"),
+        adminClient.from("n3xra_file_access").select("file_id").eq("user_id", user.id).in("file_id", fileIds),
+        adminClient.from("n3xra_file_folders").select("path"),
+      ]);
+      if (filesError || grantsError || foldersError) return jsonResponse({ error: filesError?.message || grantsError?.message || foldersError?.message || "Unable to prepare the move." }, 400);
+      if ((grants || []).length !== fileIds.length) return jsonResponse({ error: "You do not have access to every selected file." }, 403);
+
+      const selectedIdSet = new Set(fileIds);
+      const selectedFiles = (allFiles || []).filter((file) => selectedIdSet.has(String(file.id)));
+      if (selectedFiles.length !== fileIds.length) return jsonResponse({ error: "One or more selected files could not be found." }, 404);
+
+      if (destinationFolder) {
+        const savedFolderExists = (folders || []).some((folder) => String(folder.path || "") === destinationFolder);
+        const fileFolderExists = (allFiles || []).some((file) => {
+          const parts = String(file.name || "").split("/").filter(Boolean).slice(0, -1);
+          return parts.some((_, index) => parts.slice(0, index + 1).join("/") === destinationFolder);
+        });
+        if (destinationFolder !== "Business Records" && !savedFolderExists && !fileFolderExists) {
+          return jsonResponse({ error: "The destination folder no longer exists." }, 404);
+        }
+      }
+
+      const moves = selectedFiles.map((file) => {
+        const filename = String(file.name || "").split("/").filter(Boolean).at(-1) || "";
+        const name = destinationFolder ? `${destinationFolder}/${filename}` : filename;
+        return { id: String(file.id), name };
+      });
+      if (moves.some((file) => !file.name || file.name.length > 180)) return jsonResponse({ error: "The destination path is too long for one or more files." }, 400);
+      const moveNames = moves.map((file) => file.name.toLocaleLowerCase());
+      if (new Set(moveNames).size !== moveNames.length) return jsonResponse({ error: "Two selected files would have the same name in that folder." }, 409);
+      const existingNames = new Set((allFiles || []).filter((file) => !selectedIdSet.has(String(file.id))).map((file) => String(file.name || "").toLocaleLowerCase()));
+      if (moves.some((file) => existingNames.has(file.name.toLocaleLowerCase()))) return jsonResponse({ error: "A file with that name already exists in the destination folder." }, 409);
+
+      for (const file of moves) {
+        const { error } = await adminClient.from("n3xra_files").update({ name: file.name }).eq("id", file.id);
+        if (error) return jsonResponse({ error: error.message }, 400);
+      }
+      return jsonResponse({ ok: true, files: moves, destinationFolder });
+    }
+
     if (action === "update-n3xra-file-access") {
       const fileId = String(payload.fileId || "").trim();
       const userIds = Array.isArray(payload.userIds) ? Array.from(new Set(payload.userIds.map((value) => String(value || "").trim()).filter(isValidUuid))) : [];

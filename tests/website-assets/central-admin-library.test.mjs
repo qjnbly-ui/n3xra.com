@@ -13,6 +13,7 @@ const previewSource = await readFile(new URL("../../client-portal/asset-preview-
 const internalFilesStyles = await readFile(new URL("../../account/admin/files/files.css", import.meta.url), "utf8");
 const workspaceFilesStyles = await readFile(new URL("../../client-portal/assets-manager.css", import.meta.url), "utf8");
 const navigationSource = await readFile(new URL("../../account/admin/admin-navigation.js", import.meta.url), "utf8");
+const platformAdminSource = await readFile(new URL("../../supabase/functions/platform-admin/index.ts", import.meta.url), "utf8");
 
 test("Internal Files remains the central admin library", () => {
   assert.match(navigationSource, /\["\/account\/admin\/files\/", "Internal Files"\]/);
@@ -22,6 +23,16 @@ test("Internal Files can create and retain empty folders", () => {
   assert.match(internalFilesPage, /id="n3xra-new-folder-button"/);
   assert.match(filesSource, /fileInvoke\("create-n3xra-folder", \{ folderPath \}\)/);
   assert.match(filesSource, /fileState\.folders\.forEach/);
+});
+
+test("Internal Files can move one or many private files between folders", () => {
+  assert.match(internalFilesPage, /id="file-move-modal"/);
+  assert.match(internalFilesPage, /id="n3xra-move-selected"/);
+  assert.match(filesSource, /data-file-move=/);
+  assert.match(filesSource, /fileInvoke\("move-n3xra-files", \{ fileIds: \[\.\.\.pendingMoveFileIds\], destinationFolder \}\)/);
+  assert.match(platformAdminSource, /action === "move-n3xra-files"/);
+  assert.match(platformAdminSource, /You do not have access to every selected file/);
+  assert.match(platformAdminSource, /A file with that name already exists in the destination folder/);
 });
 
 test("website libraries retain website and category folders", () => {

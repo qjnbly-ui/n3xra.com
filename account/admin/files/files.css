@@ -122,6 +122,10 @@
 .n3xra-modal-dialog { position:relative; width:min(460px,100%); padding:1.7rem; background:#fff; border:1px solid rgba(8,17,29,.1); border-radius:18px; box-shadow:0 24px 70px rgba(0,0,0,.28); }
 .n3xra-modal-dialog h2 { margin:.35rem 0 .6rem; font-family:Fraunces,Georgia,serif; font-size:1.8rem; }
 .n3xra-modal-dialog p:not(.portal-kicker) { margin:0; color:var(--portal-muted); line-height:1.55; overflow-wrap:anywhere; }
+.n3xra-move-field { display:grid; gap:.45rem; margin-top:1.2rem; color:var(--portal-ink); font-size:.75rem; font-weight:800; }
+.n3xra-move-field select { width:100%; min-height:46px; box-sizing:border-box; padding:.72rem .8rem; color:var(--portal-ink); background:#fff; border:1px solid #cdd8dd; border-radius:8px; font:600 .82rem/1.2 Manrope,Arial,sans-serif; }
+.n3xra-move-field select:focus { outline:2px solid rgba(42,126,116,.2); border-color:#5f9c94; }
+.n3xra-modal-dialog .n3xra-move-note { margin-top:.7rem !important; font-size:.72rem; }
 .n3xra-modal-actions { display:flex; justify-content:flex-end; gap:.65rem; margin-top:1.5rem; }
 .n3xra-danger-button { color:#fff; background:#9f3535; border-color:#9f3535; }
 .n3xra-danger-button:hover, .n3xra-danger-button:focus-visible { color:#fff; background:#812626; border-color:#812626; }
