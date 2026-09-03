@@ -32,6 +32,15 @@ function formatDate(value: string | null): string {
   return Number.isNaN(date.getTime()) ? "—" : date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+function revealAdminWorkspace(): void {
+  const reveal = () => document.body.classList.remove("portal-loading");
+  if (document.body.classList.contains("product-native-admin")) {
+    reveal();
+    return;
+  }
+  document.addEventListener("n3xra:product-shell-ready", reveal, { once: true });
+}
+
 export default function MapsAdmin() {
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [adminUser, setAdminUser] = useState<User | null>(null);
@@ -70,6 +79,7 @@ export default function MapsAdmin() {
     const config = window.RECORDS_APP_CONFIG || {};
     if (!config.supabaseUrl || !config.supabaseAnonKey) {
       setMessage("N3XRA Maps is not connected to Supabase.");
+      revealAdminWorkspace();
       return;
     }
     const supabase = createClient(config.supabaseUrl, config.supabaseAnonKey);
@@ -83,9 +93,11 @@ export default function MapsAdmin() {
       }
       setAdminUser(data.session.user);
       await loadRequests(supabase);
+      revealAdminWorkspace();
     })().catch((error: unknown) => {
       console.warn("Maps administration could not open.", error);
       setMessage(error instanceof Error ? error.message : "Maps administration could not open.");
+      revealAdminWorkspace();
     });
   }, []);
 

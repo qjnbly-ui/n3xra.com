@@ -151,6 +151,8 @@ test("Maps early access is requested by the account and decided in a dedicated a
   assert.match(adminComponent, /Approve access/);
   assert.match(adminComponent, /No organization, customer, layer, pin, or example data will be created/);
   assert.match(adminComponent, /\.from\("maps_access_requests"\)/);
+  assert.match(adminComponent, /classList\.remove\("portal-loading"\)/);
+  assert.match(adminComponent, /n3xra:product-shell-ready/);
   assert.match(adminNavigation, /label: "Maps"/);
   assert.match(adminNavigation, /"\/maps\/admin\/"/);
 });
