@@ -241,6 +241,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       center: [-98.5795, 39.8283],
       zoom: 3.2,
       attributionControl: false,
+      logoPosition: "top-right",
     });
     map.addControl(new mapboxgl.AttributionControl(), "top-right");
     map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), "bottom-right");

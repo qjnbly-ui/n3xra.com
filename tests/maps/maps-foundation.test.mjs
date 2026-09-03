@@ -41,6 +41,7 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /Allow Location in your browser settings/);
   assert.match(workspace, /Satellite/);
   assert.match(workspace, /attributionControl: false/);
+  assert.match(workspace, /logoPosition: "top-right"/);
   assert.match(workspace, /new mapboxgl\.AttributionControl\(\), "top-right"/);
   assert.match(workspace, /create_map_point/);
   assert.match(workspace, /Edit item/);
