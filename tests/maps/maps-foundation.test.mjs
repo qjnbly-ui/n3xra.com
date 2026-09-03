@@ -76,3 +76,17 @@ test("Maps has a public product presentation and a separate signed-in workspace"
   assert.match(routeMigration, /portal_path = '\/maps\/app\/'/);
   assert.doesNotMatch(landing, /Bly Water|sample organization|demo organization/i);
 });
+
+test("Maps presentation is native-width on phones and product footers load everywhere", async () => {
+  const [landingStyles, projectCards, navigation] = await Promise.all([
+    read("maps-app/src/styles/maps-landing.css"),
+    read("project-cards/index.html"),
+    read("assets/site-nav.js"),
+  ]);
+
+  assert.match(landingStyles, /\.preview-body aside \{ display: none; \}/);
+  assert.match(landingStyles, /\.maps-product-preview \{ width: 100%; max-width: 520px; margin: 0 auto; transform: none; \}/);
+  assert.doesNotMatch(landingStyles, /transform: scale\(\.4/);
+  assert.match(projectCards, /site-nav\.js\?v=6/);
+  assert.match(navigation, /footer\.site-footer\.home-footer, footer\.cards-footer/);
+});
