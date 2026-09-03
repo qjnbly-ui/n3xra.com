@@ -669,7 +669,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 )}
               </label>
             )) : (
-              <div className="maps-empty-list"><span>◇</span><strong>No layers yet</strong><p>Create a layer when you are ready to begin mapping.</p></div>
+              <div className="maps-empty-list"><strong>No layers yet</strong><p>Create a layer when you are ready to begin mapping.</p></div>
             )}
           </section>
 
@@ -696,10 +696,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {!mapboxToken && <div className="maps-map-notice">Add the Mapbox development token to display the map.</div>}
           {gate !== "ready" && (
             <div className={`maps-gate${gate === "setup" ? " is-setup" : ""}`}>
-              <span className="maps-gate-mark">◇</span>
+              <img className="maps-gate-logo" src="/assets/n3xra_logo_transparent_small.png" alt="" />
               <p>N3XRA MAPS</p>
               <h2>{gate === "loading" ? "Opening Maps" : gate === "signed-out" ? "Sign in to continue" : gate === "setup" ? "Set up your workspace" : gate === "unassigned" ? "Ready for activation" : "Maps needs attention"}</h2>
-              <span>{gateMessage}</span>
+              <span className="maps-gate-message">{gateMessage}</span>
               {gate === "signed-out" && <a href="/account/?next=/maps/app/">Sign in</a>}
               {gate === "unassigned" && <a href="/account/#available-apps-section">Return to dashboard</a>}
               {gate === "setup" && (

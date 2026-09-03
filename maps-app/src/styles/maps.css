@@ -59,8 +59,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-layer small { margin-top: .15rem; color: #708680; font-size: .62rem; text-transform: capitalize; }
 .maps-layer-radio { accent-color: var(--maps-lime); }
 .maps-empty-list { min-height: 155px; display: flex; align-items: center; flex-direction: column; justify-content: center; padding: 1rem 2rem 1.5rem; text-align: center; }
-.maps-empty-list > span { color: var(--maps-mint); font-size: 1.8rem; }
-.maps-empty-list strong { margin-top: .45rem; font-size: .82rem; }
+.maps-empty-list strong { font-size: .82rem; }
 .maps-empty-list p { margin: .35rem 0 0; color: var(--maps-muted); font-size: .7rem; line-height: 1.5; }
 
 .maps-results { min-height: 0; flex: 1; display: flex; flex-direction: column; }
@@ -92,10 +91,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-location-error.is-waiting { max-width: 270px; color: #123a35; border-color: rgba(27,139,123,.38); background: rgba(235,251,248,.96); font-weight: 750; }
 
 .maps-gate { position: absolute; z-index: 7; left: 50%; top: 50%; width: min(420px, calc(100% - 2rem)); translate: -50% -50%; display: flex; align-items: center; flex-direction: column; padding: 2rem; color: #eef4f8; text-align: center; border: 1px solid var(--maps-line); border-radius: 20px; background: linear-gradient(145deg, rgba(12,21,30,.97), rgba(16,25,37,.95)); box-shadow: 0 30px 80px rgba(0,0,0,.36); backdrop-filter: blur(18px); }
-.maps-gate-mark { color: var(--maps-mint); font-size: 2.2rem; }
+.maps-gate-logo { width: 42px; height: 42px; object-fit: contain; filter: drop-shadow(0 8px 18px rgba(0,0,0,.28)); }
 .maps-gate > p { margin: .8rem 0 .3rem; color: var(--maps-mint); font-size: .64rem; font-weight: 800; letter-spacing: .14em; }
 .maps-gate h2 { margin: 0; font-family: "Space Grotesk", sans-serif; font-size: 1.65rem; }
-.maps-gate > span:not(.maps-gate-mark) { margin-top: .7rem; color: var(--maps-muted); font-size: .76rem; line-height: 1.55; }
+.maps-gate-message { margin-top: .7rem; color: var(--maps-muted); font-size: .76rem; line-height: 1.55; }
 .maps-gate a { margin-top: 1.2rem; padding: .72rem 1rem; color: #06110f; border-radius: 9px; background: var(--maps-mint); font-size: .72rem; font-weight: 900; text-decoration: none; }
 .maps-gate.is-setup { width: min(620px, calc(100% - 2rem)); max-height: calc(100% - 2rem); overflow-y: auto; padding: 1.6rem; }
 .maps-activation { width: 100%; display: grid; gap: .8rem; margin-top: 1.15rem; text-align: left; }

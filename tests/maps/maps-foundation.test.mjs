@@ -11,6 +11,9 @@ test("Maps starts as an empty reusable N3XRA product", async () => {
   ]);
 
   assert.match(workspace, /No layers yet/);
+  assert.match(workspace, /className="maps-gate-logo"/);
+  assert.doesNotMatch(workspace, /className="maps-gate-mark"/);
+  assert.doesNotMatch(workspace, /maps-empty-list"><span>◇/);
   assert.match(workspace, /maps_access_list/);
   assert.match(workspace, /maps_workspace_snapshot/);
   assert.doesNotMatch(workspace, /Bly Water|sample|demo organization/i);
