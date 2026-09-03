@@ -424,9 +424,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setLocationError(message);
   };
 
-  const startLocating = async () => {
+  const startLocating = () => {
     if (!navigator.geolocation) {
       setLocationError("Location is not available on this device.");
+      return;
+    }
+    if (!window.isSecureContext) {
+      setLocationError("Location requires a secure connection. Open the published https:// version of N3XRA Maps.");
       return;
     }
     if (deviceLocation) {
@@ -442,19 +446,6 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (locationRequestTimerRef.current !== null) window.clearTimeout(locationRequestTimerRef.current);
     const requestId = locationRequestIdRef.current + 1;
     locationRequestIdRef.current = requestId;
-
-    if (navigator.permissions) {
-      try {
-        const permission = await navigator.permissions.query({ name: "geolocation" });
-        if (requestId !== locationRequestIdRef.current) return;
-        if (permission.state === "denied") {
-          stopLocating("Location is blocked for this site. Allow Location in your browser settings, then try again.");
-          return;
-        }
-      } catch {
-        // Some browsers do not expose geolocation through the Permissions API.
-      }
-    }
 
     const beginWatch = () => {
       watchIdRef.current = navigator.geolocation.watchPosition(
@@ -486,7 +477,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             setLocating(false);
             setLocationError(locationErrorMessage(fallbackError));
           },
-          { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 15_000 },
         );
         return;
       }
@@ -507,13 +498,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     navigator.geolocation.getCurrentPosition(
       finish,
       (error) => fail(error, true),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 12_000 },
+      { enableHighAccuracy: false, maximumAge: 60_000, timeout: 10_000 },
     );
   };
 
   const placeAtCurrentLocation = () => {
     if (!deviceLocation) {
-      if (!locating) void startLocating();
+      if (!locating) startLocating();
       showToast("Waiting for a precise device location…");
       return;
     }
@@ -743,7 +734,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && (
             <div className="maps-field-tools">
-              <button type="button" onClick={locating ? () => stopLocating() : () => void startLocating()} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
+              <button type="button" onClick={locating ? () => stopLocating() : startLocating} className={deviceLocation ? "is-active" : ""} title={locating ? "Cancel location search" : "Find my location"}>◎ <span>{locating ? "Cancel" : deviceLocation ? "Center on me" : "Locate me"}</span></button>
               {canEdit && <button type="button" onClick={beginManualPlacement} className={placementMode ? "is-active" : ""}>＋ <span>{placementMode ? "Click map…" : "Place pin"}</span></button>}
               {canEdit && <button type="button" onClick={placeAtCurrentLocation}>⌖ <span>Pin here</span></button>}
             </div>
@@ -767,7 +758,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <span>FIELD LOCATION</span>
                 <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
                 <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
-                <button type="button" onClick={locating ? () => stopLocating() : () => void startLocating()}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
+                <button type="button" onClick={locating ? () => stopLocating() : startLocating}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
               </div>
             </article>
           )}

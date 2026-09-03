@@ -33,7 +33,8 @@ test("Maps supports secure tenant layers, field pins, and future connections", a
   assert.match(workspace, /enableHighAccuracy: true/);
   assert.match(workspace, /enableHighAccuracy: false/);
   assert.match(workspace, /Cancel location search/);
-  assert.match(workspace, /navigator\.permissions\.query/);
+  assert.doesNotMatch(workspace, /navigator\.permissions\.query/);
+  assert.match(workspace, /window\.isSecureContext/);
   assert.match(workspace, /locationRequestIdRef/);
   assert.match(workspace, /stopLocating/);
   assert.match(workspace, /Center on me/);
