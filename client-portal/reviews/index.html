@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en" class="portal-brand-pending">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Organization Reviews | Management Portal</title>
+  <meta name="robots" content="noindex,nofollow">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/client-portal/portal.css?v=19">
+  <link rel="stylesheet" href="/client-portal/client-shell.css?v=10">
+  <link rel="stylesheet" href="/account/reviews/reviews.css?v=5">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="portal-loading" data-disable-site-assistant>
+  <header class="site-topbar"><div class="site-topbar-inner"><div class="site-topbar-row"><a class="site-brand" href="/client-portal/" aria-label="Client management portal"><img data-portal-business-logo hidden alt=""><span data-portal-business-name>Client Portal</span></a><div class="site-nav-actions"><button class="site-menu-link portal-logout" id="portal-logout" type="button">Sign out</button></div></div></div></header>
+  <main class="portal-shell reviews-shell">
+    <section class="portal-heading reviews-heading"><div><p class="portal-kicker">Official organization voice</p><h1>Organization Reviews</h1><p>Write and manage reviews published in your organization’s name.</p></div></section>
+    <div class="portal-layout">
+      <nav class="portal-nav" aria-label="Website client portal"></nav>
+      <section class="portal-workspace reviews-workspace">
+        <div class="reviews-workspace-head"><div><p class="portal-kicker">Organization review</p><h2 id="organization-review-heading">Official review</h2><p>Only organization owners and administrators can submit or update this review.</p></div><span class="reviews-count" id="organization-review-count">0 reviews</span></div>
+        <div class="reviews-layout">
+          <form class="review-editor" id="organization-review-form">
+            <div class="review-editor-head"><div><span>Official review</span><h3 id="organization-review-title">Write a review</h3></div><span class="review-status-pill" id="organization-review-status-pill">Draft</span></div>
+            <label><span>What is the organization reviewing?</span><select id="organization-review-subject" required></select></label>
+            <label><span>Rating</span><select id="organization-review-rating" required><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option><option value="2">2 stars</option><option value="1">1 star</option></select></label>
+            <label><span>Official review</span><textarea id="organization-review-text" rows="7" minlength="10" maxlength="4000" required placeholder="Describe how the product or service supports your organization."></textarea></label>
+            <div class="review-moderation-note" id="organization-moderation-note" hidden></div>
+            <div class="review-editor-actions"><button class="reviews-delete" id="organization-review-delete" type="button" hidden>Delete review</button><span></span><button class="portal-button" type="submit">Submit for review</button></div>
+            <p class="reviews-message" id="organization-review-message" role="status" aria-live="polite"></p>
+          </form>
+          <div class="review-list" id="organization-review-list"><div class="review-list-empty"><strong>No organization reviews yet</strong><p>Choose a subject and write the first official review.</p></div></div>
+        </div>
+      </section>
+    </div>
+  </main>
+  <div class="portal-status" id="reviews-loading" role="status">Opening organization reviews…</div>
+  <script type="module" src="/client-portal/client-shell.js?v=29"></script>
+  <script type="module" src="/client-portal/portal-shell.js?v=6"></script>
+  <script type="module" src="/account/reviews/organization.js?v=1"></script>
+</body>
+</html>

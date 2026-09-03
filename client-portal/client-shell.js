@@ -1,4 +1,4 @@
-import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=23";
+import { initializeClientWorkspaceContext } from "/client-portal/client-workspace-context.js?v=24";
 import { initializePortalBrandShell } from "/client-portal/brand-shell.js?v=2";
 import { initializePendingProposalNotice } from "/client-portal/pending-proposal-notice.js?v=2";
 import { isBrandedPortalHostname } from "/client-portal/tenant-context.js";
@@ -31,6 +31,7 @@ const websiteSections = [
   { key: "analytics", label: "Analytics", href: "/client-portal/analytics/", path: "/client-portal/analytics/", feature: "analytics" },
   { key: "billing", label: "Billing", href: "/client-portal/billing/", path: "/client-portal/billing/", feature: "billing" },
   { key: "new-request", label: "Start a New Project", href: "/client-portal/#new-project", path: "/client-portal/", hash: "#new-project", view: "new-request" },
+  { key: "reviews", label: "Review", href: "/client-portal/reviews/", path: "/client-portal/reviews/" },
 ];
 
 const projectStageRoutes = [
@@ -54,6 +55,7 @@ const routeDetails = {
   "/proposals/": { key: "proposals", kicker: "Website workspace", title: "Proposals", description: "Review proposal details, versions, pricing, and decisions." },
   "/website-onboarding/": { key: "onboarding", kicker: "Website workspace", title: "Onboarding", description: "Provide the information and files needed to move this website forward." },
   "/client-portal/billing/": { key: "billing", kicker: "Account services", title: "Payments & Billing", description: "Activate services, review subscriptions, invoices, and secure payment controls in one place." },
+  "/client-portal/reviews/": { key: "reviews", kicker: "Website workspace", title: "Review", description: "Write and manage the official review connected to this organization." },
 };
 
 const homeViews = {

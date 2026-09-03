@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Customer Reviews</title><meta name="description" content="Moderate personal and organization reviews submitted to N3XRA."><meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4"><link rel="stylesheet" href="/client-portal/portal.css?v=19"><link rel="stylesheet" href="/account/admin/admin.css?v=35"><link rel="stylesheet" href="/account/reviews/reviews.css?v=1">
+  <script src="/shared/config.js"></script><script src="/account/admin/admin-shell.js?v=2" defer></script><script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="reviews-admin-page" data-admin-view="reviews">
+  <main class="portal-shell account-admin-page">
+    <section class="portal-workspace hidden" id="setup-panel"><div class="portal-workspace-head"><div><h2>Connect Supabase</h2><p>Add the browser project configuration to continue.</p></div></div></section>
+    <div class="portal-layout hidden" id="admin-panel">
+      <nav class="portal-nav"></nav>
+      <section class="portal-workspace reviews-admin-workspace">
+        <header class="reviews-admin-header"><div><p class="portal-kicker">Customer voice</p><h1>Customer Reviews</h1><p>Moderate personal and official organization reviews, then choose which published reviews to feature publicly.</p></div><button class="portal-button portal-button-secondary" id="reviews-admin-refresh" type="button">Refresh</button></header>
+        <section class="reviews-admin-metrics" aria-label="Review summary"><article><span>Awaiting review</span><strong id="reviews-pending-count">0</strong></article><article><span>Published</span><strong id="reviews-published-count">0</strong></article><article><span>Personal</span><strong id="reviews-personal-count">0</strong></article><article><span>Organizations</span><strong id="reviews-organization-count">0</strong></article></section>
+        <div class="reviews-admin-toolbar">
+          <label><span>Find a review</span><input id="reviews-admin-search" type="search" placeholder="Name, organization, subject, or review"></label>
+          <label><span>Status</span><select id="reviews-admin-status-filter"><option value="pending">Awaiting review</option><option value="all">All statuses</option><option value="published">Published</option><option value="changes_requested">Changes requested</option><option value="hidden">Hidden</option><option value="rejected">Not approved</option></select></label>
+          <label><span>Ownership</span><select id="reviews-admin-scope-filter"><option value="all">Personal and organization</option><option value="personal">Personal</option><option value="organization">Organization</option></select></label>
+        </div>
+        <div class="reviews-admin-layout"><section class="reviews-admin-queue" id="reviews-admin-list"><div class="review-list-empty"><strong>Loading reviews…</strong></div></section><aside class="reviews-admin-detail" id="reviews-admin-detail"><div class="review-list-empty"><strong>Select a review</strong><p>Choose a submission to read it and make a moderation decision.</p></div></aside></div>
+        <p class="admin-status" id="admin-status" role="status"></p>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/account/admin/admin.js?v=54"></script>
+</body>
+</html>

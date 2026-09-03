@@ -10,6 +10,7 @@ const OPERATIONS_ADMIN_PATHS = new Set([
   "/account/admin/accounts/",
   "/account/admin/prospects/",
   "/account/admin/support/",
+  "/account/admin/reviews/",
   "/account/admin/billing/",
   "/account/admin/operations/",
   "/account/admin/analytics/",

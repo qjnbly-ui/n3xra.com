@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>N3XRA | Reviews</title>
+  <meta name="description" content="Manage your personal and organization N3XRA reviews.">
+  <meta name="robots" content="noindex, nofollow, noarchive, nosnippet">
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&amp;family=Manrope:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/assets/site-nav.css?v=4">
+  <link rel="stylesheet" href="/n3xra-records/styles.css?v=20260820-mobile-interactions">
+  <link rel="stylesheet" href="/account/account.css?v=14">
+  <link rel="stylesheet" href="/assets/home-shell.css?v=1">
+  <link rel="stylesheet" href="/account/reviews/reviews.css?v=5">
+  <script src="/shared/config.js"></script>
+  <script src="/assets/site-nav.js?v=5"></script>
+</head>
+<body class="platform-reviews-page reviews-loading-state">
+  <header class="site-topbar home-topbar account-topbar is-scrolled" data-home-header>
+    <div class="site-topbar-inner">
+      <div class="site-topbar-row">
+        <a class="site-brand home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt=""><span>N3XRA</span></a>
+        <nav class="desktop-nav" aria-label="Primary"><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/#software">Software</a></nav>
+        <div class="site-nav-actions"><a class="site-menu-link site-auth-link" href="/account/">Account</a><button class="site-menu-toggle" type="button" aria-expanded="false" aria-controls="reviews-mobile-menu" aria-label="Open menu" data-site-menu-toggle><span></span><span></span><span></span></button></div>
+      </div>
+      <nav class="site-mobile-menu" id="reviews-mobile-menu" aria-label="Mobile primary" hidden><div class="site-mobile-menu-head"><p class="site-mobile-menu-title">Explore N3XRA</p></div><a class="site-menu-link" href="/projects/">Projects</a><a class="site-menu-link" href="/services/">Services</a><a class="site-menu-link" href="/support/">Support</a><a class="site-menu-link" href="/#software">Software</a><a class="site-menu-link" href="/account/">Account</a></nav>
+    </div>
+  </header>
+
+  <main class="account-main reviews-account-main">
+    <section class="review-page-header">
+      <div><p class="auth-kicker">Account settings</p><h1>Your Reviews</h1><p>Write and manage reviews published under your name.</p></div>
+      <div class="review-page-actions"><a class="btn secondary button-link" href="/account/">Back to account</a><button class="btn secondary" id="reviews-sign-out" type="button">Sign out</button></div>
+    </section>
+
+    <section class="reviews-notice" aria-label="Records review notice">
+      <div><strong>Looking for a Records review?</strong><p>N3XRA Records keeps its existing library-specific review inside Records. It is separate from this platform reviews area.</p></div>
+      <a href="/n3xra-records/library">Open Records</a>
+    </section>
+
+    <section class="reviews-workspace" id="personal-reviews-panel">
+      <div class="reviews-workspace-head"><div><p class="auth-kicker">Personal reviews</p><h2>Reviews written by you</h2><p>Published reviews display your account name.</p></div><span class="reviews-count" id="personal-review-count">0 reviews</span></div>
+      <div class="reviews-layout">
+        <form class="review-editor" id="personal-review-form">
+          <div class="review-editor-head"><div><span>Personal review</span><h3 id="personal-review-title">Write a review</h3></div><span class="review-status-pill" id="personal-review-status-pill">Draft</span></div>
+          <label><span>What are you reviewing?</span><select id="personal-review-subject" required></select></label>
+          <label><span>Rating</span><select id="personal-review-rating" required><option value="5">5 stars</option><option value="4">4 stars</option><option value="3">3 stars</option><option value="2">2 stars</option><option value="1">1 star</option></select></label>
+          <label><span>Your review</span><textarea id="personal-review-text" rows="7" minlength="10" maxlength="4000" required placeholder="Describe what worked well and what your experience was like."></textarea></label>
+          <div class="review-moderation-note" id="personal-moderation-note" hidden></div>
+          <div class="review-editor-actions"><button class="reviews-delete" id="personal-review-delete" type="button" hidden>Delete review</button><span></span><button class="btn" type="submit">Submit for review</button></div>
+          <p class="reviews-message" id="personal-review-message" role="status" aria-live="polite"></p>
+        </form>
+        <div class="review-list" id="personal-review-list"><div class="review-list-empty"><strong>No reviews yet</strong><p>Choose a subject and write your first review.</p></div></div>
+      </div>
+    </section>
+  </main>
+  <div class="reviews-loading" id="reviews-loading" role="status">Opening your reviews…</div>
+  <script type="module" src="/account/reviews/personal.js?v=1"></script>
+</body>
+</html>

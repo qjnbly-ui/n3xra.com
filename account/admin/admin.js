@@ -247,6 +247,9 @@ async function loadAdminView(adminContext) {
   } else if (view === "analytics") {
     const analytics = await import("/account/admin/controllers/analytics.js?v=1");
     await analytics.startAnalytics({ session, escapeHtml, formatDate, setStatus });
+  } else if (view === "reviews") {
+    const reviews = await import("/account/reviews/admin.js?v=1");
+    await reviews.startReviews({ supabase, escapeHtml, formatDate, setStatus, confirmAdminAction });
   } else if (view === "applications") {
     const applications = await import("/account/admin/applications/applications.js?v=8");
     await applications.startApplications({ supabase, session });

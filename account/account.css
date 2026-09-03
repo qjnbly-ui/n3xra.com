@@ -713,6 +713,26 @@ body[data-admin-role="sales_rep"] .admin-all-tools-link {
   line-height: 1.55;
 }
 
+.settings-link-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.9rem 1rem;
+  color: var(--ink);
+  background: #fbfcfd;
+  border: 1px solid rgba(15, 22, 32, 0.09);
+  border-radius: var(--radius-md);
+  text-decoration: none;
+}
+
+.settings-link-card strong,
+.settings-link-card small { display: block; }
+.settings-link-card small { margin-top: 0.2rem; color: var(--slate); font-size: 0.78rem; }
+.settings-link-card > span:last-child { color: var(--slate); font-size: 0.72rem; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; }
+.settings-link-card:hover,
+.settings-link-card:focus-visible { border-color: rgba(23, 111, 102, 0.35); outline: none; }
+
 .account-sms-consent {
   display: grid;
   grid-template-columns: 1rem 1fr;

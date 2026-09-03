@@ -30,6 +30,7 @@ const WEBSITE_ROUTES = [
   { keys: ["analytics"], label: "Analytics", href: "/client-portal/analytics/", feature: "analytics" },
   { keys: ["billing"], label: "Billing", href: "/client-portal/billing/", feature: "billing" },
   { keys: ["new-request"], label: "Start a New Project", href: "/client-portal/#new-project" },
+  { keys: ["reviews"], label: "Review", href: "/client-portal/reviews/" },
 ];
 const PAGE_FEATURES = {
   progress: "progress",
@@ -69,7 +70,7 @@ function routeForWebsite(href, websiteId, organizationId = "") {
   if (!websiteId) return href;
   const url = new URL(href, window.location.origin);
   url.searchParams.set("website", websiteId);
-  if (url.pathname.replace(/\/+$/, "").startsWith("/client-portal/communications") && organizationId) {
+  if (["/client-portal/communications", "/client-portal/reviews"].some((route) => url.pathname.replace(/\/+$/, "").startsWith(route)) && organizationId) {
     url.searchParams.set("organization", organizationId);
   }
   return `${url.pathname}${url.search}${url.hash}`;

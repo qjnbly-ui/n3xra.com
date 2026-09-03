@@ -13,6 +13,7 @@ const peopleLinks = [
 const customerOperationsLinks = [
   ["/account/admin/prospects/", "Sales Leads"],
   ["/account/admin/support/", "Support Requests"],
+  ["/account/admin/reviews/", "Customer Reviews"],
   ["/account/admin/billing/", "Billing & Plans"],
   ["/account/admin/operations/", "Financial Operations"],
   ["/account/admin/analytics/", "Site Analytics"],
@@ -146,6 +147,7 @@ const operationsAdminAllowedLinks = new Set([
   "/account/admin/accounts/",
   "/account/admin/prospects/",
   "/account/admin/support/",
+  "/account/admin/reviews/",
   "/account/admin/billing/",
   "/account/admin/operations/",
   "/account/admin/analytics/",
