@@ -317,7 +317,16 @@ test("Maps provides internal driving directions to a selected point", async () =
   assert.match(workspace, /Update route/);
   assert.match(workspace, /Close directions/);
   assert.match(workspace, /Finding your location before building the route/);
-  assert.match(workspace, /Route guidance is a preview/);
+  assert.match(workspace, /voice_instructions: "true"/);
+  assert.match(workspace, /banner_instructions: "true"/);
+  assert.match(workspace, /Start navigation/);
+  assert.match(workspace, /LIVE NAVIGATION/);
+  assert.match(workspace, /navigator\.geolocation\.watchPosition/);
+  assert.match(workspace, /You left the route\. Finding a new one/);
+  assert.match(workspace, /speechSynthesis\.speak/);
+  assert.match(workspace, /Stop navigation/);
+  assert.match(workspace, /Keep this page open while navigating/);
   assert.match(styles, /\.maps-route-card/);
   assert.match(styles, /\.maps-route-steps/);
+  assert.match(styles, /\.maps-current-turn/);
 });

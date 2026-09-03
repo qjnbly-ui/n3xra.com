@@ -74,6 +74,8 @@ interface DrivingRouteStep {
   instruction: string;
   roadName: string;
   distanceMeters: number;
+  coordinates: [number, number][];
+  voiceAnnouncements: string[];
 }
 
 interface DrivingRoute {
@@ -81,6 +83,13 @@ interface DrivingRoute {
   durationSeconds: number;
   coordinates: [number, number][];
   steps: DrivingRouteStep[];
+}
+
+interface NavigationProgress {
+  offRouteMeters: number;
+  remainingMeters: number;
+  remainingSeconds: number;
+  stepIndex: number;
 }
 
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
@@ -136,6 +145,45 @@ function formatRouteDuration(seconds: number): string {
   return remainder ? `${hours} hr ${remainder} min` : `${hours} hr`;
 }
 
+function coordinateDistanceMeters(left: [number, number], right: [number, number]): number {
+  const radius = 6_371_000;
+  const toRadians = (value: number) => (value * Math.PI) / 180;
+  const latitudeDelta = toRadians(right[1] - left[1]);
+  const longitudeDelta = toRadians(right[0] - left[0]);
+  const startLatitude = toRadians(left[1]);
+  const endLatitude = toRadians(right[1]);
+  const haversine = Math.sin(latitudeDelta / 2) ** 2
+    + Math.cos(startLatitude) * Math.cos(endLatitude) * Math.sin(longitudeDelta / 2) ** 2;
+  return radius * 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+}
+
+function nearestCoordinateIndex(coordinates: [number, number][], location: [number, number]): { index: number; distance: number } {
+  return coordinates.reduce((nearest, coordinate, index) => {
+    const distance = coordinateDistanceMeters(location, coordinate);
+    return distance < nearest.distance ? { index, distance } : nearest;
+  }, { index: 0, distance: Number.POSITIVE_INFINITY });
+}
+
+function navigationProgress(route: DrivingRoute, location: DeviceLocation): NavigationProgress {
+  const current: [number, number] = [location.longitude, location.latitude];
+  const nearest = nearestCoordinateIndex(route.coordinates, current);
+  let remainingMeters = nearest.distance;
+  for (let index = nearest.index; index < route.coordinates.length - 1; index += 1) {
+    remainingMeters += coordinateDistanceMeters(route.coordinates[index]!, route.coordinates[index + 1]!);
+  }
+  const stepIndex = route.steps.reduce((nearestStep, step, index) => {
+    if (!step.coordinates.length) return nearestStep;
+    const distance = nearestCoordinateIndex(step.coordinates, current).distance;
+    return distance < nearestStep.distance ? { index, distance } : nearestStep;
+  }, { index: 0, distance: Number.POSITIVE_INFINITY }).index;
+  return {
+    offRouteMeters: nearest.distance,
+    remainingMeters,
+    remainingSeconds: route.distanceMeters > 0 ? route.durationSeconds * (remainingMeters / route.distanceMeters) : 0,
+    stepIndex,
+  };
+}
+
 function layerIcon(layer: Pick<MapLayer, "icon_key" | "name"> | undefined): string {
   if (!layer) return "•";
   const icons: Record<string, string> = {
@@ -158,6 +206,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const locationRequestTimerRef = useRef<number | null>(null);
   const locationRequestIdRef = useRef(0);
   const pendingDirectionsTargetRef = useRef<string | null>(null);
+  const navigationActiveRef = useRef(false);
+  const lastRerouteAtRef = useRef(0);
+  const spokenStepIndexRef = useRef<number | null>(null);
   const fittedOrganizationRef = useRef<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [gate, setGate] = useState<GateState>("loading");
@@ -197,6 +248,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [drivingRoute, setDrivingRoute] = useState<DrivingRoute | null>(null);
   const [directionsLoading, setDirectionsLoading] = useState(false);
   const [directionsError, setDirectionsError] = useState("");
+  const [navigationActive, setNavigationActive] = useState(false);
+  const [navigationArrived, setNavigationArrived] = useState(false);
+  const [navigationProgressState, setNavigationProgressState] = useState<NavigationProgress | null>(null);
+  const [navigationHeading, setNavigationHeading] = useState<number | null>(null);
+  const [navigationSpeedMps, setNavigationSpeedMps] = useState<number | null>(null);
+  const [voiceGuidance, setVoiceGuidance] = useState(true);
   const [activationOptions, setActivationOptions] = useState<ActivationOptions | null>(null);
   const [activationMode, setActivationMode] = useState<ActivationMode>("existing");
   const [activationOrganizationId, setActivationOrganizationId] = useState("");
@@ -264,10 +321,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (map?.getLayer(DRIVING_ROUTE_CASING_ID)) map.removeLayer(DRIVING_ROUTE_CASING_ID);
     if (map?.getSource(DRIVING_ROUTE_SOURCE_ID)) map.removeSource(DRIVING_ROUTE_SOURCE_ID);
     pendingDirectionsTargetRef.current = null;
+    navigationActiveRef.current = false;
+    spokenStepIndexRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     setDirectionsTargetId(null);
     setDrivingRoute(null);
     setDirectionsError("");
     setDirectionsLoading(false);
+    setNavigationActive(false);
+    setNavigationArrived(false);
+    setNavigationProgressState(null);
+    map?.easeTo({ pitch: 0, bearing: 0, duration: 500 });
   }, []);
 
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
@@ -577,6 +641,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       accuracyMeters: position.coords.accuracy,
     };
     setDeviceLocation(nextLocation);
+    setNavigationHeading(typeof position.coords.heading === "number" && Number.isFinite(position.coords.heading) ? position.coords.heading : null);
+    setNavigationSpeedMps(typeof position.coords.speed === "number" && Number.isFinite(position.coords.speed) ? position.coords.speed : null);
     const map = mapRef.current;
     if (map) {
       const coordinates: [number, number] = [nextLocation.longitude, nextLocation.latitude];
@@ -588,6 +654,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           .addTo(map);
       } else {
         locationMarkerRef.current.setLngLat(coordinates);
+      }
+      const locationElement = locationMarkerRef.current.getElement();
+      if (typeof position.coords.heading === "number" && Number.isFinite(position.coords.heading)) {
+        locationElement.classList.add("has-heading");
+        locationElement.style.setProperty("--user-heading", `${position.coords.heading}deg`);
+      } else {
+        locationElement.classList.remove("has-heading");
       }
     }
     if (shouldCenter) centerOnLocation(nextLocation);
@@ -700,10 +773,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     }
     setDirectionsTargetId(target.id);
     const currentMap = mapRef.current;
-    if (currentMap?.getLayer(DRIVING_ROUTE_LINE_ID)) currentMap.removeLayer(DRIVING_ROUTE_LINE_ID);
-    if (currentMap?.getLayer(DRIVING_ROUTE_CASING_ID)) currentMap.removeLayer(DRIVING_ROUTE_CASING_ID);
-    if (currentMap?.getSource(DRIVING_ROUTE_SOURCE_ID)) currentMap.removeSource(DRIVING_ROUTE_SOURCE_ID);
-    setDrivingRoute(null);
+    if (!navigationActiveRef.current) {
+      if (currentMap?.getLayer(DRIVING_ROUTE_LINE_ID)) currentMap.removeLayer(DRIVING_ROUTE_LINE_ID);
+      if (currentMap?.getLayer(DRIVING_ROUTE_CASING_ID)) currentMap.removeLayer(DRIVING_ROUTE_CASING_ID);
+      if (currentMap?.getSource(DRIVING_ROUTE_SOURCE_ID)) currentMap.removeSource(DRIVING_ROUTE_SOURCE_ID);
+      setDrivingRoute(null);
+    }
+    lastRerouteAtRef.current = Date.now();
     setDirectionsLoading(true);
     setDirectionsError("");
     try {
@@ -713,8 +789,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         geometries: "geojson",
         overview: "full",
         steps: "true",
-        voice_instructions: "false",
-        banner_instructions: "false",
+        voice_instructions: "true",
+        banner_instructions: "true",
+        voice_units: "imperial",
+        language: "en",
         access_token: mapboxToken,
       });
       const response = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving-traffic/${coordinates}?${parameters}`);
@@ -725,7 +803,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           distance: number;
           duration: number;
           geometry: { coordinates: [number, number][] };
-          legs: Array<{ steps: Array<{ distance: number; name?: string; maneuver?: { instruction?: string } }> }>;
+          legs: Array<{ steps: Array<{
+            distance: number;
+            name?: string;
+            maneuver?: { instruction?: string };
+            geometry?: { coordinates?: [number, number][] };
+            voiceInstructions?: Array<{ announcement?: string }>;
+          }> }>;
         }>;
       };
       const route = result.routes?.[0];
@@ -740,12 +824,15 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           instruction: step.maneuver?.instruction || step.name || "Continue",
           roadName: step.name || "",
           distanceMeters: step.distance,
+          coordinates: step.geometry?.coordinates || [],
+          voiceAnnouncements: (step.voiceInstructions || []).map((instruction) => instruction.announcement || "").filter(Boolean),
         }))),
       };
       setDrivingRoute(nextRoute);
+      if (navigationActiveRef.current) spokenStepIndexRef.current = null;
       drawDrivingRoute(nextRoute.coordinates);
       const map = mapRef.current;
-      if (map) {
+      if (map && !navigationActiveRef.current) {
         const first = nextRoute.coordinates[0]!;
         const bounds = nextRoute.coordinates.reduce(
           (currentBounds, coordinate) => currentBounds.extend(coordinate),
@@ -761,7 +848,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       }
     } catch (error) {
       console.warn("Driving directions could not be loaded.", error);
-      setDrivingRoute(null);
+      if (!navigationActiveRef.current) setDrivingRoute(null);
       setDirectionsError(error instanceof Error ? error.message : "Driving directions could not be loaded.");
     } finally {
       setDirectionsLoading(false);
@@ -789,6 +876,98 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     pendingDirectionsTargetRef.current = null;
     void requestDrivingRoute(targetId, deviceLocation);
   }, [deviceLocation, requestDrivingRoute]);
+
+  const speakNavigationInstruction = useCallback((message: string) => {
+    if (!voiceGuidance || !("speechSynthesis" in window) || !message) return;
+    window.speechSynthesis.cancel();
+    const instruction = new SpeechSynthesisUtterance(message);
+    instruction.rate = 1;
+    instruction.lang = "en-US";
+    window.speechSynthesis.speak(instruction);
+  }, [voiceGuidance]);
+
+  const startLiveNavigation = () => {
+    if (!drivingRoute || !deviceLocation || !directionsTarget) return;
+    navigationActiveRef.current = true;
+    lastRerouteAtRef.current = Date.now();
+    spokenStepIndexRef.current = null;
+    setNavigationActive(true);
+    setNavigationArrived(false);
+    setDirectionsError("");
+    if (watchIdRef.current === null && navigator.geolocation) {
+      watchIdRef.current = navigator.geolocation.watchPosition(
+        (position) => applyPosition(position, false),
+        (error) => setLocationError(locationErrorMessage(error)),
+        { enableHighAccuracy: true, maximumAge: 1_000, timeout: 20_000 },
+      );
+    }
+    speakNavigationInstruction(`Navigation started to ${directionsTarget.title}.`);
+  };
+
+  const stopLiveNavigation = () => {
+    navigationActiveRef.current = false;
+    spokenStepIndexRef.current = null;
+    if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    setNavigationActive(false);
+    setNavigationArrived(false);
+    setNavigationProgressState(null);
+    mapRef.current?.easeTo({ pitch: 0, bearing: 0, duration: 500 });
+  };
+
+  const toggleVoiceGuidance = () => {
+    setVoiceGuidance((current) => {
+      if (current && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      return !current;
+    });
+  };
+
+  useEffect(() => {
+    if (!navigationActive || !drivingRoute || !deviceLocation || !directionsTarget) return;
+    const progress = navigationProgress(drivingRoute, deviceLocation);
+    setNavigationProgressState(progress);
+
+    const destination = pointCoordinates(directionsTarget);
+    const distanceToDestination = destination
+      ? coordinateDistanceMeters([deviceLocation.longitude, deviceLocation.latitude], destination)
+      : Number.POSITIVE_INFINITY;
+    const arrived = deviceLocation.accuracyMeters <= 75
+      && distanceToDestination <= Math.max(20, deviceLocation.accuracyMeters);
+    setNavigationArrived(arrived);
+
+    const map = mapRef.current;
+    if (map) {
+      map.easeTo({
+        center: [deviceLocation.longitude, deviceLocation.latitude],
+        zoom: Math.max(map.getZoom(), 16.5),
+        bearing: navigationHeading ?? map.getBearing(),
+        pitch: 48,
+        duration: 650,
+      });
+    }
+
+    if (arrived) {
+      if (spokenStepIndexRef.current !== -1) {
+        spokenStepIndexRef.current = -1;
+        speakNavigationInstruction(`You have arrived at ${directionsTarget.title}.`);
+      }
+      return;
+    }
+
+    if (spokenStepIndexRef.current !== progress.stepIndex) {
+      spokenStepIndexRef.current = progress.stepIndex;
+      const step = drivingRoute.steps[progress.stepIndex];
+      speakNavigationInstruction(step?.voiceAnnouncements[0] || step?.instruction || "Continue on the route.");
+    }
+
+    const now = Date.now();
+    const offRouteThreshold = Math.max(60, deviceLocation.accuracyMeters * 1.5);
+    const needsReroute = progress.offRouteMeters > offRouteThreshold;
+    const needsTrafficRefresh = now - lastRerouteAtRef.current >= 60_000;
+    if (!directionsLoading && now - lastRerouteAtRef.current >= 15_000 && (needsReroute || needsTrafficRefresh)) {
+      if (needsReroute) setDirectionsError("You left the route. Finding a new one…");
+      void requestDrivingRoute(directionsTarget.id, deviceLocation);
+    }
+  }, [deviceLocation, directionsLoading, directionsTarget, drivingRoute, navigationActive, navigationHeading, requestDrivingRoute, speakNavigationInstruction]);
 
   const placeAtCurrentLocation = () => {
     if (!deviceLocation) {
@@ -1238,7 +1417,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             </div>
           </div>
 
-          {gate === "ready" && (
+          {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
               {movingFeatureId ? (
                 <><button type="button" onClick={cancelMoveFeature}>× <span>Cancel move</span></button><button type="button" onClick={proposeMoveFromGps}>◎ <span>{deviceLocation ? "Use GPS" : "Locate me"}</span></button></>
@@ -1274,23 +1453,30 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
 
           {directionsTarget && !movingFeatureId && (
-            <article className="maps-route-card" aria-live="polite">
+            <article className={`maps-route-card${navigationActive ? " is-navigating" : ""}`} aria-live="polite">
               <button type="button" className="maps-detail-close" onClick={clearDrivingRoute} aria-label="Close directions">×</button>
-              <span className="maps-route-eyebrow">DRIVING DIRECTIONS</span>
+              <span className="maps-route-eyebrow">{navigationActive ? "● LIVE NAVIGATION" : "DRIVING DIRECTIONS"}</span>
               <h2>{directionsTarget.title}</h2>
-              {drivingRoute && <div className="maps-route-summary"><strong>{formatRouteDuration(drivingRoute.durationSeconds)}</strong><span>{formatRouteDistance(drivingRoute.distanceMeters)}</span></div>}
-              {directionsLoading && <p className="maps-route-status">Building the best available driving route…</p>}
+              {drivingRoute && <div className="maps-route-summary"><strong>{formatRouteDuration(navigationProgressState?.remainingSeconds ?? drivingRoute.durationSeconds)}</strong><span>{formatRouteDistance(navigationProgressState?.remainingMeters ?? drivingRoute.distanceMeters)}</span>{navigationActive && navigationSpeedMps !== null && <em>{Math.max(0, Math.round(navigationSpeedMps * 2.23694))} mph</em>}</div>}
+              {directionsLoading && <p className="maps-route-status">{navigationActive ? "Updating your live route…" : "Building the best available driving route…"}</p>}
               {directionsError && <p className="maps-route-error">{directionsError}</p>}
-              {drivingRoute && (
+              {navigationActive && drivingRoute && (
+                <div className={`maps-current-turn${navigationArrived ? " is-arrived" : ""}`}>
+                  <span>{navigationArrived ? "ARRIVED" : "NEXT"}</span>
+                  <strong>{navigationArrived ? `You have arrived at ${directionsTarget.title}.` : drivingRoute.steps[navigationProgressState?.stepIndex ?? 0]?.instruction || "Continue on the route"}</strong>
+                  {!navigationArrived && drivingRoute.steps[navigationProgressState?.stepIndex ?? 0]?.roadName && <small>{drivingRoute.steps[navigationProgressState?.stepIndex ?? 0]?.roadName}</small>}
+                  <small>Live GPS accuracy ±{Math.round((deviceLocation?.accuracyMeters || 0) * 3.28084)} ft</small>
+                </div>
+              )}
+              {drivingRoute && !navigationActive && (
                 <ol className="maps-route-steps">
                   {drivingRoute.steps.map((step, index) => <li key={`${step.instruction}-${index}`}><span>{index + 1}</span><div><strong>{step.instruction}</strong>{step.roadName && step.roadName !== step.instruction && <small>{step.roadName}</small>}</div><em>{formatRouteDistance(step.distanceMeters)}</em></li>)}
                 </ol>
               )}
               <div className="maps-route-actions">
-                <button type="button" disabled={!deviceLocation || directionsLoading} onClick={() => deviceLocation && void requestDrivingRoute(directionsTarget.id, deviceLocation)}>{directionsLoading ? "Updating…" : "Update route"}</button>
-                <button type="button" onClick={clearDrivingRoute}>Close directions</button>
+                {navigationActive ? <><button type="button" onClick={toggleVoiceGuidance}>{voiceGuidance ? "Mute voice" : "Unmute voice"}</button><button type="button" onClick={stopLiveNavigation}>Stop navigation</button></> : <><button type="button" disabled={!drivingRoute || !deviceLocation || directionsLoading} onClick={startLiveNavigation}>Start navigation</button><button type="button" disabled={!deviceLocation || directionsLoading} onClick={() => deviceLocation && void requestDrivingRoute(directionsTarget.id, deviceLocation)}>{directionsLoading ? "Updating…" : "Update route"}</button><button type="button" onClick={clearDrivingRoute}>Close</button></>}
               </div>
-              <small className="maps-route-note">Route guidance is a preview. Follow posted signs and road conditions.</small>
+              <small className="maps-route-note">Keep this page open while navigating. Follow posted signs and road conditions.</small>
             </article>
           )}
         </section>
