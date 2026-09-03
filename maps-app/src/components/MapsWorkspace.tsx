@@ -125,6 +125,7 @@ const SAVED_SHAPES_FILL_ID = "maps-saved-shapes-fill";
 const SAVED_SHAPES_LINE_ID = "maps-saved-shapes-line";
 const DRAFT_SHAPE_SOURCE_ID = "maps-draft-shape";
 const DRAFT_SHAPE_FILL_ID = "maps-draft-shape-fill";
+const DRAFT_SHAPE_CASING_ID = "maps-draft-shape-casing";
 const DRAFT_SHAPE_LINE_ID = "maps-draft-shape-line";
 const DRAFT_SHAPE_VERTICES_ID = "maps-draft-shape-vertices";
 
@@ -267,6 +268,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const featureMarkersRef = useRef<Map<string, Marker>>(new Map());
+  const shapeVertexMarkersRef = useRef<Marker[]>([]);
   const locationMarkerRef = useRef<Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
   const locationRequestTimerRef = useRef<number | null>(null);
@@ -312,6 +314,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
   const [pendingShape, setPendingShape] = useState<ShapeDraft | null>(null);
+  const [shapeHoverCoordinate, setShapeHoverCoordinate] = useState<[number, number] | null>(null);
+  const [editingShapeId, setEditingShapeId] = useState<string | null>(null);
+  const [selectedShapeVertexIndex, setSelectedShapeVertexIndex] = useState<number | null>(null);
+  const [shapeEditHistory, setShapeEditHistory] = useState<[number, number][][]>([]);
+  const [shapeEditReview, setShapeEditReview] = useState(false);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
@@ -511,6 +518,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     return () => {
       featureMarkersRef.current.forEach((marker) => marker.remove());
       featureMarkersRef.current.clear();
+      shapeVertexMarkersRef.current.forEach((marker) => marker.remove());
+      shapeVertexMarkersRef.current = [];
       locationMarkerRef.current?.remove();
       map.remove();
       mapRef.current = null;
@@ -582,7 +591,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!map || !mapReady) return;
     const data = {
       type: "FeatureCollection" as const,
-      features: features.filter((feature) => feature.geometry.type === "LineString" || feature.geometry.type === "Polygon")
+      features: features.filter((feature) => feature.id !== editingShapeId && (feature.geometry.type === "LineString" || feature.geometry.type === "Polygon"))
         .filter((feature) => visibleLayers[feature.layer_id] !== false)
         .map((feature) => {
           const layer = layers.find((item) => item.id === feature.layer_id);
@@ -654,19 +663,24 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
       map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
     };
-  }, [basemap, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [basemap, editingShapeId, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
     const draft = shapeDraft || pendingShape;
     if (!map || !mapReady || !draft) return;
     const layer = layers.find((item) => item.id === draft.layerId);
-    const shape = shapeGeometry(draft);
-    const drawableShape = draft.geometryType === "line" ? draft.coordinates.length >= 2 : draft.coordinates.length >= 3;
+    const previewCoordinates = shapeDraft && shapeHoverCoordinate ? [...draft.coordinates, shapeHoverCoordinate] : draft.coordinates;
+    const drawableShape = draft.geometryType === "line" ? previewCoordinates.length >= 2 : draft.coordinates.length >= 3;
+    const previewGeometry: MapFeature["geometry"] | null = drawableShape
+      ? shapeGeometry({ ...draft, coordinates: previewCoordinates })
+      : previewCoordinates.length >= 2
+        ? { type: "LineString", coordinates: previewCoordinates }
+        : null;
     const data = {
       type: "FeatureCollection" as const,
       features: [
-        ...(drawableShape ? [{ type: "Feature" as const, properties: { kind: "shape" }, geometry: shape }] : []),
+        ...(previewGeometry ? [{ type: "Feature" as const, properties: { kind: "shape" }, geometry: previewGeometry }] : []),
         ...(draft.coordinates.length ? [{ type: "Feature" as const, properties: { kind: "vertices" }, geometry: { type: "MultiPoint" as const, coordinates: draft.coordinates } }] : []),
       ],
     };
@@ -678,19 +692,62 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       }
       map.addSource(DRAFT_SHAPE_SOURCE_ID, { type: "geojson", data });
       map.addLayer({ id: DRAFT_SHAPE_FILL_ID, type: "fill", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["geometry-type"], "Polygon"], paint: { "fill-color": layer?.fill_color || layer?.color || "#1ed7b2", "fill-opacity": 0.28 } });
-      map.addLayer({ id: DRAFT_SHAPE_LINE_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": layer?.color || "#1ed7b2", "line-width": 5, "line-dasharray": [2, 1] }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: DRAFT_SHAPE_CASING_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": "#07120f", "line-width": 9, "line-opacity": 0.82 }, layout: { "line-cap": "round", "line-join": "round" } });
+      map.addLayer({ id: DRAFT_SHAPE_LINE_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": layer?.color || "#1ed7b2", "line-width": 5, "line-opacity": 1 }, layout: { "line-cap": "round", "line-join": "round" } });
       map.addLayer({ id: DRAFT_SHAPE_VERTICES_ID, type: "circle", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "vertices"], paint: { "circle-radius": 6, "circle-color": "#f5a23c", "circle-stroke-color": "#08131d", "circle-stroke-width": 2 } });
     };
     if (map.isStyleLoaded()) render();
     else map.once("style.load", render);
     return () => {
       map.off("style.load", render);
-      if (map.getLayer(DRAFT_SHAPE_VERTICES_ID)) map.removeLayer(DRAFT_SHAPE_VERTICES_ID);
-      if (map.getLayer(DRAFT_SHAPE_LINE_ID)) map.removeLayer(DRAFT_SHAPE_LINE_ID);
-      if (map.getLayer(DRAFT_SHAPE_FILL_ID)) map.removeLayer(DRAFT_SHAPE_FILL_ID);
-      if (map.getSource(DRAFT_SHAPE_SOURCE_ID)) map.removeSource(DRAFT_SHAPE_SOURCE_ID);
     };
-  }, [basemap, layers, mapReady, pendingShape, shapeDraft]);
+  }, [basemap, layers, mapReady, pendingShape, shapeDraft, shapeHoverCoordinate]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || shapeDraft || pendingShape) return;
+    if (map.getLayer(DRAFT_SHAPE_VERTICES_ID)) map.removeLayer(DRAFT_SHAPE_VERTICES_ID);
+    if (map.getLayer(DRAFT_SHAPE_LINE_ID)) map.removeLayer(DRAFT_SHAPE_LINE_ID);
+    if (map.getLayer(DRAFT_SHAPE_CASING_ID)) map.removeLayer(DRAFT_SHAPE_CASING_ID);
+    if (map.getLayer(DRAFT_SHAPE_FILL_ID)) map.removeLayer(DRAFT_SHAPE_FILL_ID);
+    if (map.getSource(DRAFT_SHAPE_SOURCE_ID)) map.removeSource(DRAFT_SHAPE_SOURCE_ID);
+  }, [pendingShape, shapeDraft]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    shapeVertexMarkersRef.current.forEach((marker) => marker.remove());
+    shapeVertexMarkersRef.current = [];
+    if (!map || !editingShapeId || !shapeDraft) return;
+    const markers = shapeDraft.coordinates.map((coordinate, index) => {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `maps-shape-vertex${selectedShapeVertexIndex === index ? " is-selected" : ""}`;
+      button.setAttribute("aria-label", `Shape point ${index + 1}`);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setSelectedShapeVertexIndex(index);
+      });
+      const marker = new mapboxgl.Marker({ element: button, draggable: true })
+        .setLngLat(coordinate)
+        .addTo(map);
+      marker.on("dragstart", () => {
+        setShapeEditHistory((history) => [...history, shapeDraft.coordinates]);
+      });
+      marker.on("dragend", () => {
+        const next = marker.getLngLat();
+        setShapeDraft((current) => current ? {
+          ...current,
+          coordinates: current.coordinates.map((item, itemIndex) => itemIndex === index ? [next.lng, next.lat] : item),
+        } : current);
+      });
+      return marker;
+    });
+    shapeVertexMarkersRef.current = markers;
+    return () => {
+      markers.forEach((marker) => marker.remove());
+      if (shapeVertexMarkersRef.current === markers) shapeVertexMarkersRef.current = [];
+    };
+  }, [editingShapeId, selectedShapeVertexIndex, shapeDraft]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -773,19 +830,32 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !shapeDraft) return;
+    const handleShapeMove = (event: mapboxgl.MapMouseEvent) => setShapeHoverCoordinate([event.lngLat.lng, event.lngLat.lat]);
+    const handleShapeLeave = () => setShapeHoverCoordinate(null);
     const handleShapeClick = (event: mapboxgl.MapMouseEvent) => {
+      setShapeHoverCoordinate(null);
       setShapeDraft((current) => current ? {
         ...current,
-        coordinates: [...current.coordinates, [event.lngLat.lng, event.lngLat.lat]],
+        coordinates: (() => {
+          if (editingShapeId) setShapeEditHistory((history) => [...history, current.coordinates]);
+          const next = [...current.coordinates, [event.lngLat.lng, event.lngLat.lat] as [number, number]];
+          if (editingShapeId) setSelectedShapeVertexIndex(next.length - 1);
+          return next;
+        })(),
       } : current);
     };
     map.getCanvas().style.cursor = "crosshair";
     map.on("click", handleShapeClick);
+    map.on("mousemove", handleShapeMove);
+    map.getCanvas().addEventListener("mouseleave", handleShapeLeave);
     return () => {
       map.off("click", handleShapeClick);
+      map.off("mousemove", handleShapeMove);
+      map.getCanvas().removeEventListener("mouseleave", handleShapeLeave);
       map.getCanvas().style.cursor = "";
+      setShapeHoverCoordinate(null);
     };
-  }, [shapeDraft?.layerId, shapeDraft?.geometryType]);
+  }, [editingShapeId, shapeDraft?.layerId, shapeDraft?.geometryType]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -819,6 +889,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     window.localStorage.setItem(ACTIVE_ORGANIZATION_KEY, organizationId);
     fittedOrganizationRef.current = null;
     setSelectedFeatureId(null);
+    setShapeDraft(null);
+    setPendingShape(null);
+    setEditingShapeId(null);
+    setShapeEditReview(false);
     try {
       await loadWorkspace(client, access);
     } catch (error) {
@@ -1692,6 +1766,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       showToast("Create or select an editable layer first.");
       return;
     }
+    setEditingShapeId(null);
+    setSelectedShapeVertexIndex(null);
+    setShapeEditHistory([]);
+    setShapeEditReview(false);
     setSelectedFeatureId(null);
     if (activeDrawingLayer.geometry_type === "point") {
       setPlacementMode(true);
@@ -1699,6 +1777,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       return;
     }
     if (activeDrawingLayer.geometry_type === "line" || activeDrawingLayer.geometry_type === "polygon") {
+      setShapeHoverCoordinate(null);
       setShapeDraft({ layerId: activeDrawingLayer.id, geometryType: activeDrawingLayer.geometry_type, coordinates: [] });
       showToast(activeDrawingLayer.geometry_type === "line" ? "Click the map to draw the line." : "Click the map to draw the boundary.");
       return;
@@ -1706,12 +1785,54 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Map overlays will be added with the import tools.");
   };
 
-  const undoShapeVertex = () => setShapeDraft((current) => current ? { ...current, coordinates: current.coordinates.slice(0, -1) } : current);
+  const beginShapeEdit = () => {
+    if (!selectedFeature || (selectedFeature.geometry_type !== "line" && selectedFeature.geometry_type !== "polygon") || !canEdit) return;
+    const coordinates = geometryCoordinates(selectedFeature.geometry);
+    const editableCoordinates = selectedFeature.geometry_type === "polygon" ? coordinates.slice(0, -1) : coordinates;
+    setEditingShapeId(selectedFeature.id);
+    setShapeDraft({ layerId: selectedFeature.layer_id, geometryType: selectedFeature.geometry_type, coordinates: editableCoordinates });
+    setShapeHoverCoordinate(null);
+    setSelectedShapeVertexIndex(null);
+    setShapeEditHistory([]);
+    setShapeEditReview(false);
+    showToast("Drag a point, select one to remove it, or click the map to add a point.");
+  };
+
+  const undoShapeVertex = () => {
+    if (!editingShapeId) {
+      setShapeDraft((current) => current ? { ...current, coordinates: current.coordinates.slice(0, -1) } : current);
+      return;
+    }
+    setShapeEditHistory((history) => {
+      const previous = history.at(-1);
+      if (previous) setShapeDraft((current) => current ? { ...current, coordinates: previous } : current);
+      return previous ? history.slice(0, -1) : history;
+    });
+    setSelectedShapeVertexIndex(null);
+  };
+
+  const removeSelectedShapeVertex = () => {
+    if (!shapeDraft || selectedShapeVertexIndex === null) return;
+    const minimum = shapeDraft.geometryType === "line" ? 2 : 3;
+    if (shapeDraft.coordinates.length <= minimum) {
+      showToast(shapeDraft.geometryType === "line" ? "A line needs at least two points." : "A boundary needs at least three points.");
+      return;
+    }
+    setShapeEditHistory((history) => [...history, shapeDraft.coordinates]);
+    setShapeDraft({ ...shapeDraft, coordinates: shapeDraft.coordinates.filter((_, index) => index !== selectedShapeVertexIndex) });
+    setSelectedShapeVertexIndex(null);
+  };
 
   const cancelShapeDrawing = () => {
+    const wasEditing = Boolean(editingShapeId);
     setShapeDraft(null);
     setPendingShape(null);
-    showToast("Drawing canceled");
+    setShapeHoverCoordinate(null);
+    setEditingShapeId(null);
+    setSelectedShapeVertexIndex(null);
+    setShapeEditHistory([]);
+    setShapeEditReview(false);
+    showToast(wasEditing ? "Shape changes discarded" : "Drawing canceled");
   };
 
   const finishShapeDrawing = () => {
@@ -1721,8 +1842,37 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       showToast(shapeDraft.geometryType === "line" ? "Add at least two points to finish the line." : "Add at least three points to finish the boundary.");
       return;
     }
+    if (editingShapeId) {
+      setShapeEditReview(true);
+      return;
+    }
     setPendingShape(shapeDraft);
     setShapeDraft(null);
+  };
+
+  const saveEditedShape = async () => {
+    if (!client || !activeAccess || !editingShapeId || !shapeDraft || !canEdit) return;
+    setSaving(true);
+    const { data, error } = await client.rpc("update_map_shape", {
+      input_organization_id: activeAccess.organizationId,
+      input_feature_id: editingShapeId,
+      input_geometry: shapeGeometry(shapeDraft),
+    });
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That shape could not be updated.");
+      return;
+    }
+    const updatedFeatureId = editingShapeId;
+    setShapeDraft(null);
+    setEditingShapeId(null);
+    setShapeHoverCoordinate(null);
+    setSelectedShapeVertexIndex(null);
+    setShapeEditHistory([]);
+    setShapeEditReview(false);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(updatedFeatureId);
+    showToast("Shape geometry updated");
   };
 
   return (
@@ -1847,7 +1997,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
               {shapeDraft ? (
-                <><button type="button" onClick={cancelShapeDrawing}>× <span>Cancel</span></button><button type="button" onClick={undoShapeVertex} disabled={!shapeDraft.coordinates.length}>↶ <span>Undo point</span></button><button type="button" className="is-active" onClick={finishShapeDrawing}>✓ <span>{shapeDraft.geometryType === "line" ? "Finish line" : "Finish boundary"}</span></button></>
+                <><button type="button" onClick={cancelShapeDrawing}>× <span>{editingShapeId ? "Discard" : "Cancel"}</span></button><button type="button" onClick={undoShapeVertex} disabled={editingShapeId ? !shapeEditHistory.length : !shapeDraft.coordinates.length}>↶ <span>Undo</span></button>{editingShapeId && <button type="button" onClick={removeSelectedShapeVertex} disabled={selectedShapeVertexIndex === null}>− <span>Remove point</span></button>}<button type="button" className="is-active" onClick={finishShapeDrawing}>✓ <span>{editingShapeId ? "Review" : shapeDraft.geometryType === "line" ? "Finish line" : "Finish boundary"}</span></button></>
               ) : movingFeatureId ? (
                 <><button type="button" onClick={cancelMoveFeature}>× <span>Cancel move</span></button><button type="button" onClick={proposeMoveFromGps}>◎ <span>{deviceLocation ? "Use GPS" : "Locate me"}</span></button></>
               ) : (
@@ -1857,17 +2007,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
-          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeDraft.coordinates.length} point{shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue</span></div>}
+          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
-          {selectedFeature && !movingFeatureId && !directionsTargetId && (
+          {selectedFeature && !movingFeatureId && !editingShapeId && !directionsTargetId && (
             <article className="maps-detail-card">
               <button type="button" className="maps-detail-close" onClick={() => setSelectedFeatureId(null)} aria-label="Close mapped item">×</button>
               <div className="maps-detail-icon" style={{ background: selectedLayer?.color || "#1ed7b2" }}>{layerIcon(selectedLayer)}</div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
+              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <dl>
                 <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
                 <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
@@ -2057,6 +2207,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-coordinate-readout"><span>{pendingShape.coordinates.length} mapped points</span><small>The saved shape stays tied to this layer and organization.</small></div>
               <footer><button type="button" onClick={cancelShapeDrawing}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : pendingShape.geometryType === "line" ? "Save line" : "Save boundary"}</button></footer>
             </form>
+          </section>
+        </div>
+      )}
+
+      {shapeEditReview && editingShapeId && selectedFeature && shapeDraft && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="save-shape-edit-title">
+            <header><div><span>SHAPE CHANGES</span><h2 id="save-shape-edit-title">Save the new shape?</h2></div><button type="button" onClick={() => setShapeEditReview(false)} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy maps-move-confirmation"><p>This replaces the saved geometry for <strong>{selectedFeature.title}</strong>. Its layer, details, photos, and history remain connected.</p><div className="maps-coordinate-readout"><span>{shapeDraft.coordinates.length} mapped points</span><small>You can keep editing or save this reviewed shape.</small></div></div>
+            <footer><button type="button" onClick={() => setShapeEditReview(false)}>Keep editing</button><button type="button" className="is-primary" disabled={saving} onClick={() => void saveEditedShape()}>{saving ? "Saving…" : "Save shape changes"}</button></footer>
           </section>
         </div>
       )}

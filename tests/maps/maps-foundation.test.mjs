@@ -369,9 +369,12 @@ test("Maps draws and securely saves line and polygon features", async () => {
 
   assert.match(workspace, /SAVED_SHAPES_SOURCE_ID = "maps-saved-shapes"/);
   assert.match(workspace, /DRAFT_SHAPE_SOURCE_ID = "maps-draft-shape"/);
+  assert.match(workspace, /DRAFT_SHAPE_CASING_ID = "maps-draft-shape-casing"/);
+  assert.match(workspace, /shapeHoverCoordinate/);
+  assert.match(workspace, /map\.on\("mousemove", handleShapeMove\)/);
   assert.match(workspace, /Draw line/);
   assert.match(workspace, /Draw boundary/);
-  assert.match(workspace, /Undo point/);
+  assert.match(workspace, />Undo<\/span>/);
   assert.match(workspace, /Finish line/);
   assert.match(workspace, /Finish boundary/);
   assert.match(workspace, /rpc\("create_map_shape"/);
@@ -385,4 +388,29 @@ test("Maps draws and securely saves line and polygon features", async () => {
   assert.match(migration, /extensions\.st_isvalid/);
   assert.match(migration, /extensions\.st_npoints\(parsed_geometry\) > 5001/);
   assert.match(migration, /revoke all on function public\.create_map_shape[\s\S]*from public, anon/);
+});
+
+test("Saved line and polygon geometry can be reviewed and edited", async () => {
+  const [workspace, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260903211217_maps_shape_editing.sql"),
+  ]);
+
+  assert.match(workspace, /Edit shape/);
+  assert.match(workspace, /maps-shape-vertex/);
+  assert.match(workspace, /draggable: true/);
+  assert.match(workspace, /Remove point/);
+  assert.match(workspace, /Drag points · select a point to remove · click map to add/);
+  assert.match(workspace, /Save shape changes/);
+  assert.match(workspace, /rpc\("update_map_shape"/);
+  assert.match(styles, /\.maps-shape-vertex\.is-selected/);
+
+  assert.match(migration, /create or replace function public\.update_map_shape/);
+  assert.match(migration, /security invoker/);
+  assert.match(migration, /layer\.geometry_type = feature\.geometry_type/);
+  assert.match(migration, /extensions\.st_geomfromgeojson/);
+  assert.match(migration, /extensions\.st_isvalid/);
+  assert.match(migration, /updated_by_user_id = auth\.uid\(\)/);
+  assert.match(migration, /revoke all on function public\.update_map_shape[\s\S]*from public, anon/);
 });

@@ -137,6 +137,9 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-marker.is-selected::after { border-color: var(--marker-color); transform: rotate(-45deg) scale(1.12); }
 .maps-marker.is-moving::after { inset: -10px; border-color: #fff; border-style: dashed; animation: maps-marker-pulse 1.1s ease-in-out infinite alternate; }
 .maps-marker > span { position: relative; z-index: 1; }
+.maps-shape-vertex { width: 20px; height: 20px; padding: 0; border: 3px solid #08131d; border-radius: 999px; background: #f5a23c; box-shadow: 0 4px 14px rgba(0,0,0,.4); cursor: grab; }
+.maps-shape-vertex:active { cursor: grabbing; }
+.maps-shape-vertex.is-selected { width: 25px; height: 25px; border-color: #f5f8f7; background: var(--maps-mint); box-shadow: 0 0 0 4px rgba(105,210,196,.2), 0 5px 16px rgba(0,0,0,.5); }
 @keyframes maps-marker-pulse { to { opacity: .45; transform: rotate(-45deg) scale(1.22); } }
 .maps-user-location { position: relative; width: 19px; height: 19px; border: 4px solid #fff; border-radius: 50%; background: #1478ff; box-shadow: 0 0 0 12px rgba(20,120,255,.17), 0 4px 12px rgba(0,0,0,.28); }
 .maps-user-location.has-heading::after { content: ""; position: absolute; left: 50%; bottom: 15px; width: 0; height: 0; border-right: 6px solid transparent; border-bottom: 13px solid #1478ff; border-left: 6px solid transparent; filter: drop-shadow(0 0 2px #fff); transform: translateX(-50%) rotate(var(--user-heading)); transform-origin: 50% 22px; }
