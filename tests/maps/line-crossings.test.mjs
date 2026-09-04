@@ -7,10 +7,26 @@ const js = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarg
 const { prepareCrossings } = await import(`data:text/javascript;base64,${Buffer.from(js).toString('base64')}`);
 const lines = [{id:'a', coordinates:[[-.001,0],[.001,0]]}, {id:'b',coordinates:[[0,-.001],[0,.001]]}];
 const connection = (coordinate) => ({feature_id:'a',connected_feature_id:'b',geometry:{coordinates:coordinate}});
+test('crossing candidates remain deterministic and deduplicate shared vertices', () => {
+  const vertexLines = [{id:'a',coordinates:[[-.001,0],[0,0],[.001,0]]}, lines[1]];
+  const result = prepareCrossings(vertexLines, []);
+  assert.equal(result.unconnected.length, 1);
+  assert.deepEqual(prepareCrossings([...vertexLines].reverse(), []).unconnected, result.unconnected);
+  assert.ok(Math.abs(result.unconnected[0].coordinate[0]) < 1e-8);
+  assert.ok(Math.abs(result.unconnected[0].coordinate[1]) < 1e-8);
+});
+test('connecting one pair at a three-line crossing leaves the other pairs unconnected', () => {
+  const result = prepareCrossings([...lines, {id:'c',coordinates:[[-.001,-.001],[.001,.001]]}], [connection([0,0])]);
+  assert.equal(result.unconnected.length, 2);
+  assert.ok(result.unconnected.every(c => c.otherFeatureId === 'c'));
+});
 test('unconnected crossing has a gap on exactly one line without changing original coordinates', () => {
   const original = JSON.stringify(lines);
   const result = prepareCrossings(lines, []);
   assert.equal(result.junctions.length, 0);
+  assert.equal(result.unconnected.length, 1);
+  assert.equal(result.unconnected[0].featureId, 'a');
+  assert.equal(result.unconnected[0].otherFeatureId, 'b');
   assert.equal(result.atZoom(18).get('a').length, 2);
   assert.equal(result.atZoom(18).get('b').length, 1);
   assert.equal(JSON.stringify(lines), original);
@@ -20,6 +36,7 @@ test('unconnected crossing has a gap on exactly one line without changing origin
 test('saved junction keeps both lines whole and deduplicates reciprocal records', () => {
   const result=prepareCrossings(lines,[connection([0,0]), {...connection([0,0]),feature_id:'b',connected_feature_id:'a'}]);
   assert.equal(result.junctions.length,1);
+  assert.equal(result.unconnected.length,0);
   assert.equal(result.atZoom(18).get('a').length,1);
 });
 test('a connection elsewhere does not erase the unconnected crossing', () => {

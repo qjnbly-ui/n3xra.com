@@ -29,7 +29,7 @@ import type {
 } from "../lib/maps-types";
 import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
 import { isBrandedPortalHostname } from "../../../src/client-portal/tenant-context";
-import { prepareCrossings } from "../lib/line-crossings";
+import { prepareCrossings, type UnconnectedCrossing } from "../lib/line-crossings";
 
 declare global {
   interface Window {
@@ -792,6 +792,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [shapeEditHistory, setShapeEditHistory] = useState<[number, number][][]>([]);
   const [shapeEditReview, setShapeEditReview] = useState(false);
   const [endpointDialogIssue, setEndpointDialogIssue] = useState<NetworkEndpointIssue | null>(null);
+  const [crossingDialog, setCrossingDialog] = useState<UnconnectedCrossing | null>(null);
   const [endpointConnectionTarget, setEndpointConnectionTarget] = useState<NetworkEndpointIssue | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -831,6 +832,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (isolationConfirmOpen && deviceLocation) setIsolationConfirmationLocation(deviceLocation);
   }, [deviceLocation, isolationConfirmOpen]);
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
+  const selectedCrossings = useMemo(() => !selectedFeatureId ? [] : prepareCrossings(
+    features.filter(f => f.geometry.type === "LineString" && visibleLayers[f.layer_id] !== false)
+      .map(f => ({ id: f.id, coordinates: geometryCoordinates(f.geometry) })), networkConnections,
+  ).unconnected.filter(c => c.featureId === selectedFeatureId || c.otherFeatureId === selectedFeatureId), [features, networkConnections, selectedFeatureId, visibleLayers]);
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedFeatureSupportsWaterBreak = selectedFeature?.geometry_type === "line" && selectedLayer?.system_type === "potable_water";
   const valveLayers = layers.filter((layer) => layer.geometry_type === "point" && layer.system_type === "potable_water" && layer.is_editable && (layer.icon_key === "valve" || layer.standard_key === "water-valve"));
@@ -1338,6 +1343,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!map || !mapReady) return;
     const crossings = prepareCrossings(features.filter(feature => feature.geometry.type === "LineString" && feature.id !== editingShapeId && visibleLayers[feature.layer_id] !== false)
       .map(feature => ({ id: feature.id, coordinates: geometryCoordinates(feature.geometry) })), networkConnections);
+    // Hit-test the true intersection, including the visually shortened gap.
+    const handleCrossingClick = (event: mapboxgl.MapMouseEvent) => {
+      if (!canEdit || shapeDraft || editingShapeId || endpointConnectionTarget || valvePlacementFeatureId || pendingShape || movingFeatureId || placementMode) return;
+      const candidates = crossings.unconnected.filter(c => {
+        const screen = map.project(c.coordinate);
+        return Math.hypot(screen.x - event.point.x, screen.y - event.point.y) <= 16;
+      }).sort((a, b) => map.project(a.coordinate).dist(event.point) - map.project(b.coordinate).dist(event.point));
+      if (candidates[0]) setCrossingDialog(candidates[0]);
+    };
+    map.on("click", handleCrossingClick);
     const buildData = () => {
       const pieces = crossings.atZoom(map.getZoom());
       return {
@@ -1442,6 +1457,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     else map.once("style.load", render);
     map.on("zoom", refreshCrossings);
     return () => {
+      map.off("click", handleCrossingClick);
       map.off("zoom", refreshCrossings);
       map.off("style.load", render);
       map.off("click", SAVED_SHAPES_FILL_ID, handleShapeClick);
@@ -1451,7 +1467,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
       map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
     };
-  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, highlightedIsolationFeatureIds, layers, mapReady, networkConnections, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [activeIncidentFeatureIds, basemap, canEdit, editingShapeId, endpointConnectionTarget, features, highlightedIsolationFeatureIds, layers, mapReady, movingFeatureId, networkConnections, pendingShape, placementMode, selectedFeatureId, shapeDraft, valvePlacementFeatureId, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -3388,6 +3404,26 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setShapeDraft(null);
   };
 
+  const connectCrossing = async () => {
+    if (!client || !activeAccess || !canEdit || !crossingDialog || saving) return;
+    setSaving(true);
+    try {
+      const { error } = await client.rpc("maps_connect_crossing", {
+        input_organization_id: activeAccess.organizationId,
+        input_feature_id: crossingDialog.featureId,
+        input_other_feature_id: crossingDialog.otherFeatureId,
+        input_longitude: crossingDialog.coordinate[0],
+        input_latitude: crossingDialog.coordinate[1],
+      });
+      if (error) throw error;
+      await loadWorkspace(client, activeAccess);
+      setCrossingDialog(null);
+      showToast("Lines connected at this junction. Network estimates updated.");
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : (error as { message?: string })?.message || "Could not connect these lines. Refresh and try again.");
+    } finally { setSaving(false); }
+  };
+
   const saveEditedShape = async () => {
     if (!client || !activeAccess || !editingShapeId || !shapeDraft || !canEdit) return;
     setSaving(true);
@@ -3618,6 +3654,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                     return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
                   })}
                 </dl>
+                {canEdit && selectedCrossings.length > 0 && <div className="maps-network-status"><span>UNCONNECTED CROSSINGS</span><small>Choose a crossing to confirm a physical junction.</small>{selectedCrossings.map((crossing, index) => {
+                  const other = features.find(f => f.id === (crossing.featureId === selectedFeature.id ? crossing.otherFeatureId : crossing.featureId));
+                  return <button type="button" key={`${crossing.featureId}:${crossing.otherFeatureId}:${index}`} onClick={() => {
+                    mapRef.current?.easeTo({ center: crossing.coordinate, duration: 400 });
+                    setCrossingDialog(crossing);
+                  }}>Connect to {other?.title || "line"} · crossing {index + 1}</button>;
+                })}</div>}
                 <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
                 {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small><div className="maps-endpoint-summary"><span>First end: {(selectedFeature.start_endpoint_type || "unknown").replaceAll("_", " ")}</span><span>Last end: {(selectedFeature.end_endpoint_type || "unknown").replaceAll("_", " ")}</span></div>{canEdit && <label className="maps-flow-control"><span>Flow direction</span><select value={selectedFeature.flow_direction || "unknown"} disabled={saving} onChange={(event) => void updateFlowDirection(event.target.value as MapFeature["flow_direction"])}><option value="unknown">Not set</option><option value="start_to_end">First point → last point</option><option value="end_to_start">Last point → first point</option></select><small>Directional arrows appear on the line and are retained when a valve splits it.</small></label>}</div>}
                 {selectedFeature.geometry_type === "point" && Array.isArray(selectedFeature.properties?.connectedLineIds) && <div className="maps-network-status is-connected"><span>NETWORK</span><strong>Connected network device</strong><small>This asset is inserted directly into {selectedFeature.properties.connectedLineIds.length} utility line segment{selectedFeature.properties.connectedLineIds.length === 1 ? "" : "s"}.</small></div>}
@@ -4074,6 +4117,24 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           </section>
         </div>
       )}
+
+      {crossingDialog && (() => {
+        const a = features.find(f => f.id === crossingDialog.featureId);
+        const b = features.find(f => f.id === crossingDialog.otherFeatureId);
+        const aLayer = layers.find(l => l.id === a?.layer_id);
+        const bLayer = layers.find(l => l.id === b?.layer_id);
+        const compatible = aLayer?.is_editable && bLayer?.is_editable && aLayer.system_type === bLayer.system_type
+          && ["potable_water", "sanitary_sewer", "stormwater", "reclaimed_water"].includes(aLayer.system_type);
+        return <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-endpoint-dialog" role="dialog" aria-modal="true" aria-labelledby="crossing-title">
+            <header><div><span>PIPE CROSSING</span><h2 id="crossing-title">Connect lines here?</h2></div><button type="button" aria-label="Close" disabled={saving} onClick={() => setCrossingDialog(null)}>×</button></header>
+            <div className="maps-endpoint-dialog-copy"><strong>{a?.title} ({aLayer?.name}) ↔ {b?.title} ({bLayer?.name})</strong>
+              <p>{compatible ? "Confirm these pipes physically join at this crossing. Neither line will move. The gap will become a junction dot, and network tracing and affected-meter estimates will include this connection." : "These lines cannot be connected: both must be editable and belong to the same utility system."}</p>
+              <small>Crossing on the map does not by itself establish a physical connection. Verify in the field.</small></div>
+            <footer><button type="button" disabled={saving} onClick={() => setCrossingDialog(null)}>Keep unconnected</button><button type="button" className="is-primary" disabled={saving || !compatible} onClick={() => void connectCrossing()}>{saving ? "Connecting…" : "Connect lines here"}</button></footer>
+          </section>
+        </div>;
+      })()}
 
       {endpointDialogIssue && (() => {
         const feature = features.find((item) => item.id === endpointDialogIssue.featureId);

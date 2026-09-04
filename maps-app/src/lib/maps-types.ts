@@ -81,7 +81,7 @@ export interface MapNetworkConnection {
   id: string;
   organization_id: string;
   feature_id: string;
-  endpoint: "start" | "end";
+  endpoint: "start" | "end" | `junction:${string}`;
   connected_feature_id: string;
   geometry: GeoJsonGeometry;
   connected_fraction: number;

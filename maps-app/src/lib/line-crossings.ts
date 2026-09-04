@@ -1,5 +1,6 @@
 type Point = [number, number];
 export interface CrossingLine { id: string; coordinates: Point[] }
+export interface UnconnectedCrossing { featureId: string; otherFeatureId: string; coordinate: Point }
 export interface CrossingConnection { feature_id: string; connected_feature_id: string; geometry: { coordinates: unknown } }
 const project = ([lng, lat]: Point): Point => [lng / 360, -Math.log(Math.tan(Math.PI / 4 + Math.max(-85, Math.min(85, lat)) * Math.PI / 360)) / (2 * Math.PI)];
 const unproject = ([x, y]: Point): Point => [x * 360, (2 * Math.atan(Math.exp(-y * 2 * Math.PI)) - Math.PI / 2) * 180 / Math.PI];
@@ -8,6 +9,7 @@ const interpolate = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[
 
 /** Display-only geometry. Never write these shortened lines back to asset records. */
 export function prepareCrossings(lines: CrossingLine[], connections: CrossingConnection[]) {
+  const unconnected: UnconnectedCrossing[] = [];
   const paths = lines.map(line => {
     const points = line.coordinates.map(project);
     const lengths = [0];
@@ -36,6 +38,11 @@ export function prepareCrossings(lines: CrossingLine[], connections: CrossingCon
       const point = interpolate(a.a, a.b, Math.max(0, Math.min(1, t)));
       const connected = junctions.some(c => ((c.feature_id === a.path.id && c.connected_feature_id === b.path.id) || (c.feature_id === b.path.id && c.connected_feature_id === a.path.id)) && distance(c.point, point) < 1e-8);
       if (connected) continue;
+      const ids = [a.path.id, b.path.id].sort();
+      const coordinate = unproject(point);
+      if (!unconnected.some(c => c.featureId === ids[0] && c.otherFeatureId === ids[1] && distance(project(c.coordinate), point) < 1e-10)) {
+        unconnected.push({ featureId: ids[0]!, otherFeatureId: ids[1]!, coordinate });
+      }
       // Stable choice for visual separation only; does not imply elevation.
       const cut = a.path.id < b.path.id ? a : b;
       const fraction = cut === a ? t : u;
@@ -43,6 +50,7 @@ export function prepareCrossings(lines: CrossingLine[], connections: CrossingCon
     }
   }
   return {
+    unconnected,
     junctions: junctions.filter((c, i, all) => all.findIndex(other => distance(other.point, c.point) < 1e-10) === i)
       .map(c => ({ featureId: c.feature_id, coordinate: unproject(c.point) })),
     atZoom(zoom: number): Map<string, Point[][]> {
