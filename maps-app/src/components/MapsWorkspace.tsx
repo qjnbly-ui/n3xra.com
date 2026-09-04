@@ -152,6 +152,12 @@ interface PendingBreakLocation {
   latitude: number;
 }
 
+interface PendingValveLocation {
+  featureId: string;
+  longitude: number;
+  latitude: number;
+}
+
 interface LineSnapTarget {
   coordinate: [number, number];
   featureId: string;
@@ -276,6 +282,7 @@ const MAPS_PHOTO_BUCKET = "maps-asset-photos";
 const SAVED_SHAPES_SOURCE_ID = "maps-saved-shapes";
 const SAVED_SHAPES_FILL_ID = "maps-saved-shapes-fill";
 const SAVED_SHAPES_LINE_ID = "maps-saved-shapes-line";
+const SAVED_SHAPES_FLOW_ID = "maps-saved-shapes-flow";
 const DRAFT_SHAPE_SOURCE_ID = "maps-draft-shape";
 const DRAFT_SHAPE_FILL_ID = "maps-draft-shape-fill";
 const DRAFT_SHAPE_CASING_ID = "maps-draft-shape-casing";
@@ -357,6 +364,33 @@ function nearestLineSnap(
       nearestPixels = pixelDistance;
       nearest = { coordinate: snappedCoordinate, featureId: feature.id, title: feature.title, distanceMeters };
     }
+  }
+  return nearest;
+}
+
+function nearestPointOnFeatureLine(
+  map: MapboxMap,
+  coordinate: [number, number],
+  feature: MapFeature,
+): { coordinate: [number, number]; pixelDistance: number } | null {
+  const line = geometryCoordinates(feature.geometry);
+  if (feature.geometry_type !== "line" || line.length < 2) return null;
+  const pointer = map.project(coordinate);
+  let nearest: { coordinate: [number, number]; pixelDistance: number } | null = null;
+  for (let index = 0; index < line.length - 1; index += 1) {
+    const start = map.project(line[index]!);
+    const end = map.project(line[index + 1]!);
+    const deltaX = end.x - start.x;
+    const deltaY = end.y - start.y;
+    const lengthSquared = deltaX ** 2 + deltaY ** 2;
+    const fraction = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1,
+      ((pointer.x - start.x) * deltaX + (pointer.y - start.y) * deltaY) / lengthSquared,
+    ));
+    const snappedScreen: [number, number] = [start.x + fraction * deltaX, start.y + fraction * deltaY];
+    const pixelDistance = Math.hypot(pointer.x - snappedScreen[0], pointer.y - snappedScreen[1]);
+    if (nearest && pixelDistance >= nearest.pixelDistance) continue;
+    const snapped = map.unproject(snappedScreen);
+    nearest = { coordinate: [snapped.lng, snapped.lat], pixelDistance };
   }
   return nearest;
 }
@@ -512,6 +546,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [breakPlacementFeatureId, setBreakPlacementFeatureId] = useState<string | null>(null);
   const [pendingBreakLocation, setPendingBreakLocation] = useState<PendingBreakLocation | null>(null);
   const [breakStartDialogOpen, setBreakStartDialogOpen] = useState(false);
+  const [valvePlacementFeatureId, setValvePlacementFeatureId] = useState<string | null>(null);
+  const [pendingValveLocation, setPendingValveLocation] = useState<PendingValveLocation | null>(null);
+  const [valveDialogOpen, setValveDialogOpen] = useState(false);
+  const [valveLayerId, setValveLayerId] = useState("");
   const [incidentUpdateDialogOpen, setIncidentUpdateDialogOpen] = useState(false);
   const [incidentUpdateType, setIncidentUpdateType] = useState<MapIncidentUpdate["update_type"]>("field_update");
   const [incidentUpdateStatus, setIncidentUpdateStatus] = useState<Exclude<MapIncidentStatus, "resolved">>("repairing");
@@ -584,6 +622,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedFeatureSupportsWaterBreak = selectedFeature?.geometry_type === "line" && selectedLayer?.system_type === "potable_water";
+  const valveLayers = layers.filter((layer) => layer.geometry_type === "point" && layer.system_type === "potable_water" && layer.is_editable && (layer.icon_key === "valve" || layer.standard_key === "water-valve"));
   const selectedDistance = selectedFeature && deviceLocation ? metersBetween(deviceLocation, selectedFeature) : null;
   const directionsTarget = features.find((feature) => feature.id === directionsTargetId) || null;
   const selectedFields = layerFields.filter((field) => field.layer_id === selectedFeature?.layer_id);
@@ -948,6 +987,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               opacity: layer?.opacity ?? 0.75,
               selected: feature.id === selectedFeatureId,
               activeIncident: activeIncidentFeatureIds.has(feature.id),
+              flowDirection: feature.flow_direction || "unknown",
             },
             geometry: feature.geometry,
           };
@@ -988,6 +1028,26 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             "line-opacity": ["case", ["get", "selected"], 1, ["get", "opacity"]],
           },
           layout: { "line-cap": "round", "line-join": "round" },
+        });
+        map.addLayer({
+          id: SAVED_SHAPES_FLOW_ID,
+          type: "symbol",
+          source: SAVED_SHAPES_SOURCE_ID,
+          filter: ["all", ["==", ["geometry-type"], "LineString"], ["!=", ["get", "flowDirection"], "unknown"]],
+          layout: {
+            "symbol-placement": "line",
+            "symbol-spacing": 90,
+            "text-field": ["case", ["==", ["get", "flowDirection"], "start_to_end"], "▶", "◀"],
+            "text-size": 12,
+            "text-rotation-alignment": "map",
+            "text-keep-upright": false,
+            "text-allow-overlap": false,
+          },
+          paint: {
+            "text-color": ["get", "color"],
+            "text-halo-color": "#07120f",
+            "text-halo-width": 2,
+          },
         });
       }
       map.on("click", SAVED_SHAPES_FILL_ID, handleShapeClick);
@@ -1209,6 +1269,32 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().style.cursor = "";
     };
   }, [breakPlacementFeatureId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const line = features.find((feature) => feature.id === valvePlacementFeatureId);
+    if (!map || !line) return;
+    const handleValveClick = (event: mapboxgl.MapMouseEvent) => {
+      const nearest = nearestPointOnFeatureLine(map, [event.lngLat.lng, event.lngLat.lat], line);
+      if (!nearest || nearest.pixelDistance > 28) {
+        showToast("Click directly on the selected water line");
+        return;
+      }
+      setPendingValveLocation({
+        featureId: line.id,
+        longitude: nearest.coordinate[0],
+        latitude: nearest.coordinate[1],
+      });
+      setValvePlacementFeatureId(null);
+      setValveDialogOpen(true);
+    };
+    map.getCanvas().style.cursor = "crosshair";
+    map.on("click", handleValveClick);
+    return () => {
+      map.off("click", handleValveClick);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [features, showToast, valvePlacementFeatureId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1868,6 +1954,79 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setSelectedIncidentId(null);
     setBreakPlacementFeatureId(selectedFeature.id);
     showToast("Click the exact break location on the selected line");
+  };
+
+  const updateFlowDirection = async (flowDirection: MapFeature["flow_direction"]) => {
+    if (!client || !activeAccess || !selectedFeature || selectedFeature.geometry_type !== "line" || !canEdit) return;
+    setSaving(true);
+    const { error } = await client.rpc("set_map_line_flow_direction", {
+      input_organization_id: activeAccess.organizationId,
+      input_feature_id: selectedFeature.id,
+      input_flow_direction: flowDirection,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message);
+      return;
+    }
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(selectedFeature.id);
+    showToast(flowDirection === "unknown" ? "Flow direction cleared" : "Flow direction saved");
+  };
+
+  const beginValvePlacement = () => {
+    if (!selectedFeature || !selectedFeatureSupportsWaterBreak || !canEdit) return;
+    const firstValveLayer = valveLayers[0];
+    if (!firstValveLayer) {
+      const preset = STANDARD_LAYER_PRESETS.find((item) => item.key === "water-valve");
+      if (preset) chooseLayerPreset(preset.key);
+      setLayerDialogOpen(true);
+      showToast("Create a Water valves layer first, then insert the valve");
+      return;
+    }
+    setValveLayerId(firstValveLayer.id);
+    setPlacementMode(false);
+    setShapeDraft(null);
+    setPendingShape(null);
+    setMovingFeatureId(null);
+    setBreakPlacementFeatureId(null);
+    setSelectedIncidentId(null);
+    setValvePlacementFeatureId(selectedFeature.id);
+    showToast("Click the exact valve location on the selected water line");
+  };
+
+  const cancelValvePlacement = () => {
+    setValvePlacementFeatureId(null);
+    setPendingValveLocation(null);
+    setValveDialogOpen(false);
+  };
+
+  const insertValve = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !pendingValveLocation || !valveLayerId || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    const { data, error } = await client.rpc("maps_insert_valve_on_line", {
+      input_organization_id: activeAccess.organizationId,
+      input_line_feature_id: pendingValveLocation.featureId,
+      input_valve_layer_id: valveLayerId,
+      input_longitude: pendingValveLocation.longitude,
+      input_latitude: pendingValveLocation.latitude,
+      input_title: String(form.get("title") || "Isolation valve").trim(),
+      input_reference_code: String(form.get("reference_code") || "").trim() || null,
+      input_description: String(form.get("description") || "").trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The valve could not be inserted.");
+      return;
+    }
+    const valveFeatureId = String((data as { valveFeatureId?: unknown } | null)?.valveFeatureId || "");
+    setValveDialogOpen(false);
+    setPendingValveLocation(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(valveFeatureId || null);
+    showToast("Valve inserted and water main split into connected segments");
   };
 
   const cancelBreakPlacement = () => {
@@ -2730,7 +2889,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
-              {breakPlacementFeatureId ? (
+              {valvePlacementFeatureId ? (
+                <><button type="button" onClick={cancelValvePlacement}>× <span>Cancel valve</span></button><button type="button" className="is-active" disabled>⌖ <span>Click water line</span></button></>
+              ) : breakPlacementFeatureId ? (
                 <><button type="button" onClick={cancelBreakPlacement}>× <span>Cancel break</span></button><button type="button" className="is-incident" disabled>! <span>Click exact location</span></button></>
               ) : shapeDraft ? (
                 <><button type="button" onClick={cancelShapeDrawing}>× <span>{editingShapeId ? "Discard" : "Cancel"}</span></button><button type="button" onClick={undoShapeVertex} disabled={editingShapeId ? !shapeEditHistory.length : !shapeDraft.coordinates.length}>↶ <span>Undo</span></button>{editingShapeId && <button type="button" onClick={removeSelectedShapeVertex} disabled={selectedShapeVertexIndex === null}>− <span>Remove point</span></button>}<button type="button" className="is-active" onClick={finishShapeDrawing}>✓ <span>{editingShapeId ? "Review" : shapeDraft.geometryType === "line" ? "Finish line" : "Finish boundary"}</span></button></>
@@ -2743,6 +2904,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
+          {valvePlacementFeatureId && <div className="maps-move-banner maps-valve-placement"><strong>Insert a connected valve</strong><span>Click directly on the selected water line. The line will split at that exact point.</span></div>}
           {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
           {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
 
@@ -2754,7 +2916,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ color: mapSymbolColor(selectedLayer?.icon_key || "marker") }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
+              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}{selectedFeatureSupportsWaterBreak && <button type="button" className="maps-detail-valve" onClick={beginValvePlacement}>Insert valve</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <nav className="maps-asset-tabs" aria-label="Mapped item sections">
                 {(["details", "history", "tasks", "files"] as AssetPanelTab[]).map((tab) => (
                   <button type="button" className={assetPanelTab === tab ? "is-active" : ""} onClick={() => setAssetPanelTab(tab)} key={tab}>
@@ -2777,7 +2939,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   })}
                 </dl>
                 <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
-                {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small></div>}
+                {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small>{canEdit && <label className="maps-flow-control"><span>Flow direction</span><select value={selectedFeature.flow_direction || "unknown"} disabled={saving} onChange={(event) => void updateFlowDirection(event.target.value as MapFeature["flow_direction"])}><option value="unknown">Not set</option><option value="start_to_end">First point → last point</option><option value="end_to_start">Last point → first point</option></select><small>Directional arrows appear on the line and are retained when a valve splits it.</small></label>}</div>}
                 {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
                   <span>FIELD LOCATION</span>
                   <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
@@ -3037,6 +3199,24 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>SHAPE CHANGES</span><h2 id="save-shape-edit-title">Save the new shape?</h2></div><button type="button" onClick={() => setShapeEditReview(false)} aria-label="Close">×</button></header>
             <div className="maps-confirm-copy maps-move-confirmation"><p>This replaces the saved geometry for <strong>{selectedFeature.title}</strong>. Its layer, details, photos, and history remain connected.</p><div className="maps-coordinate-readout"><span>{shapeDraft.coordinates.length} mapped points</span><small>You can keep editing or save this reviewed shape.</small></div></div>
             <footer><button type="button" onClick={() => setShapeEditReview(false)}>Keep editing</button><button type="button" className="is-primary" disabled={saving} onClick={() => void saveEditedShape()}>{saving ? "Saving…" : "Save shape changes"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {valveDialogOpen && pendingValveLocation && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="insert-valve-title">
+            <header><div><span>CONNECTED WATER NETWORK</span><h2 id="insert-valve-title">Insert isolation valve</h2></div><button type="button" onClick={cancelValvePlacement} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void insertValve(event)}>
+              <div className="maps-standard-note"><LayerSwatch layer={valveLayers.find((layer) => layer.id === valveLayerId)} /><span><strong>The water main will be split here.</strong><small>The original main keeps its records. A connected continuation and valve asset are created together.</small></span></div>
+              <label><span>Water main</span><input value={features.find((feature) => feature.id === pendingValveLocation.featureId)?.title || "Selected water main"} disabled /></label>
+              <label><span>Valve layer</span><select value={valveLayerId} onChange={(event) => setValveLayerId(event.target.value)} required>{valveLayers.map((layer) => <option value={layer.id} key={layer.id}>{layer.name}</option>)}</select></label>
+              <label><span>Valve title</span><input name="title" required maxLength={140} defaultValue="Isolation valve" /></label>
+              <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>
+              <label><span>Notes</span><textarea name="description" maxLength={4_000} rows={3} placeholder="Valve size, position, access notes, or other field details" /></label>
+              <div className="maps-coordinate-readout"><span>{pendingValveLocation.latitude.toFixed(7)}, {pendingValveLocation.longitude.toFixed(7)}</span><small>The saved valve will use the exact nearest point on the selected line.</small></div>
+              <footer><button type="button" onClick={cancelValvePlacement}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Inserting…" : "Insert connected valve"}</button></footer>
+            </form>
           </section>
         </div>
       )}

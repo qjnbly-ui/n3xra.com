@@ -40,6 +40,7 @@ export interface MapFeature {
   customer_reference: string | null;
   description: string | null;
   status: "active" | "inactive" | "unknown";
+  flow_direction: "unknown" | "start_to_end" | "end_to_start";
   geometry_type: GeometryType;
   geometry: GeoJsonGeometry;
   location_accuracy_m: number | null;

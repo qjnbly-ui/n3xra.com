@@ -211,6 +211,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-detail-edit:hover, .maps-detail-edit:focus-visible { color: #06110f; background: var(--maps-mint); outline: 0; }
 .maps-detail-move { color: #f5c083; border: 1px solid rgba(234,155,63,.34); background: rgba(234,155,63,.08); }
 .maps-detail-move:hover, .maps-detail-move:focus-visible { color: #07110f; background: var(--maps-lime); outline: 0; }
+.maps-detail-valve { color: #9ce5dc; border: 1px solid rgba(105,210,196,.34); background: rgba(105,210,196,.08); }
+.maps-detail-valve:hover, .maps-detail-valve:focus-visible { color: #06110f; background: var(--maps-mint); outline: 0; }
 .maps-detail-delete { color: #f5a39d; border: 1px solid rgba(245,103,92,.34); background: rgba(245,103,92,.08); }
 .maps-detail-delete:hover, .maps-detail-delete:focus-visible { color: #fff; background: #b53a33; outline: 0; }
 .maps-detail-card dl { clear: both; display: grid; grid-template-columns: repeat(3, 1fr); gap: .45rem; margin: 1rem 0 0; }
@@ -286,6 +288,10 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-network-status small { margin-top: .14rem; color: #91a69f; font-size: .58rem; line-height: 1.45; }
 .maps-network-status.is-connected { border-color: rgba(105,210,196,.32); background: rgba(105,210,196,.07); }
 .maps-network-status.is-connected > span { color: var(--maps-mint); }
+.maps-flow-control { width: 100%; display: grid; gap: .28rem; margin-top: .72rem; padding-top: .65rem; border-top: 1px solid rgba(255,255,255,.08); }
+.maps-flow-control > span { color: #a8bbb6; font-size: .56rem; font-weight: 850; }
+.maps-flow-control select { width: 100%; min-height: 36px; padding: .45rem .55rem; color: #f4f7fb; border: 1px solid var(--maps-line); border-radius: 8px; background: #0a131d; font-size: .62rem; }
+.maps-flow-control small { margin-top: 0; }
 .maps-asset-photos { margin-top: .8rem; padding-top: .75rem; border-top: 1px solid rgba(255,255,255,.08); }
 .maps-asset-photos > header { display: flex; align-items: center; justify-content: space-between; }
 .maps-asset-photos > header > span { color: var(--maps-mint); font-size: .54rem; font-weight: 850; letter-spacing: .12em; }
@@ -429,6 +435,8 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-move-banner span { color: #b8c8c3; font-size: .62rem; white-space: nowrap; }
 .maps-drawing-banner { border-color: rgba(105,210,196,.42); }
 .maps-drawing-banner strong { color: var(--maps-mint); }
+.maps-valve-placement { border-color: rgba(105,210,196,.42); }
+.maps-valve-placement strong { color: var(--maps-mint); }
 .maps-incident-placement { border-color: rgba(240,95,85,.42); }
 .maps-incident-placement strong { color: #ff8d84; }
 .maps-dialog-backdrop-front { z-index: 110; }

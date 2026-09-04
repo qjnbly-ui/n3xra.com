@@ -39,13 +39,13 @@ Active incidents must be hard to miss:
 
 The incident location is stored separately from its parent line. The operator chooses the actual break point, and the system snaps that point to the nearest position on the selected line while preserving the originally reported coordinate and snap distance.
 
-## Connected utility-network topology (future)
+## Connected utility-network topology (in progress)
 
-The current line tools draw independent geometry. A future network release must turn those drawings into a connected graph of pipe segments and nodes.
+The first network foundation is now built. Compatible utility lines snap together at their endpoints, store explicit connection records, and can display a saved first-point-to-last-point or reverse flow direction. On a potable-water main, **Insert valve** places a standard valve at the chosen location, atomically splits the main into two valid segments, preserves the original segment's records, and stores the valve-to-segment relationship for later tracing.
 
-- A new line can snap to an existing endpoint.
+- A new line can snap to an existing endpoint. **Built.**
 - Connecting into the middle of a line creates a junction and splits the original line into connected segments.
-- Adding a valve on a pipe splits the pipe into two segments connected through a valve node.
+- Adding a valve on a pipe splits the pipe into two segments connected through a stored valve device relationship. **Built for potable-water lines.**
 - A 6-inch segment can connect to or continue from a 15-inch segment while each segment retains its own diameter, material, installation date, condition, and history.
 - Tee connections create three segments sharing one junction.
 - Editing geometry must preserve topology and warn before disconnecting a network.
@@ -115,9 +115,8 @@ Build now:
 - final closure into immutable history;
 - future-safe fields for affected customers, isolation valves, customer requests, and notification batches.
 
-Do not build yet:
+Not built yet:
 
-- automatic pipe splitting or topology;
 - flow simulation or valve-isolation tracing;
 - automatic customer counting;
 - outbound email, text, or phone notifications.

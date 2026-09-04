@@ -680,7 +680,7 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(classificationMigration, /private\.validate_map_water_break_layer/);
   assert.match(classificationMigration, /Water-main breaks must be linked to an active potable-water line/);
 
-  assert.match(roadmap, /Connected utility-network topology \(future\)/);
+  assert.match(roadmap, /Connected utility-network topology \(in progress\)/);
   assert.match(roadmap, /adding a valve on a pipe splits the pipe into two segments/i);
   assert.match(roadmap, /affected meters and customer accounts automatically/i);
   assert.match(roadmap, /email, permission-based text messages, and automated voice calls/i);
@@ -688,5 +688,35 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(roadmap, /unverified report/);
   assert.match(roadmap, /inspection task, customer-service request, active incident, maintenance task/);
   assert.match(roadmap, /public form never sends a system-wide notice by itself/);
-  assert.match(roadmap, /Do not build yet/);
+  assert.match(roadmap, /Not built yet/);
+});
+
+test("Water lines store flow direction and can atomically insert connected valves", async () => {
+  const [workspace, types, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260904161005_maps_flow_direction_and_valve_insertion.sql"),
+  ]);
+
+  assert.match(types, /flow_direction: "unknown" \| "start_to_end" \| "end_to_start"/);
+  assert.match(workspace, /Insert isolation valve/);
+  assert.match(workspace, /maps_insert_valve_on_line/);
+  assert.match(workspace, /set_map_line_flow_direction/);
+  assert.match(workspace, /First point → last point/);
+  assert.match(workspace, /SAVED_SHAPES_FLOW_ID/);
+  assert.match(workspace, /The original main keeps its records/);
+  assert.match(styles, /\.maps-detail-valve/);
+  assert.match(styles, /\.maps-flow-control/);
+
+  assert.match(migration, /add column if not exists flow_direction/);
+  assert.match(migration, /create table public\.map_network_devices/);
+  assert.match(migration, /create or replace function public\.set_map_line_flow_direction/);
+  assert.match(migration, /create or replace function private\.maps_insert_valve_on_line/);
+  assert.match(migration, /extensions\.st_linesubstring\(line_row\.geometry, 0, split_fraction\)/);
+  assert.match(migration, /extensions\.st_linesubstring\(line_row\.geometry, split_fraction, 1\)/);
+  assert.match(migration, /insert into public\.map_network_devices/);
+  assert.match(migration, /layer\.system_type = 'potable_water'/);
+  assert.match(migration, /layer\.icon_key = 'valve' or layer\.standard_key = 'water-valve'/);
+  assert.doesNotMatch(migration, /grant (insert|update|delete)[^;]*map_network_devices[^;]*authenticated/);
 });
