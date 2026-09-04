@@ -86,6 +86,17 @@ export interface MapNetworkConnection {
   created_at: string;
 }
 
+export interface MapNetworkDevice {
+  id: string;
+  organization_id: string;
+  device_feature_id: string;
+  line_a_feature_id: string;
+  line_b_feature_id: string;
+  device_type: "valve";
+  geometry: GeoJsonGeometry;
+  created_at: string;
+}
+
 export interface MapPointLineConnection {
   id: string;
   organization_id: string;
@@ -227,4 +238,34 @@ export interface MapIncidentUpdate {
   occurred_at: string;
   created_by_user_id: string;
   submitted_at: string;
+}
+
+export type MapIncidentValveStatus = "recommended" | "en_route" | "found" | "closed" | "inaccessible" | "inoperable" | "reopened";
+
+export interface MapIncidentValveAction {
+  id: string;
+  organization_id: string;
+  incident_id: string;
+  valve_feature_id: string;
+  status: MapIncidentValveStatus;
+  note: string | null;
+  occurred_at: string;
+  created_by_user_id: string | null;
+  submitted_at: string;
+}
+
+export interface MapIncidentIsolationPlan {
+  id: string;
+  organization_id: string;
+  incident_id: string;
+  recommended_valve_ids: string[];
+  isolated_feature_ids: string[];
+  affected_meter_ids: string[];
+  customer_references: string[];
+  affected_meter_count: number;
+  affected_customer_count: number;
+  topology_complete: boolean;
+  warnings: string[];
+  calculated_at: string;
+  updated_at: string;
 }

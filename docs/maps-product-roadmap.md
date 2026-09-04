@@ -53,18 +53,19 @@ The first network foundation is now built. Compatible utility lines snap togethe
 - The interface must visibly confirm a successful snap or connection.
 - Valve state must participate in tracing: an open valve connects the graph and a closed valve isolates it.
 
-## Isolation and affected-customer calculation (future)
+## Isolation and affected-customer calculation (in progress)
 
-Once the network is connected, N3XRA Maps can trace the system from a selected break or proposed valve closure.
+N3XRA Maps now traces outward from a selected break through explicit line connections until it reaches the first usable valve on every branch. Those boundary valves are the initial isolation plan. If a crew marks one inaccessible or inoperable, tracing passes that valve and expands to the next mapped valve automatically. This handles branches and loops without treating a simple flow-direction arrow as a hydraulic model.
 
-- Model sources, pressure zones, junctions, pipe segments, valves, service connections, meters, and current valve state.
-- Trace the isolated portion of the network, including branches and loops.
-- Highlight the predicted outage area and the valves required for isolation.
-- Count affected meters and customer accounts automatically.
-- Allow operators to review and correct the result before treating it as authoritative.
-- Store the reviewed isolation result with the incident.
+- Trace the isolated portion of the network, including branches and loops. **Built from explicit line and inserted-valve connections.**
+- Highlight the predicted outage area and the valves required for isolation. **Built.**
+- Guide crews to each required valve and track recommended, en route, found, closed, inaccessible, inoperable, and reopened states. **Built.**
+- Recalculate to the next mapped valve when a boundary valve cannot be used. **Built.**
+- Count affected connected water meters and distinct customer references automatically. **Built.**
+- Save the reviewed isolation result with the incident and lock it when the incident is resolved. **Built.**
+- Model and validate supply sources, pressure zones, pumps, tanks, and normally closed valve state for higher-confidence hydraulic operations. **Future.**
 
-A simple flow-direction arrow is not sufficient because real systems can contain loops, multiple sources, pressure zones, and changing valve states.
+The calculation remains an operational estimate until the mapped topology has been reviewed. It explicitly warns when no closed valve boundary can be found or when affected meters are missing customer references.
 
 ## Customer communication integration (future)
 

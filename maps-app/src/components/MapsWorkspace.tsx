@@ -11,11 +11,15 @@ import type {
   MapFeature,
   MapFeaturePhoto,
   MapIncident,
+  MapIncidentIsolationPlan,
   MapIncidentStatus,
   MapIncidentUpdate,
+  MapIncidentValveAction,
+  MapIncidentValveStatus,
   MapLayer,
   MapLayerField,
   MapNetworkConnection,
+  MapNetworkDevice,
   MapPointLineConnection,
   MapSystemType,
   MapTask,
@@ -177,6 +181,15 @@ interface ShapeAssetConnectionTarget {
   featureId: string;
   title: string;
   coordinate: [number, number];
+}
+
+interface IncidentIsolationEstimate {
+  requiredValveIds: string[];
+  isolatedFeatureIds: string[];
+  affectedMeterIds: string[];
+  customerReferences: string[];
+  topologyComplete: boolean;
+  warnings: string[];
 }
 
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
@@ -474,6 +487,85 @@ function formatDistance(meters: number): string {
   return `${(feet / 5_280).toFixed(2)} mi away`;
 }
 
+function calculateIncidentIsolation(
+  incident: MapIncident,
+  features: MapFeature[],
+  layers: MapLayer[],
+  networkConnections: MapNetworkConnection[],
+  networkDevices: MapNetworkDevice[],
+  pointLineConnections: MapPointLineConnection[],
+  valveActions: MapIncidentValveAction[],
+): IncidentIsolationEstimate {
+  const waterLineIds = new Set(features.filter((feature) => {
+    const layer = layers.find((item) => item.id === feature.layer_id);
+    return feature.geometry_type === "line" && layer?.system_type === "potable_water";
+  }).map((feature) => feature.id));
+  const devices = networkDevices.filter((device) => waterLineIds.has(device.line_a_feature_id) && waterLineIds.has(device.line_b_feature_id));
+  const valvePairs = new Set(devices.map((device) => [device.line_a_feature_id, device.line_b_feature_id].sort().join(":")));
+  const adjacency = new Map<string, Set<string>>();
+  const connect = (left: string, right: string) => {
+    if (!waterLineIds.has(left) || !waterLineIds.has(right)) return;
+    if (!adjacency.has(left)) adjacency.set(left, new Set());
+    if (!adjacency.has(right)) adjacency.set(right, new Set());
+    adjacency.get(left)!.add(right);
+    adjacency.get(right)!.add(left);
+  };
+  networkConnections.forEach((connection) => {
+    const pair = [connection.feature_id, connection.connected_feature_id].sort().join(":");
+    if (!valvePairs.has(pair)) connect(connection.feature_id, connection.connected_feature_id);
+  });
+
+  const latestStatus = new Map<string, MapIncidentValveStatus>();
+  valveActions.filter((action) => action.incident_id === incident.id)
+    .forEach((action) => latestStatus.set(action.valve_feature_id, action.status));
+  const unavailable = new Set([...latestStatus.entries()]
+    .filter(([, status]) => status === "inaccessible" || status === "inoperable")
+    .map(([featureId]) => featureId));
+  const reached = new Set<string>([incident.feature_id]);
+  let expanded = true;
+  while (expanded) {
+    expanded = false;
+    for (const lineId of [...reached]) {
+      for (const connectedId of adjacency.get(lineId) || []) {
+        if (!reached.has(connectedId)) { reached.add(connectedId); expanded = true; }
+      }
+    }
+    for (const device of devices) {
+      if (!unavailable.has(device.device_feature_id)) continue;
+      const touchesA = reached.has(device.line_a_feature_id);
+      const touchesB = reached.has(device.line_b_feature_id);
+      if (touchesA !== touchesB) {
+        reached.add(touchesA ? device.line_b_feature_id : device.line_a_feature_id);
+        expanded = true;
+      }
+    }
+  }
+  const requiredValveIds = devices.filter((device) => reached.has(device.line_a_feature_id) !== reached.has(device.line_b_feature_id))
+    .map((device) => device.device_feature_id);
+  const affectedMeterIds = pointLineConnections.filter((connection) => reached.has(connection.line_feature_id))
+    .map((connection) => features.find((feature) => feature.id === connection.point_feature_id))
+    .filter((feature): feature is MapFeature => {
+      if (!feature) return false;
+      const layer = layers.find((item) => item.id === feature.layer_id);
+      return layer?.standard_key === "water-meter" || (layer?.system_type === "potable_water" && layer.icon_key === "meter");
+    })
+    .map((feature) => feature.id);
+  const customerReferences = [...new Set(affectedMeterIds.map((id) => features.find((feature) => feature.id === id)?.customer_reference?.trim()).filter((value): value is string => Boolean(value)))];
+  const warnings: string[] = [];
+  if (!devices.length) warnings.push("No inserted network valves are mapped in this water system yet.");
+  if (devices.length && !requiredValveIds.length) warnings.push("No valve boundary closes around this break. Check line connections and add isolation valves.");
+  if (unavailable.size) warnings.push(`${unavailable.size} unavailable valve${unavailable.size === 1 ? " was" : "s were"} bypassed; the plan expanded to the next mapped valve${unavailable.size === 1 ? "" : "s"}.`);
+  if (affectedMeterIds.length > customerReferences.length) warnings.push("Some affected meters do not have a customer reference yet.");
+  return {
+    requiredValveIds,
+    isolatedFeatureIds: [...reached],
+    affectedMeterIds,
+    customerReferences,
+    topologyComplete: requiredValveIds.length > 0,
+    warnings,
+  };
+}
+
 function formatRouteDistance(meters: number): string {
   const miles = meters / 1_609.344;
   if (miles < 0.1) return `${Math.max(1, Math.round(meters * 3.28084))} ft`;
@@ -582,7 +674,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [mapIncidents, setMapIncidents] = useState<MapIncident[]>([]);
   const [mapIncidentUpdates, setMapIncidentUpdates] = useState<MapIncidentUpdate[]>([]);
   const [networkConnections, setNetworkConnections] = useState<MapNetworkConnection[]>([]);
+  const [networkDevices, setNetworkDevices] = useState<MapNetworkDevice[]>([]);
   const [pointLineConnections, setPointLineConnections] = useState<MapPointLineConnection[]>([]);
+  const [incidentValveActions, setIncidentValveActions] = useState<MapIncidentValveAction[]>([]);
+  const [incidentIsolationPlans, setIncidentIsolationPlans] = useState<MapIncidentIsolationPlan[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -704,6 +799,36 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     : null;
   const selectedIncidentUpdates = mapIncidentUpdates.filter((update) => update.incident_id === selectedIncidentId)
     .sort((left, right) => new Date(left.occurred_at).getTime() - new Date(right.occurred_at).getTime());
+  const selectedIsolationEstimate = useMemo(() => selectedIncident ? calculateIncidentIsolation(
+    selectedIncident, features, layers, networkConnections, networkDevices, pointLineConnections, incidentValveActions,
+  ) : null, [features, incidentValveActions, layers, networkConnections, networkDevices, pointLineConnections, selectedIncident]);
+  const selectedSavedIsolationPlan = incidentIsolationPlans.find((plan) => plan.incident_id === selectedIncidentId) || null;
+  const selectedValveStatuses = useMemo(() => {
+    const statuses = new Map<string, MapIncidentValveStatus>();
+    incidentValveActions.filter((action) => action.incident_id === selectedIncidentId)
+      .forEach((action) => statuses.set(action.valve_feature_id, action.status));
+    return statuses;
+  }, [incidentValveActions, selectedIncidentId]);
+  const selectedIsolationValves = useMemo(() => {
+    if (!selectedIncident || !selectedIsolationEstimate) return [];
+    const incidentLocation = geoPointCoordinates(selectedIncident.geometry);
+    return selectedIsolationEstimate.requiredValveIds.map((id) => features.find((feature) => feature.id === id))
+      .filter((feature): feature is MapFeature => Boolean(feature))
+      .sort((left, right) => {
+        if (!incidentLocation) return left.title.localeCompare(right.title);
+        const origin = { longitude: incidentLocation[0], latitude: incidentLocation[1], accuracyMeters: 0 };
+        return (metersBetween(origin, left) ?? Number.MAX_VALUE) - (metersBetween(origin, right) ?? Number.MAX_VALUE);
+      });
+  }, [features, selectedIncident, selectedIsolationEstimate]);
+  const selectedUnavailableValves = useMemo(() => [...selectedValveStatuses.entries()]
+    .filter(([, status]) => status === "inaccessible" || status === "inoperable")
+    .map(([featureId, status]) => ({ feature: features.find((feature) => feature.id === featureId), status }))
+    .filter((item): item is { feature: MapFeature; status: MapIncidentValveStatus } => Boolean(item.feature)), [features, selectedValveStatuses]);
+  const highlightedIsolationFeatureIds = useMemo(() => new Set(
+    selectedIncidentId
+      ? (selectedIncident?.status === "resolved" ? selectedSavedIsolationPlan?.isolated_feature_ids : selectedIsolationEstimate?.isolatedFeatureIds) || []
+      : [],
+  ), [selectedIncident?.status, selectedIncidentId, selectedIsolationEstimate, selectedSavedIsolationPlan]);
   const activeIncidentFeatureIds = useMemo(() => new Set(activeIncidents.map((incident) => incident.feature_id)), [activeIncidents]);
   const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
   const selectedNewLayerPreset = STANDARD_LAYER_PRESETS.find((preset) => preset.key === newLayerDraft.presetKey) || null;
@@ -870,7 +995,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
     setGate((current) => current === "ready" ? "ready" : "loading");
     setGateMessage("Loading map layers and assets…");
-    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult, connectionsResult, pointConnectionsResult] = await Promise.all([
+    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult, connectionsResult, devicesResult, pointConnectionsResult, valveActionsResult, isolationPlansResult] = await Promise.all([
       supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
       supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
       supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, organization_file_id, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
@@ -879,10 +1004,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       supabase.from("map_incidents").select("id, organization_id, incident_number, incident_type, feature_id, reported_geometry, geometry, snap_distance_m, status, severity, title, initial_report, cause, customers_affected_estimate, repair_method, pressure_lost, disinfected, sample_collected, chlorine_residual, sample_result, customer_reference, request_reference, started_at, resolved_at, closed_event_id, created_at, updated_at").eq("organization_id", access.organizationId).order("started_at", { ascending: false }),
       supabase.from("map_incident_updates").select("id, organization_id, incident_id, update_type, status_after, note, details, occurred_at, created_by_user_id, submitted_at").eq("organization_id", access.organizationId).order("occurred_at"),
       supabase.from("map_network_connections").select("id, organization_id, feature_id, endpoint, connected_feature_id, geometry, connected_fraction, snap_distance_m, created_at").eq("organization_id", access.organizationId),
+      supabase.from("map_network_devices").select("id, organization_id, device_feature_id, line_a_feature_id, line_b_feature_id, device_type, geometry, created_at").eq("organization_id", access.organizationId),
       supabase.from("map_point_line_connections").select("id, organization_id, point_feature_id, line_feature_id, connection_type, geometry, line_fraction, distance_m, created_at, updated_at").eq("organization_id", access.organizationId),
+      supabase.from("map_incident_valve_actions").select("id, organization_id, incident_id, valve_feature_id, status, note, occurred_at, created_by_user_id, submitted_at").eq("organization_id", access.organizationId).order("occurred_at"),
+      supabase.from("map_incident_isolation_plans").select("id, organization_id, incident_id, recommended_valve_ids, isolated_feature_ids, affected_meter_ids, customer_references, affected_meter_count, affected_customer_count, topology_complete, warnings, calculated_at, updated_at").eq("organization_id", access.organizationId),
     ]);
-    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || pointConnectionsResult.error) {
-      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || pointConnectionsResult.error;
+    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || devicesResult.error || pointConnectionsResult.error || valveActionsResult.error || isolationPlansResult.error) {
+      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || devicesResult.error || pointConnectionsResult.error || valveActionsResult.error || isolationPlansResult.error;
     }
     const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
@@ -896,7 +1024,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setMapIncidents((incidentsResult.data || []) as MapIncident[]);
     setMapIncidentUpdates((incidentUpdatesResult.data || []) as MapIncidentUpdate[]);
     setNetworkConnections((connectionsResult.data || []) as MapNetworkConnection[]);
+    setNetworkDevices((devicesResult.data || []) as MapNetworkDevice[]);
     setPointLineConnections((pointConnectionsResult.data || []) as MapPointLineConnection[]);
+    setIncidentValveActions((valveActionsResult.data || []) as MapIncidentValveAction[]);
+    setIncidentIsolationPlans((isolationPlansResult.data || []) as MapIncidentIsolationPlan[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
@@ -1030,7 +1161,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       const isMoving = movingFeatureId === feature.id;
       const drawingLayer = shapeDraft?.geometryType === "line" ? layers.find((item) => item.id === shapeDraft.layerId) : null;
       const isConnectable = Boolean(drawingLayer && drawingLayer.system_type !== "other" && drawingLayer.system_type !== "reference" && drawingLayer.system_type === layer?.system_type);
-      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}${isConnectable ? " is-connectable" : ""}`;
+      const isIsolationValve = Boolean(selectedIsolationEstimate?.requiredValveIds.includes(feature.id));
+      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}${isConnectable ? " is-connectable" : ""}${isIsolationValve ? " is-isolation-valve" : ""}`;
       button.style.setProperty("--marker-color", mapSymbolColor(layer?.icon_key || "marker"));
       const label = document.createElement("span");
       label.innerHTML = mapSymbolMarkup(layer?.icon_key || "marker");
@@ -1063,7 +1195,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       }
       featureMarkersRef.current.set(feature.id, marker);
     });
-  }, [connectLineDrawingToAsset, features, layers, movingFeatureId, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [connectLineDrawingToAsset, features, layers, movingFeatureId, selectedFeatureId, selectedIsolationEstimate, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1105,6 +1237,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               opacity: layer?.opacity ?? 0.75,
               selected: feature.id === selectedFeatureId,
               activeIncident: activeIncidentFeatureIds.has(feature.id),
+              isolatedEstimate: highlightedIsolationFeatureIds.has(feature.id),
               flowDirection: feature.flow_direction || "unknown",
             },
             geometry: feature.geometry,
@@ -1141,8 +1274,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           type: "line",
           source: SAVED_SHAPES_SOURCE_ID,
           paint: {
-            "line-color": ["case", ["get", "activeIncident"], "#f05f55", ["get", "color"]],
-            "line-width": ["case", ["get", "selected"], 7, ["get", "activeIncident"], 6, 4],
+            "line-color": ["case", ["get", "activeIncident"], "#f05f55", ["get", "isolatedEstimate"], "#f2a444", ["get", "color"]],
+            "line-width": ["case", ["get", "selected"], 7, ["get", "activeIncident"], 6, ["get", "isolatedEstimate"], 6, 4],
             "line-opacity": ["case", ["get", "selected"], 1, ["get", "opacity"]],
           },
           layout: { "line-cap": "round", "line-join": "round" },
@@ -1186,7 +1319,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
       map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
     };
-  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, highlightedIsolationFeatureIds, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2276,12 +2409,75 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Incident update added");
   };
 
+  const saveIsolationPlan = async (estimate: IncidentIsolationEstimate) => {
+    if (!client || !activeAccess || !selectedIncident || !canEdit) return false;
+    const { error } = await client.rpc("maps_save_incident_isolation_plan", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: selectedIncident.id,
+      input_recommended_valve_ids: estimate.requiredValveIds,
+      input_isolated_feature_ids: estimate.isolatedFeatureIds,
+      input_affected_meter_ids: estimate.affectedMeterIds,
+      input_customer_references: estimate.customerReferences,
+      input_topology_complete: estimate.topologyComplete,
+      input_warnings: estimate.warnings,
+    });
+    if (error) {
+      showToast(error.message || "The isolation plan could not be saved.");
+      return false;
+    }
+    return true;
+  };
+
+  const setIncidentValveStatus = async (valveFeatureId: string, status: MapIncidentValveStatus) => {
+    if (!client || !activeAccess || !selectedIncident || !selectedIsolationEstimate || !canEdit) return;
+    setSaving(true);
+    const occurredAt = new Date().toISOString();
+    const { error } = await client.rpc("maps_set_incident_valve_status", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: selectedIncident.id,
+      input_valve_feature_id: valveFeatureId,
+      input_status: status,
+      input_note: null,
+      input_occurred_at: occurredAt,
+    });
+    if (error) {
+      setSaving(false);
+      showToast(error.message || "The valve status could not be saved.");
+      return;
+    }
+    const nextActions = [...incidentValveActions, {
+      id: `pending-${occurredAt}`,
+      organization_id: activeAccess.organizationId,
+      incident_id: selectedIncident.id,
+      valve_feature_id: valveFeatureId,
+      status,
+      note: null,
+      occurred_at: occurredAt,
+      created_by_user_id: null,
+      submitted_at: occurredAt,
+    } satisfies MapIncidentValveAction];
+    const nextEstimate = calculateIncidentIsolation(
+      selectedIncident, features, layers, networkConnections, networkDevices, pointLineConnections, nextActions,
+    );
+    await saveIsolationPlan(nextEstimate);
+    await loadWorkspace(client, activeAccess);
+    setSelectedIncidentId(selectedIncident.id);
+    setSaving(false);
+    showToast(status === "inaccessible" || status === "inoperable"
+      ? "Plan expanded to the next mapped valve"
+      : `Valve marked ${status.replaceAll("_", " ")}`);
+  };
+
   const closeBreakIncident = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedIncident || !canEdit) return;
     const form = new FormData(event.currentTarget);
     const resolvedAt = String(form.get("resolved_at") || "");
     setSaving(true);
+    if (selectedIsolationEstimate && !(await saveIsolationPlan(selectedIsolationEstimate))) {
+      setSaving(false);
+      return;
+    }
     const { error } = await client.rpc("maps_close_break_incident", {
       input_organization_id: activeAccess.organizationId,
       input_incident_id: selectedIncident.id,
@@ -3199,6 +3395,27 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               </dl>
               {selectedIncident.initial_report && <p className="maps-detail-description">{selectedIncident.initial_report}</p>}
               {selectedIncidentCloseEvent?.summary && <section className="maps-incident-resolution"><span>Final incident record</span><p>{selectedIncidentCloseEvent.summary}</p></section>}
+              {(selectedIsolationEstimate || selectedSavedIsolationPlan) && <section className="maps-isolation-plan">
+                <header><div><span>NETWORK ISOLATION</span><strong>{selectedIncident.status === "resolved" ? "Recorded isolation plan" : "Nearest required valves"}</strong></div><em>{selectedIncident.status === "resolved" ? "Locked" : `${selectedIsolationValves.filter((valve) => selectedValveStatuses.get(valve.id) === "closed").length}/${selectedIsolationValves.length} closed`}</em></header>
+                <div className="maps-isolation-impact">
+                  <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.affected_meter_count ?? 0 : selectedIsolationEstimate?.affectedMeterIds.length ?? 0}</strong><span>meters affected</span></div>
+                  <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.affected_customer_count ?? 0 : selectedIsolationEstimate?.customerReferences.length ?? 0}</strong><span>customer accounts</span></div>
+                  <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.isolated_feature_ids.length ?? 0 : selectedIsolationEstimate?.isolatedFeatureIds.length ?? 0}</strong><span>line segments</span></div>
+                </div>
+                {selectedIncident.status !== "resolved" && <>
+                  <p>The orange pipe section is the predicted isolated area. Valves are ordered nearest to the reported break. Closing every listed boundary valve isolates that area, including looped paths.</p>
+                  {selectedIsolationValves.length ? <div className="maps-isolation-valves">{selectedIsolationValves.map((valve, index) => {
+                    const status = selectedValveStatuses.get(valve.id) || "recommended";
+                    const incidentLocation = geoPointCoordinates(selectedIncident.geometry);
+                    const distance = incidentLocation ? metersBetween({ longitude: incidentLocation[0], latitude: incidentLocation[1], accuracyMeters: 0 }, valve) : null;
+                    return <article key={valve.id} className={`is-${status}`}><i><MapSymbol iconKey="valve" /></i><div><span>STOP {index + 1}{distance !== null ? ` · ${formatDistance(distance)}` : ""}</span><strong>{valve.title}</strong><small>{status.replaceAll("_", " ")}</small></div><div className="maps-isolation-valve-actions"><button type="button" onClick={() => { startDirections(valve); if (canEdit && (status === "recommended" || status === "reopened")) void setIncidentValveStatus(valve.id, "en_route"); }}>Directions</button>{canEdit && status !== "closed" && <button type="button" disabled={saving} onClick={() => void setIncidentValveStatus(valve.id, status === "found" ? "closed" : "found")}>{status === "found" ? "Close valve" : "Found"}</button>}{canEdit && status === "closed" && <button type="button" disabled={saving} onClick={() => void setIncidentValveStatus(valve.id, "reopened")}>Reopened</button>}{canEdit && status !== "closed" && <button type="button" className="is-warning" disabled={saving} onClick={() => void setIncidentValveStatus(valve.id, "inaccessible")}>Can't access</button>}{canEdit && status !== "closed" && <button type="button" className="is-warning" disabled={saving} onClick={() => void setIncidentValveStatus(valve.id, "inoperable")}>Inoperable</button>}</div></article>;
+                  })}</div> : <p className="maps-isolation-empty">No usable valve boundary was found. Add inserted valves and verify line-to-line connections before relying on this estimate.</p>}
+                  {selectedUnavailableValves.length ? <div className="maps-isolation-bypassed"><strong>Bypassed valves</strong>{selectedUnavailableValves.map(({ feature, status }) => <span key={feature.id}>{feature.title} · {status}</span>)}</div> : null}
+                  {selectedIsolationEstimate?.warnings.length ? <ul>{selectedIsolationEstimate.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
+                  {canEdit && <button type="button" className="maps-save-isolation" disabled={saving || !selectedIsolationEstimate} onClick={() => { if (!selectedIsolationEstimate) return; setSaving(true); void saveIsolationPlan(selectedIsolationEstimate).then((saved) => { setSaving(false); if (saved) showToast("Isolation plan saved to the incident"); }); }}>{selectedSavedIsolationPlan ? "Save recalculated plan" : "Save plan to incident"}</button>}
+                </>}
+                {selectedIncident.status === "resolved" && selectedSavedIsolationPlan?.warnings.length ? <ul>{selectedSavedIsolationPlan.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
+              </section>}
               {selectedIncident.status !== "resolved" && <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button></>}</div>}
               <section className="maps-incident-timeline"><header><strong>Incident timeline</strong><span>{selectedIncidentUpdates.length} permanent update{selectedIncidentUpdates.length === 1 ? "" : "s"}</span></header><div>{selectedIncidentUpdates.map((update) => <article key={update.id}><i /><div><span>{update.update_type.replaceAll("_", " ")}{update.status_after ? ` · ${update.status_after}` : ""}</span><strong>{update.note}</strong><small>{formatHistoryDate(update.occurred_at)}</small></div></article>)}</div></section>
             </article>
@@ -3473,7 +3690,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>FINAL INCIDENT RECORD</span><h2 id="close-break-title">Resolve water-main break</h2></div><button type="button" onClick={() => setIncidentCloseDialogOpen(false)} aria-label="Close">×</button></header>
             <form onSubmit={(event) => void closeBreakIncident(event)}>
               <div className="maps-record-lock-note"><strong>Locked after closure</strong><span>Review the complete incident before closing it. Closure creates the immutable asset-history record.</span></div>
-              <div className="maps-dialog-row"><label><span>Resolved</span><input name="resolved_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Final customers affected</span><input name="customers_affected_estimate" type="number" min="0" defaultValue={selectedIncident.customers_affected_estimate ?? ""} /></label></div>
+              <div className="maps-dialog-row"><label><span>Resolved</span><input name="resolved_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Final customers affected</span><input name="customers_affected_estimate" type="number" min="0" defaultValue={selectedIsolationEstimate?.customerReferences.length ?? selectedIncident.customers_affected_estimate ?? ""} /></label></div>
               <label><span>Confirmed cause</span><input name="cause" maxLength={1_000} placeholder="Freeze, material failure, excavation damage…" /></label>
               <label><span>Repair performed</span><input name="repair_method" maxLength={2_000} placeholder="Clamp, replaced section, coupling, valve work…" /></label>
               <div className="maps-event-checks"><label><input name="pressure_lost" type="checkbox" /> Positive pressure was lost</label><label><input name="disinfected" type="checkbox" /> Repair was disinfected</label><label><input name="sample_collected" type="checkbox" /> Verification sample collected</label></div>

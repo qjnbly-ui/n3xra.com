@@ -183,6 +183,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-marker > span { position: relative; z-index: 1; width: 31px; height: 31px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
 .maps-marker.is-selected > span { transform: scale(1.16); }
 .maps-marker.is-connectable > span { transform: scale(1.18); filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--maps-mint)) drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
+.maps-marker.is-isolation-valve::after { inset: -6px; border-color: #f2a444; background: rgba(242,164,68,.16); animation: maps-marker-pulse 1.1s ease-in-out infinite alternate; }
 .maps-incident-marker { position: absolute; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; color: #fff; border: 3px solid rgba(255,255,255,.92); border-radius: 50%; background: #e05249; box-shadow: 0 0 0 5px rgba(224,82,73,.22), 0 6px 18px rgba(0,0,0,.42); cursor: pointer; }
 .maps-water-break-icon { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .maps-incident-marker > .maps-water-break-icon, .maps-incident-marker > svg { width: 25px; height: 25px; }
@@ -269,6 +270,36 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-incident-heading strong { color: #fff; background: #d9534a; }
 .maps-incident-heading em { color: #ffc0bb; border: 1px solid rgba(240,95,85,.3); background: rgba(240,95,85,.08); }
 .maps-incident-heading small { color: var(--maps-muted); font-size: .51rem; font-weight: 750; }
+.maps-isolation-plan { margin-top: .8rem; padding: .8rem; border: 1px solid rgba(242,164,68,.3); border-radius: 11px; background: rgba(242,164,68,.055); }
+.maps-isolation-plan > header { display: flex; align-items: flex-start; justify-content: space-between; gap: .6rem; }
+.maps-isolation-plan > header > div { display: flex; flex-direction: column; gap: .16rem; }
+.maps-isolation-plan > header span { color: #f2a444; font-size: .49rem; font-weight: 900; letter-spacing: .08em; }
+.maps-isolation-plan > header strong { font-size: .72rem; }
+.maps-isolation-plan > header em { padding: .22rem .38rem; color: #ffd39a; border: 1px solid rgba(242,164,68,.25); border-radius: 999px; font-size: .48rem; font-style: normal; font-weight: 850; white-space: nowrap; }
+.maps-isolation-plan > p { margin: .62rem 0 0; color: #b9c8c4; font-size: .57rem; line-height: 1.45; }
+.maps-isolation-impact { display: grid; grid-template-columns: repeat(3, 1fr); gap: .35rem; margin-top: .65rem; }
+.maps-isolation-impact > div { display: flex; min-width: 0; flex-direction: column; padding: .5rem; border-radius: 7px; background: rgba(255,255,255,.04); }
+.maps-isolation-impact strong { color: #fff; font-size: .8rem; }
+.maps-isolation-impact span { margin-top: .08rem; color: #869a94; font-size: .45rem; line-height: 1.25; text-transform: uppercase; }
+.maps-isolation-valves { display: flex; flex-direction: column; gap: .38rem; margin-top: .65rem; }
+.maps-isolation-valves > article { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: .5rem; padding: .52rem; border: 1px solid rgba(255,255,255,.08); border-radius: 8px; background: #0b141e; }
+.maps-isolation-valves > article > i { width: 29px; height: 29px; color: #f2a444; }
+.maps-isolation-valves > article > div:nth-child(2) { display: flex; min-width: 0; flex-direction: column; }
+.maps-isolation-valves > article span { color: #f2a444; font-size: .45rem; font-weight: 850; }
+.maps-isolation-valves > article strong { margin-top: .08rem; overflow: hidden; font-size: .62rem; text-overflow: ellipsis; white-space: nowrap; }
+.maps-isolation-valves > article small { margin-top: .08rem; color: #899b96; font-size: .49rem; text-transform: capitalize; }
+.maps-isolation-valves > article.is-closed { border-color: rgba(105,210,196,.28); background: rgba(105,210,196,.06); }
+.maps-isolation-valves > article.is-closed > i, .maps-isolation-valves > article.is-closed span { color: var(--maps-mint); }
+.maps-isolation-valve-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: .3rem; }
+.maps-isolation-valve-actions button, .maps-save-isolation { min-height: 30px; padding: .36rem .5rem; color: var(--maps-mint); border: 1px solid rgba(105,210,196,.27); border-radius: 6px; background: rgba(105,210,196,.06); font: inherit; font-size: .5rem; font-weight: 850; cursor: pointer; }
+.maps-isolation-valve-actions button.is-warning { color: #ffc27d; border-color: rgba(242,164,68,.3); background: rgba(242,164,68,.06); }
+.maps-isolation-plan > ul { margin: .6rem 0 0; padding-left: 1rem; color: #d8aa72; font-size: .52rem; line-height: 1.45; }
+.maps-isolation-bypassed { display: flex; flex-direction: column; gap: .15rem; margin-top: .55rem; padding: .5rem; border-left: 2px solid #f2a444; background: rgba(242,164,68,.045); }
+.maps-isolation-bypassed strong { color: #f2a444; font-size: .5rem; text-transform: uppercase; }
+.maps-isolation-bypassed span { color: #b8c5c1; font-size: .5rem; text-transform: capitalize; }
+.maps-isolation-empty { color: #ffc27d !important; }
+.maps-save-isolation { width: 100%; margin-top: .65rem; color: #07120f; border-color: transparent; background: var(--maps-mint); }
+.maps-isolation-valve-actions button:disabled, .maps-save-isolation:disabled { opacity: .48; cursor: wait; }
 .maps-incident-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: .7rem; }
 .maps-incident-actions button { padding: .58rem; color: var(--maps-ink); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.04); font-size: .59rem; font-weight: 900; cursor: pointer; }
 .maps-incident-actions button.is-resolve { color: #07120f; border-color: transparent; background: var(--maps-mint); }
@@ -519,6 +550,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   .maps-library-button { padding: 0 .65rem; }
   .maps-style-switcher button { min-width: 57px; }
   .maps-detail-card dl { grid-template-columns: 1fr 1fr; }
+  .maps-isolation-impact { grid-template-columns: 1fr 1fr 1fr; }
   .maps-dialog-row { grid-template-columns: 1fr; }
   .maps-asset-tabs button { font-size: .52rem; }
   .maps-form-grid { grid-template-columns: 1fr 1fr; }
