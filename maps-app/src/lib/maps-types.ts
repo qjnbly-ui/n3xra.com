@@ -86,6 +86,19 @@ export interface MapNetworkConnection {
   created_at: string;
 }
 
+export interface MapPointLineConnection {
+  id: string;
+  organization_id: string;
+  point_feature_id: string;
+  line_feature_id: string;
+  connection_type: "service_endpoint" | "service_to_main" | "hydrant_lateral" | "access_structure" | "drainage_inlet" | "network_device" | "asset_connection";
+  geometry: GeoJsonGeometry;
+  line_fraction: number;
+  distance_m: number;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface GeoJsonGeometry {
   type: "Point" | "LineString" | "Polygon" | "MultiPoint" | "MultiLineString" | "MultiPolygon";
   coordinates: unknown;

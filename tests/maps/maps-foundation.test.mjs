@@ -720,3 +720,32 @@ test("Water lines store flow direction and can atomically insert connected valve
   assert.match(migration, /layer\.icon_key = 'valve' or layer\.standard_key = 'water-valve'/);
   assert.doesNotMatch(migration, /grant (insert|update|delete)[^;]*map_network_devices[^;]*authenticated/);
 });
+
+test("Point utility assets can be securely connected to compatible lines", async () => {
+  const [workspace, types, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260904163325_maps_point_asset_line_connections.sql"),
+  ]);
+
+  assert.match(types, /export interface MapPointLineConnection/);
+  assert.match(workspace, /nearestCompatiblePointConnection/);
+  assert.match(workspace, /Connect to \{pendingPointConnectionCandidate\.featureTitle\}/);
+  assert.match(workspace, /maps_connect_point_to_line/);
+  assert.match(workspace, /maps_disconnect_point_from_line/);
+  assert.match(workspace, /This saves the utility relationship, not just the visual position/);
+  assert.match(workspace, /pointLineConnections\.find/);
+  assert.match(styles, /\.maps-connect-suggestion/);
+  assert.match(styles, /grid-template-rows: minmax\(0,\s*1fr\)/);
+
+  assert.match(migration, /create table public\.map_point_line_connections/);
+  assert.match(migration, /constraint map_point_line_connections_point_unique unique/);
+  assert.match(migration, /point_layer\.system_type <> line_layer\.system_type/);
+  assert.match(migration, /extensions\.st_closestpoint/);
+  assert.match(migration, /'service_endpoint'/);
+  assert.match(migration, /'hydrant_lateral'/);
+  assert.match(migration, /alter table public\.map_point_line_connections enable row level security/);
+  assert.match(migration, /grant select on public\.map_point_line_connections to authenticated/);
+  assert.doesNotMatch(migration, /grant (insert|update|delete|all) on public\.map_point_line_connections to authenticated/i);
+});

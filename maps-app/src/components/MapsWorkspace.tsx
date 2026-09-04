@@ -16,6 +16,7 @@ import type {
   MapLayer,
   MapLayerField,
   MapNetworkConnection,
+  MapPointLineConnection,
   MapSystemType,
   MapTask,
   MapWorkspaceSnapshot,
@@ -162,6 +163,13 @@ interface LineSnapTarget {
   coordinate: [number, number];
   featureId: string;
   title: string;
+  distanceMeters: number;
+}
+
+interface PointConnectionCandidate {
+  featureId: string;
+  featureTitle: string;
+  layerName: string;
   distanceMeters: number;
 }
 
@@ -395,6 +403,42 @@ function nearestPointOnFeatureLine(
   return nearest;
 }
 
+function nearestCompatiblePointConnection(
+  map: MapboxMap | null,
+  coordinate: [number, number] | null,
+  pointLayer: MapLayer | null | undefined,
+  features: MapFeature[],
+  layers: MapLayer[],
+): PointConnectionCandidate | null {
+  if (!map || !coordinate || !pointLayer || pointLayer.geometry_type !== "point" || !["potable_water", "sanitary_sewer", "stormwater", "reclaimed_water"].includes(pointLayer.system_type)) return null;
+  const candidates = features.flatMap((feature) => {
+    if (feature.geometry_type !== "line") return [];
+    const lineLayer = layers.find((layer) => layer.id === feature.layer_id);
+    if (!lineLayer || lineLayer.system_type !== pointLayer.system_type) return [];
+    const nearest = nearestPointOnFeatureLine(map, coordinate, feature);
+    if (!nearest) return [];
+    const distanceMeters = coordinateDistanceMeters(coordinate, nearest.coordinate);
+    if (distanceMeters > 15) return [];
+    const preferred = pointLayer.standard_key === "water-meter" && lineLayer.standard_key === "water-service"
+      || pointLayer.standard_key === "fire-hydrant" && lineLayer.standard_key === "water-service"
+      || ["sewer-manhole", "cleanout"].includes(pointLayer.standard_key || "") && lineLayer.standard_key === "sewer-main";
+    return [{
+      featureId: feature.id,
+      featureTitle: feature.title,
+      layerName: lineLayer.name,
+      distanceMeters,
+      score: distanceMeters + (preferred ? -0.5 : 0),
+    }];
+  }).sort((left, right) => left.score - right.score);
+  const candidate = candidates[0];
+  return candidate ? {
+    featureId: candidate.featureId,
+    featureTitle: candidate.featureTitle,
+    layerName: candidate.layerName,
+    distanceMeters: candidate.distanceMeters,
+  } : null;
+}
+
 function LayerSwatch({ layer }: { layer: Pick<MapLayer, "geometry_type" | "icon_key" | "color"> | null | undefined }) {
   if (!layer) return <i className="maps-layer-swatch is-point" style={{ color: mapSymbolColor("marker") }}><MapSymbol iconKey="marker" /></i>;
   if (layer.geometry_type === "point") return <i className="maps-layer-swatch is-point" style={{ color: mapSymbolColor(layer.icon_key) }}><MapSymbol iconKey={layer.icon_key} /></i>;
@@ -516,6 +560,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const lastRerouteAtRef = useRef(0);
   const spokenStepIndexRef = useRef<number | null>(null);
   const fittedOrganizationRef = useRef<string | null>(null);
+  const currentBasemapRef = useRef<BasemapStyle>("standard");
   const [client, setClient] = useState<SupabaseClient | null>(null);
   const [dashboardDestination, setDashboardDestination] = useState({ href: "/account/", label: "Dashboard" });
   const [gate, setGate] = useState<GateState>("loading");
@@ -531,6 +576,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [mapIncidents, setMapIncidents] = useState<MapIncident[]>([]);
   const [mapIncidentUpdates, setMapIncidentUpdates] = useState<MapIncidentUpdate[]>([]);
   const [networkConnections, setNetworkConnections] = useState<MapNetworkConnection[]>([]);
+  const [pointLineConnections, setPointLineConnections] = useState<MapPointLineConnection[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -577,6 +623,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [mapReady, setMapReady] = useState(false);
   const [placementMode, setPlacementMode] = useState(false);
   const [pendingPoint, setPendingPoint] = useState<PointCoordinates | null>(null);
+  const [connectNewPoint, setConnectNewPoint] = useState(false);
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
   const [pendingShape, setPendingShape] = useState<ShapeDraft | null>(null);
   const [shapeHoverCoordinate, setShapeHoverCoordinate] = useState<[number, number] | null>(null);
@@ -633,6 +680,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     .sort((left, right) => (left.status === "completed" ? 1 : 0) - (right.status === "completed" ? 1 : 0)
       || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
   const selectedNetworkConnections = networkConnections.filter((connection) => connection.feature_id === selectedFeatureId || connection.connected_feature_id === selectedFeatureId);
+  const selectedPointLineConnection = pointLineConnections.find((connection) => connection.point_feature_id === selectedFeatureId) || null;
+  const selectedConnectedLine = features.find((feature) => feature.id === selectedPointLineConnection?.line_feature_id) || null;
+  const selectedConnectedLineLayer = layers.find((layer) => layer.id === selectedConnectedLine?.layer_id) || null;
   const activeIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status !== "resolved")
     .sort((left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime()), [mapIncidents]);
   const historicalIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status === "resolved")
@@ -650,6 +700,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const activeIncidentFeatureIds = useMemo(() => new Set(activeIncidents.map((incident) => incident.feature_id)), [activeIncidents]);
   const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
   const selectedNewLayerPreset = STANDARD_LAYER_PRESETS.find((preset) => preset.key === newLayerDraft.presetKey) || null;
+  const pendingPointConnectionCandidate = useMemo(() => nearestCompatiblePointConnection(
+    mapRef.current,
+    pendingPoint ? [pendingPoint.longitude, pendingPoint.latitude] : null,
+    layers.find((layer) => layer.id === selectedLayerId),
+    features,
+    layers,
+  ), [features, layers, pendingPoint, selectedLayerId]);
+  const selectedPointConnectionCandidate = useMemo(() => nearestCompatiblePointConnection(
+    mapRef.current,
+    selectedFeature ? pointCoordinates(selectedFeature) : null,
+    selectedLayer,
+    features.filter((feature) => feature.id !== selectedFeatureId),
+    layers,
+  ), [features, layers, selectedFeature, selectedFeatureId, selectedLayer]);
+
+  useEffect(() => {
+    if (!featureDialogOpen) return;
+    setConnectNewPoint(Boolean(pendingPointConnectionCandidate));
+  }, [featureDialogOpen, pendingPointConnectionCandidate]);
 
   const openIncident = useCallback((incident: MapIncident) => {
     setSelectedFeatureId(incident.feature_id);
@@ -759,9 +828,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   }, []);
 
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
-    setGate("loading");
+    setGate((current) => current === "ready" ? "ready" : "loading");
     setGateMessage("Loading map layers and assets…");
-    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult, connectionsResult] = await Promise.all([
+    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult, connectionsResult, pointConnectionsResult] = await Promise.all([
       supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
       supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
       supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, organization_file_id, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
@@ -770,9 +839,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       supabase.from("map_incidents").select("id, organization_id, incident_number, incident_type, feature_id, reported_geometry, geometry, snap_distance_m, status, severity, title, initial_report, cause, customers_affected_estimate, repair_method, pressure_lost, disinfected, sample_collected, chlorine_residual, sample_result, customer_reference, request_reference, started_at, resolved_at, closed_event_id, created_at, updated_at").eq("organization_id", access.organizationId).order("started_at", { ascending: false }),
       supabase.from("map_incident_updates").select("id, organization_id, incident_id, update_type, status_after, note, details, occurred_at, created_by_user_id, submitted_at").eq("organization_id", access.organizationId).order("occurred_at"),
       supabase.from("map_network_connections").select("id, organization_id, feature_id, endpoint, connected_feature_id, geometry, connected_fraction, snap_distance_m, created_at").eq("organization_id", access.organizationId),
+      supabase.from("map_point_line_connections").select("id, organization_id, point_feature_id, line_feature_id, connection_type, geometry, line_fraction, distance_m, created_at, updated_at").eq("organization_id", access.organizationId),
     ]);
-    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error) {
-      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error;
+    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || pointConnectionsResult.error) {
+      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error || pointConnectionsResult.error;
     }
     const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
@@ -786,6 +856,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setMapIncidents((incidentsResult.data || []) as MapIncident[]);
     setMapIncidentUpdates((incidentUpdatesResult.data || []) as MapIncidentUpdate[]);
     setNetworkConnections((connectionsResult.data || []) as MapNetworkConnection[]);
+    setPointLineConnections((pointConnectionsResult.data || []) as MapPointLineConnection[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
@@ -885,8 +956,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   useEffect(() => {
     const map = mapRef.current;
-    if (!map) return;
-    map.setStyle(basemap === "satellite" ? SATELLITE_STYLE : STANDARD_STYLE);
+    if (!map || currentBasemapRef.current === basemap) return;
+    currentBasemapRef.current = basemap;
+    map.setStyle(
+      basemap === "satellite" ? SATELLITE_STYLE : STANDARD_STYLE,
+      { diff: false } as Parameters<MapboxMap["setStyle"]>[1],
+    );
   }, [basemap]);
 
   useEffect(() => {
@@ -1896,15 +1971,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       customer_reference: String(form.get("customer_reference") || "").trim() || null,
       properties: readCustomProperties(form, fields),
     }).eq("id", featureId).eq("organization_id", activeAccess.organizationId).select("id").single();
+    const connectionResult = connectNewPoint && pendingPointConnectionCandidate
+      ? await client.rpc("maps_connect_point_to_line", {
+        input_organization_id: activeAccess.organizationId,
+        input_point_feature_id: featureId,
+        input_line_feature_id: pendingPointConnectionCandidate.featureId,
+      })
+      : { error: null };
     setSaving(false);
     if (detailResult.error) {
       showToast(`Location saved, but its asset details need attention: ${detailResult.error.message}`);
+    } else if (connectionResult.error) {
+      showToast(`Location saved, but its line connection needs attention: ${connectionResult.error.message}`);
     }
     setFeatureDialogOpen(false);
     setPendingPoint(null);
+    setConnectNewPoint(false);
     await loadWorkspace(client, activeAccess);
     setSelectedFeatureId(featureId);
-    showToast("Location saved");
+    if (!detailResult.error && !connectionResult.error) showToast(connectNewPoint && pendingPointConnectionCandidate ? "Location saved and connected" : "Location saved");
   };
 
   const saveShape = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -1972,6 +2057,41 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     await loadWorkspace(client, activeAccess);
     setSelectedFeatureId(selectedFeature.id);
     showToast(flowDirection === "unknown" ? "Flow direction cleared" : "Flow direction saved");
+  };
+
+  const connectPointToLine = async (pointFeatureId: string, lineFeatureId: string) => {
+    if (!client || !activeAccess || !canEdit) return;
+    setSaving(true);
+    const { error } = await client.rpc("maps_connect_point_to_line", {
+      input_organization_id: activeAccess.organizationId,
+      input_point_feature_id: pointFeatureId,
+      input_line_feature_id: lineFeatureId,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message);
+      return;
+    }
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(pointFeatureId);
+    showToast("Asset connected to the utility line");
+  };
+
+  const disconnectPointFromLine = async (pointFeatureId: string) => {
+    if (!client || !activeAccess || !canEdit) return;
+    setSaving(true);
+    const { error } = await client.rpc("maps_disconnect_point_from_line", {
+      input_organization_id: activeAccess.organizationId,
+      input_point_feature_id: pointFeatureId,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message);
+      return;
+    }
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(pointFeatureId);
+    showToast("Line connection removed");
   };
 
   const beginValvePlacement = () => {
@@ -2608,6 +2728,20 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       input_accuracy_m: proposedMove.accuracyMeters,
       input_placement_method: proposedMove.placementMethod,
     });
+    const existingConnection = pointLineConnections.find((connection) => connection.point_feature_id === movingFeatureId);
+    const connectionRefresh = !error && data && existingConnection
+      ? await client.rpc("maps_connect_point_to_line", {
+        input_organization_id: activeAccess.organizationId,
+        input_point_feature_id: movingFeatureId,
+        input_line_feature_id: existingConnection.line_feature_id,
+      })
+      : { error: null };
+    if (connectionRefresh.error && existingConnection) {
+      await client.rpc("maps_disconnect_point_from_line", {
+        input_organization_id: activeAccess.organizationId,
+        input_point_feature_id: movingFeatureId,
+      });
+    }
     setSaving(false);
     if (error || !data) {
       showToast(error?.message || "That point could not be moved.");
@@ -2618,7 +2752,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setProposedMove(null);
     await loadWorkspace(client, activeAccess);
     setSelectedFeatureId(movedFeatureId);
-    showToast("Point location updated");
+    showToast(connectionRefresh.error ? "Point moved; its old line connection was removed" : "Point location updated");
   };
 
   const toggleLayer = (layerId: string) => {
@@ -2940,6 +3074,15 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 </dl>
                 <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
                 {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small>{canEdit && <label className="maps-flow-control"><span>Flow direction</span><select value={selectedFeature.flow_direction || "unknown"} disabled={saving} onChange={(event) => void updateFlowDirection(event.target.value as MapFeature["flow_direction"])}><option value="unknown">Not set</option><option value="start_to_end">First point → last point</option><option value="end_to_start">Last point → first point</option></select><small>Directional arrows appear on the line and are retained when a valve splits it.</small></label>}</div>}
+                {selectedFeature.geometry_type === "point" && Array.isArray(selectedFeature.properties?.connectedLineIds) && <div className="maps-network-status is-connected"><span>NETWORK</span><strong>Connected network device</strong><small>This asset is inserted directly into {selectedFeature.properties.connectedLineIds.length} utility line segment{selectedFeature.properties.connectedLineIds.length === 1 ? "" : "s"}.</small></div>}
+                {selectedFeature.geometry_type === "point" && !Array.isArray(selectedFeature.properties?.connectedLineIds) && (selectedPointLineConnection || selectedPointConnectionCandidate) && <div className={`maps-network-status${selectedPointLineConnection ? " is-connected" : ""}`}>
+                  <span>UTILITY CONNECTION</span>
+                  <strong>{selectedPointLineConnection ? `Connected to ${selectedConnectedLine?.title || "utility line"}` : `Connect to ${selectedPointConnectionCandidate?.featureTitle}?`}</strong>
+                  <small>{selectedPointLineConnection ? `${selectedConnectedLineLayer?.name || "Utility line"} · ${Math.max(0, Math.round(Number(selectedPointLineConnection.distance_m) * 3.28084))} ft from the mapped point` : `${selectedPointConnectionCandidate?.layerName} · ${Math.max(0, Math.round((selectedPointConnectionCandidate?.distanceMeters || 0) * 3.28084))} ft away. This records the actual network relationship.`}</small>
+                  {canEdit && (selectedPointLineConnection
+                    ? <button type="button" disabled={saving} onClick={() => void disconnectPointFromLine(selectedFeature.id)}>Disconnect</button>
+                    : selectedPointConnectionCandidate && <button type="button" disabled={saving} onClick={() => void connectPointToLine(selectedFeature.id, selectedPointConnectionCandidate.featureId)}>Connect to this line</button>)}
+                </div>}
                 {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
                   <span>FIELD LOCATION</span>
                   <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
@@ -3161,6 +3304,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>NEW LOCATION</span><h2 id="new-feature-title">Place a mapped item</h2></div><button type="button" onClick={() => setFeatureDialogOpen(false)} aria-label="Close">×</button></header>
             <form onSubmit={(event) => void savePoint(event)}>
               <label><span>Layer</span><select value={selectedLayerId} onChange={(event) => setSelectedLayerId(event.target.value)}>{layers.filter((layer) => layer.geometry_type === "point" && layer.is_editable).map((layer) => <option value={layer.id} key={layer.id}>{layer.name}</option>)}</select></label>
+              {pendingPointConnectionCandidate && <label className="maps-connect-suggestion">
+                <input type="checkbox" checked={connectNewPoint} onChange={(event) => setConnectNewPoint(event.target.checked)} />
+                <span><strong>Connect to {pendingPointConnectionCandidate.featureTitle}?</strong><small>{pendingPointConnectionCandidate.layerName} · {Math.max(0, Math.round(pendingPointConnectionCandidate.distanceMeters * 3.28084))} ft from this point. This saves the utility relationship, not just the visual position.</small></span>
+              </label>}
               <label><span>Title</span><input name="title" required maxLength={140} placeholder="Name this location" /></label>
               <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>
               <label><span>Address or location description</span><input name="address" maxLength={500} placeholder="Optional" /></label>

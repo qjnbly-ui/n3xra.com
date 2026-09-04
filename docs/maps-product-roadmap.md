@@ -41,9 +41,10 @@ The incident location is stored separately from its parent line. The operator ch
 
 ## Connected utility-network topology (in progress)
 
-The first network foundation is now built. Compatible utility lines snap together at their endpoints, store explicit connection records, and can display a saved first-point-to-last-point or reverse flow direction. On a potable-water main, **Insert valve** places a standard valve at the chosen location, atomically splits the main into two valid segments, preserves the original segment's records, and stores the valve-to-segment relationship for later tracing.
+The first network foundation is now built. Compatible utility lines snap together at their endpoints, store explicit connection records, and can display a saved first-point-to-last-point or reverse flow direction. Point assets can store an explicit relationship to the compatible utility line they serve: meters prefer water-service lines, hydrants prefer their potable-water branch/service line, and other utility assets remain limited to their own infrastructure system. On a potable-water main, **Insert valve** places a standard valve at the chosen location, atomically splits the main into two valid segments, preserves the original segment's records, and stores the valve-to-segment relationship for later tracing.
 
 - A new line can snap to an existing endpoint. **Built.**
+- Placing or selecting a meter, hydrant, manhole, inlet, or other utility point can connect or disconnect it from a nearby compatible line. **Built.**
 - Connecting into the middle of a line creates a junction and splits the original line into connected segments.
 - Adding a valve on a pipe splits the pipe into two segments connected through a stored valve device relationship. **Built for potable-water lines.**
 - A 6-inch segment can connect to or continue from a 15-inch segment while each segment retains its own diameter, material, installation date, condition, and history.
