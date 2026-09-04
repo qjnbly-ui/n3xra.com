@@ -8,41 +8,44 @@ import siteNavigation from "../../../assets/site-nav.js?raw";
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>N3XRA Maps | Know Exactly Where Everything Is</title>
-    <meta name="description" content="Map meters, valves, hydrants, infrastructure, boundaries, and field locations in one secure N3XRA workspace." />
+    <title>N3XRA Maps | Utility Mapping and Operations</title>
+    <meta name="description" content="Map utility assets, manage field work, document incidents, and connect customer accounts, billing, meter data, and communications through N3XRA." />
     <meta name="robots" content="index,follow" />
     <link rel="canonical" href="https://n3xra.com/maps/" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="N3XRA" />
-    <meta property="og:title" content="N3XRA Maps | Know Exactly Where Everything Is" />
-    <meta property="og:description" content="A simple, field-ready way to map the assets and infrastructure your organization depends on." />
+    <meta property="og:title" content="N3XRA Maps | Your Utility System, Connected" />
+    <meta property="og:description" content="Field-ready utility mapping connected to assets, incidents, customer operations, and the rest of your N3XRA system." />
     <meta property="og:url" content="https://n3xra.com/maps/" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="theme-color" content="#132b24" />
+    <meta property="og:image" content="https://n3xra.com/assets/maps/maps-workspace-live.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image" content="https://n3xra.com/assets/maps/maps-workspace-live.jpg" />
+    <meta name="theme-color" content="#0b1219" />
     <link rel="icon" href="/assets/n3xra_logo_transparent_small.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/assets/site-nav.css?v=4" />
     <link rel="stylesheet" href="/assets/project-cards.css?v=4" />
     <link rel="stylesheet" href="/assets/home-shell.css?v=1" />
     <script is:inline set:html={siteNavigation}></script>
     <script src="/assets/project-cards.js?v=1" defer></script>
   </head>
-  <body data-assistant-product="Maps">
+  <body class="maps-landing" data-assistant-product="Maps">
     <a class="skip-link" href="#main-content">Skip to content</a>
-    <svg class="maps-icon-definitions" aria-hidden="true">
-      <defs>
-        <symbol id="maps-icon-meter" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"></circle><path d="m12 12 4-4M7.5 16h9"></path></symbol>
-        <symbol id="maps-icon-valve" viewBox="0 0 24 24"><path d="m4 8 8 4-8 4V8Zm16 0-8 4 8 4V8ZM12 4v16"></path></symbol>
-        <symbol id="maps-icon-boundary" viewBox="0 0 24 24"><path d="m4 6 6-3 5 3 5-2v14l-5 2-5-3-6 3V6Z"></path><path d="M10 3v14M15 6v14"></path></symbol>
-        <symbol id="maps-icon-pipe" viewBox="0 0 24 24"><path d="M4 7h16v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V7ZM8 4v3M16 4v3"></path></symbol>
-        <symbol id="maps-icon-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 12 9 5 9-5M3 16l9 5 9-5"></path></symbol>
-        <symbol id="maps-icon-add-pin" viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"></path><path d="M12 7v6M9 10h6"></path></symbol>
-        <symbol id="maps-icon-locate" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="3"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></symbol>
-      </defs>
-    </svg>
-    <header class="site-topbar home-topbar cards-topbar" data-cards-header>
+    <svg class="maps-icon-definitions" aria-hidden="true"><defs>
+      <symbol id="maps-icon-meter" viewBox="0 0 24 24"><path d="M5 5h14v14H5zM8 15h8M9 11a3 3 0 0 1 6 0M12 11l2-2"></path></symbol>
+      <symbol id="maps-icon-valve" viewBox="0 0 24 24"><path d="m4 8 8 4-8 4V8Zm16 0-8 4 8 4V8ZM12 4v16"></path></symbol>
+      <symbol id="maps-icon-boundary" viewBox="0 0 24 24"><path d="m4 6 6-3 5 3 5-2v14l-5 2-5-3-6 3V6Z"></path><path d="M10 3v14M15 6v14"></path></symbol>
+      <symbol id="maps-icon-pipe" viewBox="0 0 24 24"><path d="M4 7h16v5a5 5 0 0 1-5 5H9a5 5 0 0 1-5-5V7ZM8 4v3M16 4v3"></path></symbol>
+      <symbol id="maps-icon-layers" viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5 9-5Z"></path><path d="m3 12 9 5 9-5M3 16l9 5 9-5"></path></symbol>
+      <symbol id="maps-icon-locate" viewBox="0 0 24 24"><path d="M7 7h10v10H7zM12 2v6M12 16v6M2 12h6M16 12h6"></path></symbol>
+      <symbol id="maps-icon-history" viewBox="0 0 24 24"><path d="M4 12a8 8 0 1 0 2.3-5.7L4 8.5"></path><path d="M4 4v4.5h4.5M12 7v5l3 2"></path></symbol>
+      <symbol id="maps-icon-break" viewBox="0 0 24 24"><path d="M3 8h5l2.2 2.2M21 8h-5l-2.2 2.2M8 5v6M16 5v6M10.3 15.2l1.7-2.5 1.7 2.5a2 2 0 1 1-3.4 0Z"></path></symbol>
+      <symbol id="maps-icon-route" viewBox="0 0 24 24"><path d="M4 16h4v4H4zM16 4h4v4h-4zM8 18h3a3 3 0 0 0 3-3V9a3 3 0 0 1 3-3"></path></symbol>
+    </defs></svg>
+
+    <header class="site-topbar home-topbar cards-topbar maps-topbar" data-cards-header>
       <div class="site-topbar-inner"><div class="site-topbar-row">
         <a class="site-brand home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt="" /><span>N3XRA</span></a>
         <nav class="desktop-nav" aria-label="Primary"><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/#software">Software</a></nav>
@@ -51,32 +54,59 @@ import siteNavigation from "../../../assets/site-nav.js?raw";
     </header>
 
     <main id="main-content">
-      <section class="cards-hero"><div class="cards-shell cards-hero-grid">
-        <div class="cards-hero-copy" data-reveal><p class="cards-kicker">N3XRA Maps</p><h1>Every asset.<br /><em>Right where it belongs.</em></h1><p class="cards-lede">Map meters, valves, hydrants, infrastructure, service areas, and anything else your organization needs to find—on the map and in the field.</p><div class="cards-actions"><a class="cards-button is-primary" href="/account/?product=maps#available-apps-section">Request early access</a><a class="cards-button is-secondary" href="#how-it-works">See how it works</a></div><p class="cards-availability"><i></i> N3XRA Maps is entering early access</p></div>
-        <div class="cards-hero-demo maps-hero-demo" data-reveal aria-label="N3XRA Maps example"><article class="maps-preview-window"><header><div><small>N3XRA MAPS</small><strong>Water District</strong></div><b><i></i> FIELD READY</b></header><div class="maps-preview-body"><aside><p>MAP LIBRARY</p><div><span><svg class="maps-icon"><use href="#maps-icon-meter"></use></svg></span><b>Meters</b><small>1,284</small></div><div><span><svg class="maps-icon"><use href="#maps-icon-valve"></use></svg></span><b>Valves</b><small>186</small></div><div><span><svg class="maps-icon"><use href="#maps-icon-boundary"></use></svg></span><b>Boundaries</b><small>ON</small></div></aside><div class="maps-demo-map"><i class="maps-road one"></i><i class="maps-road two"></i><i class="maps-road three"></i><button class="maps-pin meter pin-one" type="button" aria-label="Meter location"><svg class="maps-icon"><use href="#maps-icon-meter"></use></svg></button><button class="maps-pin valve pin-two" type="button" aria-label="Valve location"><svg class="maps-icon"><use href="#maps-icon-valve"></use></svg></button><button class="maps-pin meter pin-three" type="button" aria-label="Meter location"><svg class="maps-icon"><use href="#maps-icon-meter"></use></svg></button><span class="maps-you"><i></i>YOU</span><div class="maps-map-toggle"><b>Map</b><span>Satellite</span></div><section class="maps-asset-card"><small>METER</small><strong>Service Meter 0472</strong><span>Account reference · 0472</span><footer><b>8 ft away</b><em>GPS accuracy ±6 ft</em></footer></section></div></div></article></div>
+      <section class="maps-product-hero">
+        <div class="maps-product-shell maps-product-hero-copy" data-reveal>
+          <p class="maps-eyebrow">N3XRA Maps</p>
+          <h1>Know the system.<br /><em>Find the asset.</em><br />Run the response.</h1>
+          <p class="maps-hero-lede">A field-ready utility map that keeps infrastructure, locations, files, tasks, incidents, and permanent operating history connected to the organization responsible for them.</p>
+          <div class="maps-product-actions"><a class="maps-product-button is-primary" href="/account/?product=maps#available-apps-section">Get N3XRA Maps</a><a class="maps-product-button is-secondary" href="/maps/app/">Open Maps</a></div>
+          <p class="maps-product-availability">Available through guided N3XRA onboarding</p>
+        </div>
+        <div class="maps-product-shell maps-live-frame" data-reveal>
+          <div class="maps-live-frame-bar"><strong>Live N3XRA Maps workspace</strong><em>Organization-secured</em></div>
+          <img src="/assets/maps/maps-workspace-live.jpg" width="1728" height="996" alt="Live N3XRA Maps workspace showing utility layers, a water main, meter, and hydrant on the map" />
+        </div>
+      </section>
+
+      <section class="maps-capability-line" aria-label="Core Maps capabilities"><div class="maps-product-shell"><p><strong>Field locating, utility layers, incident response, and permanent history</strong> work together in one organization-secured workspace.</p></div></section>
+
+      <section class="maps-statement"><div class="maps-product-shell maps-statement-layout" data-reveal>
+        <p>BUILT FOR REAL FIELD CONDITIONS</p>
+        <h2>Snow can hide the meter.<br /><span>The map still knows where it is.</span></h2>
+        <div><p>Search the master asset list, open the location, and walk directly toward it while Maps reports the remaining distance and the accuracy supplied by the device.</p><p>Crews work from the same secure map on a phone, tablet, or computer - without relying on paper, landmarks, or institutional memory.</p></div>
       </div></section>
 
-      <section class="cards-principle" aria-labelledby="principle-title"><div class="cards-shell cards-principle-grid" data-reveal><p>BUILT FOR THE MOMENT YOU NEED IT</p><h2 id="principle-title">Snow can hide the meter.<br /><span>The map still knows where it is.</span></h2><div><p>Open the asset, start field locating, and walk toward its recorded position. N3XRA Maps shows the remaining distance and the accuracy your device is reporting.</p><p>No paper map. No guessing at landmarks. No relying on the one person who remembers where it was installed.</p></div></div></section>
+      <section class="maps-operations" aria-labelledby="operations-title"><div class="maps-product-shell">
+        <header class="maps-product-heading" data-reveal><p class="maps-eyebrow">One operational workspace</p><h2 id="operations-title">The map is only the beginning.</h2><span>Every mapped item becomes a useful operational record your team can find, understand, and continue building over time.</span></header>
+        <div class="maps-operation-list">
+          <article data-reveal><b>01</b><i><svg class="maps-icon"><use href="#maps-icon-meter"></use></svg></i><div><h3>Build the asset system</h3><p>Create standards-based layers for meters, valves, hydrants, mains, sewer infrastructure, stormwater, boundaries, parcels, and reference information. Add custom fields for diameter, material, installation date, condition, and the details your organization uses.</p></div></article>
+          <article data-reveal><b>02</b><i><svg class="maps-icon"><use href="#maps-icon-route"></use></svg></i><div><h3>Work in the field</h3><p>Place and reposition assets, draw and edit infrastructure, switch to satellite view, search the entire map, locate nearby equipment, and begin driving directions without leaving the product.</p></div></article>
+          <article data-reveal><b>03</b><i><svg class="maps-icon"><use href="#maps-icon-break"></use></svg></i><div><h3>Run the incident</h3><p>Pin the exact location of a water-main break, link it to the affected line, highlight active work, add timestamped field updates, document repair and testing, then close the incident into permanent history.</p></div></article>
+          <article data-reveal><b>04</b><i><svg class="maps-icon"><use href="#maps-icon-history"></use></svg></i><div><h3>Preserve what happened</h3><p>Keep inspections, completed tasks, photos, files, past breaks, repair notes, and amendments tied to the original asset. Historical breaks remain available from the line history and can return the team to the exact saved location.</p></div></article>
+        </div>
+      </div></section>
 
-      <section class="cards-steps" id="how-it-works" aria-labelledby="steps-title"><div class="cards-shell"><header class="cards-section-heading" data-reveal><p class="cards-kicker">How it works</p><h2 id="steps-title">From a blank map to a field-ready system.</h2></header><div class="cards-step-grid"><article data-reveal><span>01</span><div class="step-icon"><svg class="maps-icon"><use href="#maps-icon-layers"></use></svg></div><h3>Create your layers</h3><p>Organize the map around meters, valves, hydrants, lines, boundaries, tax lots, and reference maps.</p></article><article data-reveal><span>02</span><div class="step-icon"><svg class="maps-icon"><use href="#maps-icon-add-pin"></use></svg></div><h3>Place each location</h3><p>Drop a pin manually or stand at the asset and record the position from a phone with its reported GPS accuracy.</p></article><article data-reveal><span>03</span><div class="step-icon"><svg class="maps-icon"><use href="#maps-icon-locate"></use></svg></div><h3>Find it again</h3><p>Search the master list, open the mapped item, and use live distance guidance to walk back to it.</p></article></div></div></section>
+      <section class="maps-history-showcase"><div class="maps-product-shell maps-showcase-layout">
+        <div class="maps-showcase-copy" data-reveal><p class="maps-eyebrow">Operational memory</p><h2>The history stays with the infrastructure.</h2><p>An asset is more than a symbol. Its details, tasks, files, incidents, and permanent records remain connected even as the map changes.</p><ul><li>Append-only incident updates</li><li>Resolved-break locations and timelines</li><li>Organization-owned photos and files</li><li>Inspection and maintenance records</li><li>Role-based access for administrators, editors, and viewers</li></ul></div>
+        <figure class="maps-detail-screenshot" data-reveal><div><img src="/assets/maps/maps-asset-history-panel.png" width="850" height="658" alt="N3XRA Maps asset panel with details, history, tasks, and files" /></div><figcaption>Every utility line and asset opens into its connected operating record.</figcaption></figure>
+      </div></section>
 
-      <section class="cards-page-builder" aria-labelledby="layers-title"><div class="cards-shell builder-grid"><div class="builder-copy" data-reveal><p class="cards-kicker">Your map, your structure</p><h2 id="layers-title">Give every kind of information its own layer.</h2><p>Turn layers on and off, choose their color and icon, search across mapped items, and keep operational assets separate from reference information.</p><ul><li>Points for meters, valves, hydrants, pumps, and manholes</li><li>Lines for mains, service lines, roads, and routes</li><li>Boundaries for districts, tax lots, parcels, and service areas</li><li>Reference imagery and imported map information</li></ul></div><div class="maps-layer-preview builder-preview" data-reveal><header><small>N3XRA MAPS</small><h3>Map layers</h3><span><i></i> All changes saved</span></header><div><article class="is-featured"><b><svg class="maps-icon"><use href="#maps-icon-meter"></use></svg></b><span><small>POINT LAYER</small><strong>Water meters</strong><i>Individual service locations</i></span><em>1,284</em></article><article><b><svg class="maps-icon"><use href="#maps-icon-valve"></use></svg></b><span><small>POINT LAYER</small><strong>System valves</strong><i>Isolation and control assets</i></span><em>186</em></article><article><b><svg class="maps-icon"><use href="#maps-icon-pipe"></use></svg></b><span><small>LINE LAYER</small><strong>Water mains</strong><i>Distribution infrastructure</i></span><em>42 MI</em></article><article><b><svg class="maps-icon"><use href="#maps-icon-boundary"></use></svg></b><span><small>REFERENCE LAYER</small><strong>Tax and district boundaries</strong><i>Jurisdiction and parcel context</i></span><em>ON</em></article></div></div></div></section>
+      <section class="maps-network" aria-labelledby="network-title"><div class="maps-product-shell">
+        <header class="maps-product-heading" data-reveal><p class="maps-eyebrow">Connected network intelligence</p><h2 id="network-title">Understand what happens downstream.</h2><span>Build a connected model of mains, branches, valves, service connections, meters, and operating zones so field decisions can include the system around the selected location.</span></header>
+        <p class="maps-network-sequence" data-reveal><strong>Break location</strong><i>connects to</i><strong>isolation planning</strong><i>then identifies</i><strong>customer impact</strong><i>and supports</i><strong>approved outreach.</strong></p>
+        <p class="maps-configuration-note" data-reveal>Connected-network and customer-impact capabilities are configured around the infrastructure data, account systems, and N3XRA products enabled for each organization.</p>
+      </div></section>
 
-      <section class="cards-manage" aria-labelledby="field-title"><div class="cards-shell manage-grid"><div class="maps-phone" data-reveal aria-hidden="true"><div class="maps-phone-map"><i class="maps-road one"></i><i class="maps-road two"></i><button class="maps-pin valve" type="button"><svg class="maps-icon"><use href="#maps-icon-valve"></use></svg></button><span class="maps-you"><i></i>YOU</span></div><section><small>VALVE</small><h3>North isolation valve</h3><strong>3 ft away</strong><span>Current GPS accuracy ±4 ft</span><button type="button">Use my location</button></section></div><div class="manage-copy" data-reveal><p class="cards-kicker">Field ready</p><h2 id="field-title">Designed to leave the office.</h2><p>N3XRA Maps works in the browser on a phone, tablet, or computer. Field crews get the same searchable map and asset details without learning a full desktop GIS system.</p><div class="manage-points"><span><b>Live proximity</b>See how far you are from the selected asset.</span><span><b>Honest accuracy</b>See the accuracy reported by the current device.</span><span><b>Satellite view</b>Switch context when streets and landmarks are not enough.</span><span><b>Ready to grow</b>Connect customer accounts and work orders when those systems are added.</span></div></div></div></section>
+      <section class="maps-integration" aria-labelledby="integration-title"><div class="maps-product-shell maps-integration-layout">
+        <div class="maps-integration-copy" data-reveal><p class="maps-eyebrow">Where N3XRA specializes</p><h2 id="integration-title">One utility system instead of disconnected software.</h2><p>N3XRA can build and operate the public website, customer portal, account management, billing, meter data, Maps, files, service requests, and communications around one organization and one shared operating model.</p><p>That means information can move through the system instead of being entered repeatedly. A customer request can reach the map. A meter can connect to its account. A reviewed outage can produce the right recipient list. The website and portal can show approved updates without exposing internal infrastructure or staff notes.</p><div class="maps-integration-benefits"><span><b>One identity</b>People receive access to the organization and products they are authorized to use.</span><span><b>One source of truth</b>Assets, accounts, requests, billing, files, and history stay linked instead of copied.</span><span><b>One connected response</b>Field work, customer impact, approvals, and communication follow the same event.</span></div></div>
+        <div class="maps-system-stack" data-reveal aria-label="Connected N3XRA utility system"><header><img src="/assets/n3xra_logo_transparent_small.png" alt="" /><span><small>N3XRA UTILITY SYSTEM</small><strong>Connected by organization</strong></span></header><div><span><i>01</i><b>Website and customer portal</b><small>Requests, secure access, and approved status updates</small></span><span><i>02</i><b>Customer accounts</b><small>People, properties, services, permissions, and contact consent</small></span><span><i>03</i><b>Billing and payments</b><small>Balances, invoices, payment history, and service context</small></span><span><i>04</i><b>Meter and usage data</b><small>Readings, consumption history, alerts, and service connections</small></span><span class="is-maps"><i>05</i><b>N3XRA Maps</b><small>Infrastructure, incidents, work, files, and operational history</small></span><span><i>06</i><b>Communications</b><small>Approved email, text, and voice outreach with delivery history</small></span></div></div>
+      </div></section>
 
-      <section class="cards-principle maps-access" aria-labelledby="access-title"><div class="cards-shell cards-principle-grid" data-reveal><p>ACCESS AND OWNERSHIP</p><h2 id="access-title">One organization.<br /><span>The right access for every person.</span></h2><div><p>Account administrators control the workspace and decide who can manage or view map information.</p><p>Every layer and mapped item stays separated by organization with database-level access controls.</p></div></div></section>
+      <section class="maps-security"><div class="maps-product-shell maps-security-layout" data-reveal><div><p class="maps-eyebrow">Secure by organization</p><h2>Your operational map belongs to your organization.</h2></div><div><p>Organization ownership and database-level access controls keep layers, assets, files, tasks, incidents, and customer connections separated. Administrators decide who can manage the workspace, who can edit, and who can view.</p><p>Maps begins as a blank product. Your organization creates its own data, structure, and operating history.</p></div></div></section>
 
-      <section class="cards-cta" aria-labelledby="cta-title"><div class="cards-shell" data-reveal><p class="cards-kicker">N3XRA Maps early access</p><h2 id="cta-title">Start with the map.<br />Build the system around it.</h2><p>Paid plans and guided onboarding are being prepared. Request early access or open Maps if it has already been connected to your organization.</p><div class="cards-actions"><a class="cards-button is-primary" href="/account/?product=maps#available-apps-section">Request early access</a><a class="cards-button is-secondary" href="/maps/app/">Open Maps</a></div></div></section>
+      <section class="maps-product-cta" aria-labelledby="cta-title"><div class="maps-product-shell" data-reveal><p class="maps-eyebrow">N3XRA Maps</p><h2 id="cta-title">Bring the map into the rest of your operation.</h2><p>Start with utility assets and field locations. Connect customer accounts, billing, meter data, requests, files, and communications as one N3XRA system.</p><div class="maps-product-actions"><a class="maps-product-button is-primary" href="/account/?product=maps#available-apps-section">Get N3XRA Maps</a><a class="maps-product-button is-secondary" href="/maps/app/">Open Maps</a></div></div></section>
     </main>
 
-    <footer class="site-footer home-footer">
-      <div class="page-shell footer-grid">
-        <div class="footer-brand"><a class="home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt="" /><span>N3XRA</span></a><p>N3XRA builds custom websites, software, automation, and AI solutions for people and organizations bringing new ideas to life.</p></div>
-        <nav class="footer-nav" aria-label="Company"><p>Explore</p><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/careers/">Careers</a></nav>
-        <nav class="footer-nav" aria-label="Software"><p>Software</p><a href="/maps/">Maps</a><a href="/contact-card/">Contact Card</a><a href="/nexra-communications/">Communications</a><a href="/records/">Records</a></nav>
-        <nav class="footer-nav" aria-label="Account and legal"><p>N3XRA</p><a href="/account">Dashboard</a><a href="/project-pulse/">Project Pulse</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/invest/">Invest</a></nav>
-      </div>
-      <div class="page-shell footer-bottom"><p>&copy; 2026 N3XRA LLC. All rights reserved.</p><p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p></div>
-    </footer>
+    <footer class="site-footer home-footer"><div class="page-shell footer-grid"><div class="footer-brand"><a class="home-brand" href="/" aria-label="N3XRA home"><img src="/assets/n3xra_logo_transparent_small.png" alt="" /><span>N3XRA</span></a><p>N3XRA builds custom websites, software, automation, and AI solutions for people and organizations bringing new ideas to life.</p></div><nav class="footer-nav" aria-label="Company"><p>Explore</p><a href="/projects/">Projects</a><a href="/services/">Services</a><a href="/support/">Support</a><a href="/careers/">Careers</a></nav><nav class="footer-nav" aria-label="Software"><p>Software</p><a href="/maps/">Maps</a><a href="/contact-card/">Contact Card</a><a href="/nexra-communications/">Communications</a><a href="/records/">Records</a></nav><nav class="footer-nav" aria-label="Account and legal"><p>N3XRA</p><a href="/account">Dashboard</a><a href="/project-pulse/">Project Pulse</a><a href="/privacy/">Privacy</a><a href="/terms/">Terms</a><a href="/invest/">Invest</a></nav></div><div class="page-shell footer-bottom"><p>&copy; 2026 N3XRA LLC. All rights reserved.</p><p>Built by <a href="https://quentinnichols.com/">Quentin Nichols</a>.</p></div></footer>
   </body>
 </html>

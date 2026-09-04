@@ -11,6 +11,14 @@ This document records product decisions made during the N3XRA Maps build so that
 - The everyday map must remain clean. Detailed workflows open from the selected asset or from a compact active-work area.
 - Submitted history is append-only. Corrections preserve the original record instead of silently replacing it.
 
+## Archive and permanent deletion
+
+- Archiving is reversible. It removes a layer and its mapped items from the active workspace without deleting their operational records.
+- Permanent layer deletion is a deliberate account-administrator exception to normal immutability. It is available only after the layer and all of its items are archived.
+- The confirmation must explicitly state that the layer, mapped items, immutable history, incidents, incident updates, tasks, photos, linked organization-file records, and layer fields will be destroyed.
+- The database purge is one protected transaction. Ordinary event and incident actions must remain unable to update or delete permanent history.
+- Stored photo objects are removed through the Storage API before their database records are purged so deleted files do not remain orphaned.
+
 ## Break and incident workflow
 
 A water-main break is one continuing incident, not a collection of unrelated forms.

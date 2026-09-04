@@ -88,9 +88,14 @@ test("Maps has a public product presentation and a separate signed-in workspace"
     read("supabase/migrations/20260903050033_maps_public_landing_route.sql"),
   ]);
 
-  assert.match(landing, /Every asset\.<br \/><em>Right where it belongs\.<\/em>/);
-  assert.match(landing, /How it works/);
-  assert.match(landing, /Points for meters, valves, hydrants/);
+  assert.match(landing, /Know the system\.<br \/><em>Find the asset\.<\/em><br \/>Run the response\./);
+  assert.match(landing, /The map is only the beginning/);
+  assert.match(landing, /standards-based layers for meters, valves, hydrants, mains/i);
+  assert.match(landing, /maps-workspace-live\.jpg/);
+  assert.match(landing, /maps-asset-history-panel\.png/);
+  assert.match(landing, /One utility system instead of disconnected software/);
+  assert.match(landing, /customer portal, account management, billing, meter data, Maps, files, service requests, and communications/);
+  assert.match(landing, /Available through guided N3XRA onboarding/);
   assert.match(landing, /href="\/maps\/app\/"/);
   assert.match(app, /<MapsWorkspace client:load/);
   assert.match(accountSource, /mapsProductLink\.href = "\/maps\/app\/"/);
@@ -107,7 +112,7 @@ test("Maps presentation is native-width on phones with the standard N3XRA footer
   ]);
 
   assert.match(landing, /\/assets\/project-cards\.css\?v=4/);
-  assert.match(landing, /class="site-topbar home-topbar cards-topbar"/);
+  assert.match(landing, /class="site-topbar home-topbar cards-topbar maps-topbar"/);
   assert.match(landing, /<nav class="desktop-nav" aria-label="Primary"><a href="\/projects\/">Projects<\/a><a href="\/services\/">Services<\/a><a href="\/support\/">Support<\/a><a href="\/#software">Software<\/a><\/nav>/);
   assert.match(landing, /class="site-footer home-footer"/);
   assert.match(landing, /id="maps-icon-meter"/);
@@ -115,9 +120,13 @@ test("Maps presentation is native-width on phones with the standard N3XRA footer
   assert.match(landing, /id="maps-icon-boundary"/);
   assert.match(landing, /id="maps-icon-locate"/);
   assert.doesNotMatch(landing, /class="step-icon">[▧＋⌖]/);
-  assert.match(productStyles, /\.maps-preview-body aside \{ display: none; \}/);
+  assert.match(productStyles, /--maps-public-navy: #0b1219/);
+  assert.match(productStyles, /--maps-public-mint: #69d2c4/);
+  assert.match(productStyles, /--maps-public-orange: #f0a03b/);
+  assert.match(productStyles, /\.maps-live-frame img/);
+  assert.match(productStyles, /@media \(max-width: 720px\)/);
   assert.match(productStyles, /\.maps-icon \{/);
-  assert.doesNotMatch(productStyles, /:root|--ml-|transform: scale/);
+  assert.doesNotMatch(productStyles, /--ml-|transform: scale/);
   assert.match(projectCards, /site-nav\.js\?v=7/);
   assert.doesNotMatch(navigation, /Products built for real work/);
 });
@@ -167,7 +176,7 @@ test("Maps early access is requested by the account and decided in a dedicated a
   assert.match(account, /Pending Approval/);
   assert.match(account, /mapsAccessRequest\?\.status === "approved"/);
   assert.match(accountPage, /id="maps-product-link" href="#">Request Early Access/);
-  assert.match(landing, /href="\/account\/\?product=maps#available-apps-section">Request early access/);
+  assert.match(landing, /href="\/account\/\?product=maps#available-apps-section">Get N3XRA Maps/);
 
   assert.match(adminPage, /<MapsAdmin client:load/);
   assert.match(adminComponent, /Approve access/);
@@ -213,6 +222,10 @@ test("Maps uses a clean N3XRA product header without the user identity block", a
 
   assert.match(workspace, /n3xra_logo_transparent_small\.png/);
   assert.match(workspace, /activeAccess\?\.organizationName/);
+  assert.match(workspace, /isBrandedPortalHostname/);
+  assert.match(workspace, /href: "\/client-portal\/", label: "Return to dashboard"/);
+  assert.match(workspace, /href: "\/account\/", label: "Dashboard"/);
+  assert.match(workspace, /href=\{dashboardDestination\.href\}/);
   assert.doesNotMatch(workspace, /className="maps-account-context"/);
   assert.doesNotMatch(workspace, /from\("profiles"\)/);
   assert.match(styles, /\.maps-header \{[^}]*background: #0b1219/);
@@ -255,10 +268,11 @@ test("Maps keeps saved points anchored, frames saved data, and archives deleted 
 });
 
 test("Maps layers can be edited, archived, restored, and permanently deleted by account admins", async () => {
-  const [workspace, styles, migration] = await Promise.all([
+  const [workspace, styles, migration, purgeMigration] = await Promise.all([
     read("maps-app/src/components/MapsWorkspace.tsx"),
     read("maps-app/src/styles/maps.css"),
     read("supabase/migrations/20260903192631_maps_layer_archive_management.sql"),
+    read("supabase/migrations/20260904151411_maps_permanent_layer_purge.sql"),
   ]);
 
   assert.match(workspace, /Edit layer/);
@@ -267,6 +281,9 @@ test("Maps layers can be edited, archived, restored, and permanently deleted by 
   assert.match(workspace, /maps_restore_layer/);
   assert.match(workspace, /Delete forever/);
   assert.match(workspace, /canPermanentlyDelete = activeAccess\?\.role === "account_admin"/);
+  assert.match(workspace, /maps_archived_layer_storage_manifest/);
+  assert.match(workspace, /maps_permanently_delete_archived_layer/);
+  assert.match(workspace, /immutable history, incidents, updates, tasks, photos, and linked file records/);
   assert.match(workspace, /\.from\("map_layers"\)[\s\S]*?\.not\("archived_at", "is", null\)/);
   assert.match(workspace, /\.from\("map_features"\)[\s\S]*?\.not\("archived_at", "is", null\)/);
   assert.match(styles, /\.maps-archive-dialog/);
@@ -279,6 +296,20 @@ test("Maps layers can be edited, archived, restored, and permanently deleted by 
   assert.match(migration, /and archived_at = archived_timestamp/);
   assert.match(migration, /revoke all on function public\.maps_archive_layer\(uuid, uuid\) from public, anon/);
   assert.match(migration, /grant execute on function public\.maps_restore_layer\(uuid, uuid\) to authenticated/);
+
+  assert.match(purgeMigration, /create or replace function private\.maps_permanently_delete_archived_layer/);
+  assert.match(purgeMigration, /security definer/);
+  assert.match(purgeMigration, /organization_product_role\(input_organization_id, 'maps'\) is distinct from 'account_admin'/);
+  assert.match(purgeMigration, /layer\.archived_at is not null/);
+  assert.match(purgeMigration, /delete from public\.map_incident_updates/);
+  assert.match(purgeMigration, /delete from public\.map_incidents/);
+  assert.match(purgeMigration, /delete from public\.map_tasks/);
+  assert.match(purgeMigration, /delete from public\.map_events/);
+  assert.match(purgeMigration, /delete from public\.map_feature_photos/);
+  assert.match(purgeMigration, /delete from public\.organization_file_folders/);
+  assert.match(purgeMigration, /delete from public\.map_features/);
+  assert.match(purgeMigration, /delete from public\.map_layers/);
+  assert.match(purgeMigration, /revoke all on function private\.maps_permanently_delete_archived_layer\(uuid, uuid\) from public, anon/);
 });
 
 test("Mapped points can be repositioned with review before saving", async () => {
@@ -560,7 +591,13 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(types, /export type MapSystemType/);
   assert.match(workspace, /Active incidents/);
   assert.match(workspace, /Start water-main break/);
-  assert.match(workspace, /Report break/);
+  assert.match(workspace, /Start break/);
+  assert.doesNotMatch(workspace, /maps-detail-break/);
+  assert.match(workspace, /Past breaks/);
+  assert.match(workspace, /View break location on map/);
+  assert.match(workspace, /openHistoricalIncident/);
+  assert.match(workspace, /historicalIncidentByEventId/);
+  assert.match(workspace, /RESOLVED BREAK/);
   assert.match(workspace, /Active water-main break/);
   assert.match(workspace, /formatIncidentAge/);
   assert.match(workspace, /WATER_BREAK_ICON_MARKUP/);
@@ -576,7 +613,9 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(styles, /\.maps-active-incidents/);
   assert.match(styles, /\.maps-incident-marker/);
   assert.match(styles, /\.maps-water-break-icon/);
-  assert.match(styles, /\.maps-detail-break/);
+  assert.match(styles, /\.maps-past-breaks-toggle/);
+  assert.match(styles, /\.maps-incident-marker\.is-resolved/);
+  assert.match(styles, /\.maps-history-record/);
   assert.match(styles, /\.maps-incident-card/);
 
   assert.match(migration, /create table public\.map_incidents/);

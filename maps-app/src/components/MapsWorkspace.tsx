@@ -21,6 +21,7 @@ import type {
   OrganizationAccess,
 } from "../lib/maps-types";
 import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
+import { isBrandedPortalHostname } from "../../../src/client-portal/tenant-context";
 
 declare global {
   interface Window {
@@ -429,6 +430,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const spokenStepIndexRef = useRef<number | null>(null);
   const fittedOrganizationRef = useRef<string | null>(null);
   const [client, setClient] = useState<SupabaseClient | null>(null);
+  const [dashboardDestination, setDashboardDestination] = useState({ href: "/account/", label: "Dashboard" });
   const [gate, setGate] = useState<GateState>("loading");
   const [gateMessage, setGateMessage] = useState("Opening your maps workspace…");
   const [accessList, setAccessList] = useState<OrganizationAccess[]>([]);
@@ -445,6 +447,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>({});
+  const [showPastBreaks, setShowPastBreaks] = useState(false);
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
   const [assetPanelTab, setAssetPanelTab] = useState<AssetPanelTab>("details");
   const [eventDialogOpen, setEventDialogOpen] = useState(false);
@@ -517,6 +520,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const canEdit = activeAccess?.role === "account_admin" || activeAccess?.role === "editor";
   const canManageLayers = activeAccess?.role === "account_admin";
   const canPermanentlyDelete = activeAccess?.role === "account_admin";
+
+  useEffect(() => {
+    setDashboardDestination(isBrandedPortalHostname()
+      ? { href: "/client-portal/", label: "Return to dashboard" }
+      : { href: "/account/", label: "Dashboard" });
+  }, []);
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedFeatureSupportsWaterBreak = selectedFeature?.geometry_type === "line" && selectedLayer?.system_type === "potable_water";
@@ -531,7 +540,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
   const activeIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status !== "resolved")
     .sort((left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime()), [mapIncidents]);
+  const historicalIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status === "resolved")
+    .sort((left, right) => new Date(right.resolved_at || right.started_at).getTime() - new Date(left.resolved_at || left.started_at).getTime()), [mapIncidents]);
+  const visibleIncidents = useMemo(() => showPastBreaks ? [...activeIncidents, ...historicalIncidents] : activeIncidents, [activeIncidents, historicalIncidents, showPastBreaks]);
+  const historicalIncidentByEventId = useMemo(() => new Map(historicalIncidents
+    .filter((incident) => incident.closed_event_id)
+    .map((incident) => [incident.closed_event_id as string, incident])), [historicalIncidents]);
   const selectedIncident = mapIncidents.find((incident) => incident.id === selectedIncidentId) || null;
+  const selectedIncidentCloseEvent = selectedIncident?.closed_event_id
+    ? mapEvents.find((event) => event.id === selectedIncident.closed_event_id) || null
+    : null;
   const selectedIncidentUpdates = mapIncidentUpdates.filter((update) => update.incident_id === selectedIncidentId)
     .sort((left, right) => new Date(left.occurred_at).getTime() - new Date(right.occurred_at).getTime());
   const activeIncidentFeatureIds = useMemo(() => new Set(activeIncidents.map((incident) => incident.feature_id)), [activeIncidents]);
@@ -543,6 +561,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setSelectedIncidentId(incident.id);
     setSidebarOpen(false);
   }, []);
+
+  const openHistoricalIncident = useCallback((incident: MapIncident) => {
+    setShowPastBreaks(true);
+    openIncident(incident);
+    const coordinates = geoPointCoordinates(incident.geometry);
+    if (coordinates) mapRef.current?.easeTo({ center: coordinates, zoom: Math.max(mapRef.current.getZoom(), 17), duration: 650 });
+  }, [openIncident]);
 
   const chooseLayerPreset = (presetKey: string) => {
     const preset = STANDARD_LAYER_PRESETS.find((item) => item.key === presetKey);
@@ -830,22 +855,22 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     if (!map) return;
     incidentMarkersRef.current.forEach((marker) => marker.remove());
     incidentMarkersRef.current.clear();
-    activeIncidents.forEach((incident) => {
+    visibleIncidents.forEach((incident) => {
       const coordinates = geoPointCoordinates(incident.geometry);
       if (!coordinates || visibleLayers[features.find((feature) => feature.id === incident.feature_id)?.layer_id || ""] === false) return;
       const button = document.createElement("button");
       button.type = "button";
-      button.className = `maps-incident-marker is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`;
+      button.className = `maps-incident-marker is-${incident.severity}${incident.status === "resolved" ? " is-resolved" : ""}${selectedIncidentId === incident.id ? " is-selected" : ""}`;
       button.innerHTML = WATER_BREAK_ICON_MARKUP;
-      button.setAttribute("aria-label", `Open active incident ${incident.title}`);
+      button.setAttribute("aria-label", `Open ${incident.status === "resolved" ? "past" : "active"} incident ${incident.title}`);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        openIncident(incident);
+        incident.status === "resolved" ? openHistoricalIncident(incident) : openIncident(incident);
       });
       const marker = new mapboxgl.Marker({ element: button, anchor: "center" }).setLngLat(coordinates).addTo(map);
       incidentMarkersRef.current.set(incident.id, marker);
     });
-  }, [activeIncidents, features, openIncident, selectedIncidentId, visibleLayers]);
+  }, [features, openHistoricalIncident, openIncident, selectedIncidentId, visibleIncidents, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2241,24 +2266,61 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   const permanentlyDeleteArchivedItem = async () => {
     if (!client || !activeAccess || !permanentDeleteTarget || !canPermanentlyDelete) return;
-    const table = permanentDeleteTarget.type === "layer" ? "map_layers" : "map_features";
     setSaving(true);
-    const { data, error } = await client
-      .from(table)
-      .delete()
-      .eq("id", permanentDeleteTarget.id)
-      .eq("organization_id", activeAccess.organizationId)
-      .not("archived_at", "is", null)
-      .select("id")
-      .single();
+    let error: { message: string } | null = null;
+
+    if (permanentDeleteTarget.type === "layer") {
+      const manifestResult = await client.rpc("maps_archived_layer_storage_manifest", {
+        input_organization_id: activeAccess.organizationId,
+        input_layer_id: permanentDeleteTarget.id,
+      });
+      error = manifestResult.error;
+
+      if (!error) {
+        const storageByBucket = new Map<string, string[]>();
+        for (const item of (manifestResult.data || []) as Array<{ bucket_id: string; object_name: string }>) {
+          storageByBucket.set(item.bucket_id, [...(storageByBucket.get(item.bucket_id) || []), item.object_name]);
+        }
+        for (const [bucketId, objectNames] of storageByBucket) {
+          for (let index = 0; index < objectNames.length; index += 100) {
+            const removal = await client.storage.from(bucketId).remove(objectNames.slice(index, index + 100));
+            if (removal.error) {
+              error = removal.error;
+              break;
+            }
+          }
+          if (error) break;
+        }
+      }
+
+      if (!error) {
+        const purgeResult = await client.rpc("maps_permanently_delete_archived_layer", {
+          input_organization_id: activeAccess.organizationId,
+          input_layer_id: permanentDeleteTarget.id,
+        });
+        error = purgeResult.error;
+      }
+    } else {
+      const deleteResult = await client
+        .from("map_features")
+        .delete()
+        .eq("id", permanentDeleteTarget.id)
+        .eq("organization_id", activeAccess.organizationId)
+        .not("archived_at", "is", null)
+        .select("id")
+        .single();
+      error = deleteResult.error;
+    }
+
     setSaving(false);
-    if (error || !data) {
+    if (error) {
       showToast(error?.message || "That archived item could not be permanently deleted.");
       return;
     }
+    const deletedLayer = permanentDeleteTarget.type === "layer";
     setPermanentDeleteTarget(null);
     await loadArchive(client, activeAccess);
-    showToast("Archived item permanently deleted");
+    showToast(deletedLayer ? "Layer and all connected data permanently deleted" : "Archived item permanently deleted");
   };
 
   const beginMoveFeature = () => {
@@ -2454,7 +2516,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
           {activeAccess && <span className="maps-role">{activeAccess.role.replace("_", " ")}</span>}
           {canManageLayers && <button type="button" className="maps-team-button" onClick={openTeamAccess}>Team access</button>}
-          <a href="/client-portal/">Dashboard</a>
+          <a href={dashboardDestination.href}>{dashboardDestination.label}</a>
         </div>
       </header>
 
@@ -2476,6 +2538,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <i><WaterBreakIcon /></i><span><strong>INC-{String(incident.incident_number).padStart(5, "0")} · {incident.title}</strong><small>{incident.status} · {incident.severity}</small><small>{formatIncidentAge(incident.started_at)}</small></span><em>›</em>
               </button>
             ))}</div>
+          </section>}
+
+          {historicalIncidents.length > 0 && <section className="maps-past-breaks-toggle">
+            <label><input type="checkbox" checked={showPastBreaks} onChange={(event) => setShowPastBreaks(event.target.checked)} /><i><WaterBreakIcon /></i><span><strong>Past breaks</strong><small>{historicalIncidents.length} resolved location{historicalIncidents.length === 1 ? "" : "s"}</small></span></label>
           </section>}
 
           <section className="maps-layers">
@@ -2525,7 +2591,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <h2>{gate === "loading" ? "Opening Maps" : gate === "signed-out" ? "Sign in to continue" : gate === "setup" ? "Set up your workspace" : gate === "unassigned" ? "Ready for activation" : "Maps needs attention"}</h2>
               <span className="maps-gate-message">{gateMessage}</span>
               {gate === "signed-out" && <a href="/account/?next=/maps/app/">Sign in</a>}
-              {gate === "unassigned" && <a href="/account/#available-apps-section">Return to dashboard</a>}
+              {gate === "unassigned" && <a href={dashboardDestination.href}>Return to dashboard</a>}
               {gate === "setup" && (
                 <form className="maps-activation" onSubmit={activateWorkspace}>
                   <div className="maps-activation-modes" role="group" aria-label="Workspace organization">
@@ -2600,7 +2666,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ color: mapSymbolColor(selectedLayer?.icon_key || "marker") }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <>{selectedFeatureSupportsWaterBreak && <button type="button" className="maps-detail-break" onClick={beginBreakPlacement}><WaterBreakIcon /> Report break</button>}<button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
+              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <nav className="maps-asset-tabs" aria-label="Mapped item sections">
                 {(["details", "history", "tasks", "files"] as AssetPanelTab[]).map((tab) => (
                   <button type="button" className={assetPanelTab === tab ? "is-active" : ""} onClick={() => setAssetPanelTab(tab)} key={tab}>
@@ -2634,10 +2700,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               {assetPanelTab === "history" && <section className="maps-asset-tab-panel">
                 <header className="maps-tab-heading"><div><strong>Permanent history</strong><span>Submitted records cannot be edited or deleted.</span></div>{canEdit && <div className="maps-tab-heading-actions">{selectedFeatureSupportsWaterBreak && <button type="button" className="is-incident" onClick={beginBreakPlacement}>! Start break</button>}<button type="button" onClick={() => openEventDialog()}>＋ Add event</button></div>}</header>
                 <div className="maps-history-list">
-                  {selectedEvents.map((item) => <article key={item.id} className={`is-${item.severity}`}>
-                    <i aria-hidden="true" />
-                    <div><span>{eventTypeLabel(item.event_type)} · EVT-{String(item.sequence_number).padStart(5, "0")}</span><strong>{item.title}</strong><small>{formatHistoryDate(item.occurred_at)} · {item.compliance_basis.replace("_", " ")}</small>{item.summary && <p>{item.summary}</p>}<em title={item.record_hash}>Locked record · {item.record_hash.slice(0, 10)}</em></div>
-                  </article>)}
+                  {selectedEvents.map((item) => {
+                    const historicalIncident = historicalIncidentByEventId.get(item.id);
+                    const content = <><i aria-hidden="true" /><div><span>{eventTypeLabel(item.event_type)} · EVT-{String(item.sequence_number).padStart(5, "0")}</span><strong>{item.title}</strong><small>{formatHistoryDate(item.occurred_at)} · {item.compliance_basis.replace("_", " ")}</small>{item.summary && <p>{item.summary}</p>}<em title={item.record_hash}>Locked record · {item.record_hash.slice(0, 10)}</em>{historicalIncident && <b>View break location on map →</b>}</div></>;
+                    return historicalIncident
+                      ? <button type="button" key={item.id} className={`maps-history-record is-${item.severity}`} onClick={() => openHistoricalIncident(historicalIncident)}>{content}</button>
+                      : <article key={item.id} className={`is-${item.severity}`}>{content}</article>;
+                  })}
                   {!selectedEvents.length && <p className="maps-tab-empty">No history yet. Inspections, breaks, repairs, and completed tasks will appear here.</p>}
                 </div>
               </section>}
@@ -2663,7 +2732,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {selectedIncident && !directionsTargetId && (
             <article className={`maps-detail-card maps-incident-card is-${selectedIncident.severity}`}>
               <button type="button" className="maps-detail-close" onClick={() => setSelectedIncidentId(null)} aria-label="Close incident">×</button>
-              <div className="maps-incident-heading"><i><WaterBreakIcon /></i><div><span>ACTIVE BREAK · INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2>{selectedIncident.title}</h2><div><strong>{selectedIncident.status}</strong><em>{selectedIncident.severity}</em><small>{formatIncidentAge(selectedIncident.started_at)}</small></div></div></div>
+              <div className="maps-incident-heading"><i><WaterBreakIcon /></i><div><span>{selectedIncident.status === "resolved" ? "RESOLVED BREAK" : "ACTIVE BREAK"} · INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2>{selectedIncident.title}</h2><div><strong>{selectedIncident.status}</strong><em>{selectedIncident.severity}</em><small>{selectedIncident.status === "resolved" ? `Resolved ${formatHistoryDate(selectedIncident.resolved_at || selectedIncident.updated_at)}` : formatIncidentAge(selectedIncident.started_at)}</small></div></div></div>
               <dl>
                 <div><dt>Started</dt><dd>{formatHistoryDate(selectedIncident.started_at)}</dd></div>
                 <div><dt>Linked line</dt><dd>{features.find((feature) => feature.id === selectedIncident.feature_id)?.title || "Water line"}</dd></div>
@@ -2671,7 +2740,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 {selectedIncident.customers_affected_estimate !== null && <div><dt>Estimated customers</dt><dd>{selectedIncident.customers_affected_estimate}</dd></div>}
               </dl>
               {selectedIncident.initial_report && <p className="maps-detail-description">{selectedIncident.initial_report}</p>}
-              <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button></>}</div>
+              {selectedIncidentCloseEvent?.summary && <section className="maps-incident-resolution"><span>Final incident record</span><p>{selectedIncidentCloseEvent.summary}</p></section>}
+              {selectedIncident.status !== "resolved" && <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button></>}</div>}
               <section className="maps-incident-timeline"><header><strong>Incident timeline</strong><span>{selectedIncidentUpdates.length} permanent update{selectedIncidentUpdates.length === 1 ? "" : "s"}</span></header><div>{selectedIncidentUpdates.map((update) => <article key={update.id}><i /><div><span>{update.update_type.replaceAll("_", " ")}{update.status_after ? ` · ${update.status_after}` : ""}</span><strong>{update.note}</strong><small>{formatHistoryDate(update.occurred_at)}</small></div></article>)}</div></section>
             </article>
           )}
@@ -2828,7 +2898,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
           <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="permanent-delete-title">
             <header><div><span>PERMANENT DELETE</span><h2 id="permanent-delete-title">Delete {permanentDeleteTarget.name} forever?</h2></div><button type="button" onClick={() => setPermanentDeleteTarget(null)} aria-label="Close">×</button></header>
-            <div className="maps-confirm-copy"><p>This cannot be undone. {permanentDeleteTarget.type === "layer" ? "The layer and every mapped item inside it will be permanently removed." : "The mapped item will be permanently removed."}</p></div>
+            <div className="maps-confirm-copy"><p>This cannot be undone. {permanentDeleteTarget.type === "layer" ? "The layer, every mapped item, immutable history, incidents, updates, tasks, photos, and linked file records inside it will be permanently removed." : "The mapped item will be permanently removed."}</p></div>
             <footer><button type="button" onClick={() => setPermanentDeleteTarget(null)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void permanentlyDeleteArchivedItem()}>{saving ? "Deleting…" : "Delete forever"}</button></footer>
           </section>
         </div>
