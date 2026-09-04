@@ -5,10 +5,14 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type {
   DeviceLocation,
   GeometryType,
+  MapComplianceBasis,
+  MapEvent,
+  MapEventType,
   MapFeature,
   MapFeaturePhoto,
   MapLayer,
   MapLayerField,
+  MapTask,
   MapWorkspaceSnapshot,
   OrganizationAccess,
 } from "../lib/maps-types";
@@ -138,6 +142,62 @@ interface NewLayerDraft {
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
+type AssetPanelTab = "details" | "history" | "tasks" | "files";
+
+const EVENT_TYPES: { value: MapEventType; label: string; compliance: MapComplianceBasis }[] = [
+  { value: "water_main_break", label: "Water main break", compliance: "rule" },
+  { value: "sewer_overflow", label: "Sewer overflow", compliance: "permit" },
+  { value: "blockage", label: "Sewer blockage", compliance: "operational" },
+  { value: "valve_inspection", label: "Valve inspection / exercise", compliance: "recommended" },
+  { value: "hydrant_inspection", label: "Hydrant inspection / flow", compliance: "recommended" },
+  { value: "backflow_test", label: "Backflow test", compliance: "rule" },
+  { value: "pressure_event", label: "Pressure loss", compliance: "rule" },
+  { value: "sample", label: "Water sample", compliance: "rule" },
+  { value: "inspection", label: "General inspection", compliance: "operational" },
+  { value: "maintenance", label: "Maintenance performed", compliance: "operational" },
+  { value: "repair", label: "Repair", compliance: "operational" },
+  { value: "replacement", label: "Replacement", compliance: "operational" },
+  { value: "customer_request", label: "Customer request", compliance: "operational" },
+];
+
+function localDateTimeValue(date = new Date()): string {
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+}
+
+function formatHistoryDate(value: string): string {
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+}
+
+function eventTypeLabel(type: MapEventType): string {
+  return EVENT_TYPES.find((item) => item.value === type)?.label || type.replaceAll("_", " ");
+}
+
+function eventDetailsFromForm(form: FormData, eventType: MapEventType): Record<string, unknown> {
+  const details: Record<string, unknown> = {};
+  const copy = (key: string) => {
+    const value = String(form.get(key) || "").trim();
+    if (value) details[key] = value;
+  };
+  if (eventType === "water_main_break") {
+    ["cause", "repairMethod", "customersAffected", "chlorineResidual", "sampleResult"].forEach(copy);
+    details.pressureLost = form.get("pressureLost") === "on";
+    details.disinfected = form.get("disinfected") === "on";
+    details.sampleCollected = form.get("sampleCollected") === "on";
+  } else if (eventType === "sewer_overflow") {
+    ["estimatedVolumeGallons", "volumeMethod", "receivingWater", "cause", "oersIncidentNumber"].forEach(copy);
+    details.contained = form.get("contained") === "on";
+    details.deqNotified = form.get("deqNotified") === "on";
+  } else if (eventType === "valve_inspection") {
+    ["condition", "turnsToClose", "normalPosition", "repairsNeeded"].forEach(copy);
+    details.operable = form.get("operable") === "on";
+  } else if (eventType === "hydrant_inspection") {
+    ["condition", "staticPressure", "residualPressure", "flowGpm", "repairsNeeded"].forEach(copy);
+    details.drainsProperly = form.get("drainsProperly") === "on";
+    details.flushed = form.get("flushed") === "on";
+  }
+  return details;
+}
 
 const ACTIVE_ORGANIZATION_KEY = "records-active-organization-id";
 const STANDARD_STYLE = "mapbox://styles/mapbox/standard";
@@ -312,11 +372,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [features, setFeatures] = useState<MapFeature[]>([]);
   const [layerFields, setLayerFields] = useState<MapLayerField[]>([]);
   const [featurePhotos, setFeaturePhotos] = useState<MapFeaturePhoto[]>([]);
+  const [mapEvents, setMapEvents] = useState<MapEvent[]>([]);
+  const [mapTasks, setMapTasks] = useState<MapTask[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
   const [visibleLayers, setVisibleLayers] = useState<Record<string, boolean>>({});
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(null);
+  const [assetPanelTab, setAssetPanelTab] = useState<AssetPanelTab>("details");
+  const [eventDialogOpen, setEventDialogOpen] = useState(false);
+  const [eventType, setEventType] = useState<MapEventType>("inspection");
+  const [taskDialogOpen, setTaskDialogOpen] = useState(false);
+  const [taskCompleting, setTaskCompleting] = useState<MapTask | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [basemap, setBasemap] = useState<BasemapStyle>("standard");
@@ -381,6 +448,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const directionsTarget = features.find((feature) => feature.id === directionsTargetId) || null;
   const selectedFields = layerFields.filter((field) => field.layer_id === selectedFeature?.layer_id);
   const selectedPhotos = featurePhotos.filter((photo) => photo.feature_id === selectedFeatureId);
+  const selectedEvents = mapEvents.filter((event) => event.feature_id === selectedFeatureId)
+    .sort((left, right) => new Date(right.occurred_at).getTime() - new Date(left.occurred_at).getTime());
+  const selectedTasks = mapTasks.filter((task) => task.feature_id === selectedFeatureId && task.status !== "cancelled")
+    .sort((left, right) => (left.status === "completed" ? 1 : 0) - (right.status === "completed" ? 1 : 0)
+      || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
   const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
   const selectedNewLayerPreset = STANDARD_LAYER_PRESETS.find((preset) => preset.key === newLayerDraft.presetKey) || null;
 
@@ -424,6 +496,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setToast(message);
     window.setTimeout(() => setToast(""), 3_000);
   }, []);
+
+  useEffect(() => {
+    setAssetPanelTab("details");
+  }, [selectedFeatureId]);
 
   const drawDrivingRoute = useCallback((coordinates: [number, number][]) => {
     const map = mapRef.current;
@@ -477,12 +553,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
     setGate("loading");
     setGateMessage("Loading map layers and assets…");
-    const [workspaceResult, fieldsResult, photosResult] = await Promise.all([
+    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult] = await Promise.all([
       supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
       supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
       supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, organization_file_id, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
+      supabase.from("map_events").select("id, organization_id, feature_id, sequence_number, event_type, title, summary, severity, compliance_basis, occurred_at, discovered_at, resolved_at, details, customer_reference, request_reference, amends_event_id, amendment_kind, amendment_reason, record_hash, submitted_at").eq("organization_id", access.organizationId).order("occurred_at", { ascending: false }),
+      supabase.from("map_tasks").select("id, organization_id, feature_id, source_event_id, title, category, description, priority, status, compliance_basis, compliance_source_name, compliance_source_url, due_at, assigned_to_user_id, customer_reference, request_reference, completed_at, completion_event_id, created_at, updated_at").eq("organization_id", access.organizationId).is("archived_at", null).order("due_at"),
     ]);
-    if (workspaceResult.error || fieldsResult.error || photosResult.error) throw workspaceResult.error || fieldsResult.error || photosResult.error;
+    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error) {
+      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error;
+    }
     const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
     const nextFeatures = Array.isArray(snapshot.features) ? snapshot.features : [];
@@ -490,6 +570,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setFeatures(nextFeatures);
     setLayerFields((fieldsResult.data || []) as MapLayerField[]);
     setFeaturePhotos((photosResult.data || []) as MapFeaturePhoto[]);
+    setMapEvents((eventsResult.data || []) as MapEvent[]);
+    setMapTasks((tasksResult.data || []) as MapTask[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
@@ -1516,6 +1598,99 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast(pendingShape.geometryType === "line" ? "Line saved" : "Boundary saved");
   };
 
+  const openEventDialog = (nextType: MapEventType = "inspection") => {
+    setEventType(nextType);
+    setEventDialogOpen(true);
+  };
+
+  const saveEvent = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedFeature || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const selectedType = String(form.get("event_type")) as MapEventType;
+    const occurredAt = String(form.get("occurred_at") || "");
+    const selectedTemplate = EVENT_TYPES.find((item) => item.value === selectedType);
+    setSaving(true);
+    const { error } = await client.from("map_events").insert({
+      organization_id: activeAccess.organizationId,
+      feature_id: selectedFeature.id,
+      sequence_number: 1,
+      event_type: selectedType,
+      title: String(form.get("title") || selectedTemplate?.label || "Map event").trim(),
+      summary: String(form.get("summary") || "").trim() || null,
+      severity: String(form.get("severity") || "routine"),
+      compliance_basis: selectedTemplate?.compliance || "operational",
+      occurred_at: new Date(occurredAt).toISOString(),
+      resolved_at: form.get("resolved") === "on" ? new Date(occurredAt).toISOString() : null,
+      details: eventDetailsFromForm(form, selectedType),
+      customer_reference: String(form.get("customer_reference") || selectedFeature.customer_reference || "").trim() || null,
+      request_reference: String(form.get("request_reference") || "").trim() || null,
+      record_hash: "0".repeat(64),
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The event could not be submitted.");
+      return;
+    }
+    setEventDialogOpen(false);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(selectedFeature.id);
+    setAssetPanelTab("history");
+    showToast("Permanent history added");
+  };
+
+  const saveTask = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedFeature || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const dueAt = String(form.get("due_at") || "");
+    setSaving(true);
+    const { error } = await client.from("map_tasks").insert({
+      organization_id: activeAccess.organizationId,
+      feature_id: selectedFeature.id,
+      title: String(form.get("title") || "").trim(),
+      category: String(form.get("category") || "maintenance"),
+      description: String(form.get("description") || "").trim() || null,
+      priority: String(form.get("priority") || "normal"),
+      compliance_basis: String(form.get("compliance_basis") || "operational"),
+      due_at: dueAt ? new Date(dueAt).toISOString() : null,
+      customer_reference: String(form.get("customer_reference") || selectedFeature.customer_reference || "").trim() || null,
+      request_reference: String(form.get("request_reference") || "").trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The task could not be created.");
+      return;
+    }
+    setTaskDialogOpen(false);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(selectedFeature.id);
+    setAssetPanelTab("tasks");
+    showToast("Task added");
+  };
+
+  const completeTask = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedFeature || !taskCompleting || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    setSaving(true);
+    const { error } = await client.rpc("maps_complete_task", {
+      input_organization_id: activeAccess.organizationId,
+      input_task_id: taskCompleting.id,
+      input_completion_summary: String(form.get("completion_summary") || "").trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The task could not be completed.");
+      return;
+    }
+    setTaskCompleting(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(selectedFeature.id);
+    setAssetPanelTab("history");
+    showToast("Task completed and permanently recorded");
+  };
+
   const saveFeatureDetails = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedFeature || !canEdit) return;
@@ -2149,29 +2324,62 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
               <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
-              <dl>
-                <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
-                <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
-                {selectedFeature.location_accuracy_m !== null && <div><dt>Recorded accuracy</dt><dd>±{Math.round(selectedFeature.location_accuracy_m * 3.28084)} ft</dd></div>}
-                {selectedFeature.address && <div className="maps-detail-wide"><dt>Address</dt><dd>{selectedFeature.address}</dd></div>}
-                {selectedFeature.customer_reference && <div className="maps-detail-wide"><dt>Customer reference</dt><dd>{selectedFeature.customer_reference}</dd></div>}
-                {selectedFields.map((field) => {
-                  const value = selectedFeature.properties?.[field.field_key];
-                  if (value === null || value === undefined || value === "") return null;
-                  return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
-                })}
-              </dl>
-              <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
-              <section className="maps-asset-photos">
-                <header><span>PHOTOS</span>{canEdit && <label className={photoUploading ? "is-disabled" : ""}>＋ Add photo<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={photoUploading} onChange={(event) => void uploadFeaturePhoto(event)} /></label>}</header>
-                {selectedPhotos.length ? <div>{selectedPhotos.map((photo) => <figure key={photo.id}>{photoUrls[photo.id] ? <img src={photoUrls[photo.id]} alt={photo.caption || selectedFeature.title} /> : <span>Loading…</span>}<figcaption>{photo.caption || "Asset photo"}</figcaption>{canEdit && <button type="button" disabled={photoUploading} onClick={() => void deleteFeaturePhoto(photo)} aria-label={`Delete ${photo.caption || "asset photo"}`}>×</button>}</figure>)}</div> : <p>No photos added yet.</p>}
-              </section>
-              {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
-                <span>FIELD LOCATION</span>
-                <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
-                <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
-                <button type="button" onClick={locating ? () => stopLocating() : startLocating}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
-              </div>}
+              <nav className="maps-asset-tabs" aria-label="Mapped item sections">
+                {(["details", "history", "tasks", "files"] as AssetPanelTab[]).map((tab) => (
+                  <button type="button" className={assetPanelTab === tab ? "is-active" : ""} onClick={() => setAssetPanelTab(tab)} key={tab}>
+                    {tab}{tab === "history" && selectedEvents.length > 0 ? ` ${selectedEvents.length}` : tab === "tasks" && selectedTasks.filter((task) => task.status !== "completed").length > 0 ? ` ${selectedTasks.filter((task) => task.status !== "completed").length}` : ""}
+                  </button>
+                ))}
+              </nav>
+
+              {assetPanelTab === "details" && <section className="maps-asset-tab-panel">
+                <dl>
+                  <div><dt>Status</dt><dd>{selectedFeature.status}</dd></div>
+                  <div><dt>Placed with</dt><dd>{selectedFeature.placement_method.replace("_", " ")}</dd></div>
+                  {selectedFeature.location_accuracy_m !== null && <div><dt>Recorded accuracy</dt><dd>±{Math.round(selectedFeature.location_accuracy_m * 3.28084)} ft</dd></div>}
+                  {selectedFeature.address && <div className="maps-detail-wide"><dt>Address</dt><dd>{selectedFeature.address}</dd></div>}
+                  {selectedFeature.customer_reference && <div className="maps-detail-wide"><dt>Customer reference</dt><dd>{selectedFeature.customer_reference}</dd></div>}
+                  {selectedFields.map((field) => {
+                    const value = selectedFeature.properties?.[field.field_key];
+                    if (value === null || value === undefined || value === "") return null;
+                    return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
+                  })}
+                </dl>
+                <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
+                {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
+                  <span>FIELD LOCATION</span>
+                  <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
+                  <small>{deviceLocation ? `Current GPS accuracy ±${Math.round(deviceLocation.accuracyMeters * 3.28084)} ft` : "Your device will report its current accuracy."}</small>
+                  <button type="button" onClick={locating ? () => stopLocating() : startLocating}>{locating ? "Cancel location search" : deviceLocation ? "Center on me" : "Use my location"}</button>
+                </div>}
+              </section>}
+
+              {assetPanelTab === "history" && <section className="maps-asset-tab-panel">
+                <header className="maps-tab-heading"><div><strong>Permanent history</strong><span>Submitted records cannot be edited or deleted.</span></div>{canEdit && <button type="button" onClick={() => openEventDialog()}>＋ Add event</button>}</header>
+                <div className="maps-history-list">
+                  {selectedEvents.map((item) => <article key={item.id} className={`is-${item.severity}`}>
+                    <i aria-hidden="true" />
+                    <div><span>{eventTypeLabel(item.event_type)} · EVT-{String(item.sequence_number).padStart(5, "0")}</span><strong>{item.title}</strong><small>{formatHistoryDate(item.occurred_at)} · {item.compliance_basis.replace("_", " ")}</small>{item.summary && <p>{item.summary}</p>}<em title={item.record_hash}>Locked record · {item.record_hash.slice(0, 10)}</em></div>
+                  </article>)}
+                  {!selectedEvents.length && <p className="maps-tab-empty">No history yet. Inspections, breaks, repairs, and completed tasks will appear here.</p>}
+                </div>
+              </section>}
+
+              {assetPanelTab === "tasks" && <section className="maps-asset-tab-panel">
+                <header className="maps-tab-heading"><div><strong>Tasks</strong><span>Schedule inspections, maintenance, reporting, and follow-up.</span></div>{canEdit && <button type="button" onClick={() => setTaskDialogOpen(true)}>＋ Add task</button>}</header>
+                <div className="maps-task-list">
+                  {selectedTasks.map((task) => <article key={task.id} className={`is-${task.priority}${task.status === "completed" ? " is-complete" : ""}`}>
+                    <div><span>{task.category.replace("_", " ")} · {task.compliance_basis.replace("_", " ")}</span><strong>{task.title}</strong><small>{task.status === "completed" ? `Completed ${formatHistoryDate(task.completed_at || task.updated_at)}` : task.due_at ? `Due ${formatHistoryDate(task.due_at)}` : "No due date"}</small>{task.description && <p>{task.description}</p>}</div>
+                    {canEdit && task.status !== "completed" && <button type="button" onClick={() => setTaskCompleting(task)}>Complete</button>}
+                  </article>)}
+                  {!selectedTasks.length && <p className="maps-tab-empty">No tasks yet. Add work without crowding the everyday map.</p>}
+                </div>
+              </section>}
+
+              {assetPanelTab === "files" && <section className="maps-asset-tab-panel maps-asset-photos">
+                <header><span>PHOTOS & EVIDENCE</span>{canEdit && <label className={photoUploading ? "is-disabled" : ""}>＋ Add photo<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={photoUploading} onChange={(event) => void uploadFeaturePhoto(event)} /></label>}</header>
+                {selectedPhotos.length ? <div>{selectedPhotos.map((photo) => <figure key={photo.id}>{photoUrls[photo.id] ? <img src={photoUrls[photo.id]} alt={photo.caption || selectedFeature.title} /> : <span>Loading…</span>}<figcaption>{photo.caption || "Asset photo"}</figcaption>{canEdit && <button type="button" disabled={photoUploading} onClick={() => void deleteFeaturePhoto(photo)} aria-label={`Delete ${photo.caption || "asset photo"}`}>×</button>}</figure>)}</div> : <p>No photos or evidence added yet.</p>}
+              </section>}
             </article>
           )}
 
@@ -2375,6 +2583,56 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>SHAPE CHANGES</span><h2 id="save-shape-edit-title">Save the new shape?</h2></div><button type="button" onClick={() => setShapeEditReview(false)} aria-label="Close">×</button></header>
             <div className="maps-confirm-copy maps-move-confirmation"><p>This replaces the saved geometry for <strong>{selectedFeature.title}</strong>. Its layer, details, photos, and history remain connected.</p><div className="maps-coordinate-readout"><span>{shapeDraft.coordinates.length} mapped points</span><small>You can keep editing or save this reviewed shape.</small></div></div>
             <footer><button type="button" onClick={() => setShapeEditReview(false)}>Keep editing</button><button type="button" className="is-primary" disabled={saving} onClick={() => void saveEditedShape()}>{saving ? "Saving…" : "Save shape changes"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {eventDialogOpen && selectedFeature && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-event-dialog" role="dialog" aria-modal="true" aria-labelledby="new-event-title">
+            <header><div><span>PERMANENT HISTORY</span><h2 id="new-event-title">Record an event</h2></div><button type="button" onClick={() => setEventDialogOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void saveEvent(event)}>
+              <div className="maps-record-lock-note"><strong>Locked after submission</strong><span>Mistakes are corrected with an amendment so the original record is always preserved.</span></div>
+              <label><span>Event type</span><select name="event_type" value={eventType} onChange={(event) => setEventType(event.target.value as MapEventType)}>{EVENT_TYPES.map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
+              <label><span>Title</span><input name="title" required maxLength={180} placeholder={EVENT_TYPES.find((type) => type.value === eventType)?.label || "Event title"} /></label>
+              <div className="maps-dialog-row"><label><span>Occurred</span><input name="occurred_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Severity</span><select name="severity" defaultValue="routine"><option value="routine">Routine</option><option value="attention">Needs attention</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select></label></div>
+
+              {eventType === "water_main_break" && <fieldset className="maps-event-fields"><legend>Water-main response</legend><div className="maps-dialog-row"><label><span>Cause</span><input name="cause" placeholder="Unknown, freeze, material failure…" /></label><label><span>Customers affected</span><input name="customersAffected" type="number" min="0" /></label></div><label><span>Repair method</span><input name="repairMethod" placeholder="Clamp, replaced section, coupling…" /></label><div className="maps-event-checks"><label><input name="pressureLost" type="checkbox" /> Positive pressure was lost</label><label><input name="disinfected" type="checkbox" /> Repair was disinfected</label><label><input name="sampleCollected" type="checkbox" /> Verification sample collected</label></div><div className="maps-dialog-row"><label><span>Chlorine residual</span><input name="chlorineResidual" placeholder="Value and unit" /></label><label><span>Sample result</span><input name="sampleResult" placeholder="Pending, absent, report ID…" /></label></div></fieldset>}
+              {eventType === "sewer_overflow" && <fieldset className="maps-event-fields"><legend>Overflow response</legend><div className="maps-dialog-row"><label><span>Estimated volume (gal)</span><input name="estimatedVolumeGallons" type="number" min="0" step="any" /></label><label><span>Estimate method</span><input name="volumeMethod" placeholder="Flow × duration…" /></label></div><label><span>Receiving water or affected area</span><input name="receivingWater" /></label><label><span>Cause or suspected cause</span><input name="cause" /></label><label><span>OERS incident number</span><input name="oersIncidentNumber" /></label><div className="maps-event-checks"><label><input name="contained" type="checkbox" /> Contained / stopped</label><label><input name="deqNotified" type="checkbox" /> DEQ/OERS notified</label></div><p>Reporting deadlines depend on the organization's current wastewater permit. This form preserves the information normally needed for the 24-hour notice and follow-up report.</p></fieldset>}
+              {eventType === "valve_inspection" && <fieldset className="maps-event-fields"><legend>Valve inspection</legend><div className="maps-dialog-row"><label><span>Condition</span><select name="condition"><option value="good">Good</option><option value="fair">Fair</option><option value="poor">Poor</option><option value="failed">Failed</option></select></label><label><span>Normal position</span><select name="normalPosition"><option value="open">Open</option><option value="closed">Closed</option><option value="partial">Partially open</option></select></label></div><label><span>Turns to close</span><input name="turnsToClose" type="number" min="0" step="any" /></label><label><span>Repairs needed</span><input name="repairsNeeded" /></label><div className="maps-event-checks"><label><input name="operable" type="checkbox" /> Valve operated successfully</label></div></fieldset>}
+              {eventType === "hydrant_inspection" && <fieldset className="maps-event-fields"><legend>Hydrant inspection</legend><div className="maps-dialog-row"><label><span>Condition</span><select name="condition"><option value="good">Good</option><option value="fair">Fair</option><option value="poor">Poor</option><option value="out_of_service">Out of service</option></select></label><label><span>Flow (GPM)</span><input name="flowGpm" type="number" min="0" step="any" /></label></div><div className="maps-dialog-row"><label><span>Static pressure</span><input name="staticPressure" placeholder="psi" /></label><label><span>Residual pressure</span><input name="residualPressure" placeholder="psi" /></label></div><label><span>Repairs needed</span><input name="repairsNeeded" /></label><div className="maps-event-checks"><label><input name="drainsProperly" type="checkbox" /> Barrel drains properly</label><label><input name="flushed" type="checkbox" /> Hydrant flushed</label></div></fieldset>}
+
+              <label><span>What happened</span><textarea name="summary" maxLength={8_000} rows={4} placeholder="Document findings, actions, measurements, and follow-up." /></label>
+              <div className="maps-dialog-row"><label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} defaultValue={selectedFeature.customer_reference || ""} placeholder="Optional" /></label><label><span>Request reference</span><input name="request_reference" maxLength={160} placeholder="Optional — ready for future requests" /></label></div>
+              <label className="maps-check-row"><input name="resolved" type="checkbox" /><span>Mark this event resolved</span></label>
+              <footer><button type="button" onClick={() => setEventDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Submitting…" : "Submit permanent event"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {taskDialogOpen && selectedFeature && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="new-task-title">
+            <header><div><span>UPCOMING WORK</span><h2 id="new-task-title">Add a task</h2></div><button type="button" onClick={() => setTaskDialogOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void saveTask(event)}>
+              <label><span>Task</span><input name="title" required maxLength={180} placeholder="Inspect, test, repair, report…" /></label>
+              <div className="maps-dialog-row"><label><span>Category</span><select name="category" defaultValue="maintenance"><option value="inspection">Inspection</option><option value="maintenance">Maintenance</option><option value="repair">Repair</option><option value="testing">Testing</option><option value="sampling">Sampling</option><option value="reporting">Reporting</option><option value="customer_request">Customer request</option><option value="follow_up">Follow-up</option></select></label><label><span>Priority</span><select name="priority" defaultValue="normal"><option value="low">Low</option><option value="normal">Normal</option><option value="high">High</option><option value="urgent">Urgent</option></select></label></div>
+              <div className="maps-dialog-row"><label><span>Due date</span><input name="due_at" type="datetime-local" /></label><label><span>Basis</span><select name="compliance_basis" defaultValue="operational"><option value="operational">Operational</option><option value="recommended">Recommended practice</option><option value="organization_policy">Organization policy</option><option value="rule">Rule requirement</option><option value="permit">Permit requirement</option></select></label></div>
+              <label><span>Instructions</span><textarea name="description" maxLength={8_000} rows={4} placeholder="What needs to be checked or completed?" /></label>
+              <div className="maps-dialog-row"><label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} defaultValue={selectedFeature.customer_reference || ""} placeholder="Optional" /></label><label><span>Request reference</span><input name="request_reference" maxLength={160} placeholder="Optional — ready for future requests" /></label></div>
+              <p>Completing this task will automatically create a permanent history event for {selectedFeature.title}.</p>
+              <footer><button type="button" onClick={() => setTaskDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Saving…" : "Add task"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {taskCompleting && selectedFeature && (
+        <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="complete-task-title">
+            <header><div><span>COMPLETE TASK</span><h2 id="complete-task-title">{taskCompleting.title}</h2></div><button type="button" onClick={() => setTaskCompleting(null)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void completeTask(event)}><div className="maps-record-lock-note"><strong>Creates permanent history</strong><span>The completion record will be locked after submission.</span></div><label><span>Completion summary</span><textarea name="completion_summary" rows={4} maxLength={8_000} required placeholder="Document what was completed, findings, and any follow-up needed." /></label><footer><button type="button" onClick={() => setTaskCompleting(null)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Completing…" : "Complete and record"}</button></footer></form>
           </section>
         </div>
       )}

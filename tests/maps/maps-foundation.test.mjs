@@ -16,7 +16,7 @@ test("Maps starts as an empty reusable N3XRA product", async () => {
   assert.doesNotMatch(workspace, /maps-empty-list"><span>◇/);
   assert.match(workspace, /maps_access_list/);
   assert.match(workspace, /maps_workspace_snapshot/);
-  assert.doesNotMatch(workspace, /Bly Water|sample|demo organization/i);
+  assert.doesNotMatch(workspace, /Bly Water|sample organization|demo organization/i);
   assert.match(migration, /values \(\s*'maps'/);
   assert.doesNotMatch(migration, /insert into public\.organization_product_entitlements/i);
   assert.doesNotMatch(migration, /insert into public\.organization_product_member_access/i);
@@ -499,4 +499,46 @@ test("Maps photos are registered in each organization's Files and Assets library
   assert.match(filesApp, /activeLocation === "maps"/);
   assert.match(filesApp, /button\("maps", "Maps"/);
   assert.match(workspace, /organization_file_id/);
+});
+
+test("Maps ties permanent operational history and completable tasks to assets", async () => {
+  const [workspace, types, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260904000840_maps_events_and_tasks.sql"),
+  ]);
+
+  assert.match(types, /export interface MapEvent/);
+  assert.match(types, /export interface MapTask/);
+  assert.match(workspace, /\["details", "history", "tasks", "files"\]/);
+  assert.match(workspace, /Permanent history/);
+  assert.match(workspace, /Submitted records cannot be edited or deleted/);
+  assert.match(workspace, /Water-main response/);
+  assert.match(workspace, /Overflow response/);
+  assert.match(workspace, /Valve inspection/);
+  assert.match(workspace, /Hydrant inspection/);
+  assert.match(workspace, /future requests/);
+  assert.match(workspace, /rpc\("maps_complete_task"/);
+  assert.match(workspace, /Complete and record/);
+  assert.match(styles, /\.maps-asset-tabs/);
+  assert.match(styles, /\.maps-history-list/);
+  assert.match(styles, /\.maps-task-list/);
+
+  assert.match(migration, /create table public\.map_events/);
+  assert.match(migration, /create table public\.map_tasks/);
+  assert.match(migration, /foreign key \(organization_id, feature_id\)[\s\S]*references public\.map_features/);
+  assert.match(migration, /future_customer_account_id uuid/);
+  assert.match(migration, /future_customer_request_id uuid/);
+  assert.match(migration, /before update or delete on public\.map_events/);
+  assert.match(migration, /Submitted map history is permanent/);
+  assert.match(migration, /Add a correction or void record instead/);
+  assert.match(migration, /create or replace function public\.maps_complete_task/);
+  assert.match(migration, /insert into public\.map_events/);
+  assert.match(migration, /completion_event_id = created_event\.id/);
+  assert.match(migration, /alter table public\.map_events enable row level security/);
+  assert.match(migration, /alter table public\.map_tasks enable row level security/);
+  assert.match(migration, /grant select, insert on public\.map_events to authenticated/);
+  assert.doesNotMatch(migration, /grant[^;]*update[^;]*on public\.map_events/);
+  assert.doesNotMatch(migration, /grant[^;]*delete[^;]*on public\.map_events/);
 });
