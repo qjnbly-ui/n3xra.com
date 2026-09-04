@@ -21,14 +21,14 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .invoice-boot { position: fixed; inset: 0; display: grid; place-items: center; color: #fff; background: #071016; font-size: .82rem; font-weight: 800; letter-spacing: .04em; }
 body:not(.invoice-loading) .invoice-boot { display: none; }
 
-.invoice-shell { min-height: 100vh; display: grid; grid-template-columns: 238px minmax(0, 1fr); }
-.invoice-sidebar { position: sticky; top: 0; height: 100vh; display: flex; flex-direction: column; padding: 20px 14px; color: #dce9e7; background: #071016; border-right: 1px solid rgba(255,255,255,.08); }
+.invoice-shell { min-height: 100vh; display: grid; grid-template-columns: 214px minmax(0, 1fr); padding-top: 76px; }
+.invoice-sidebar { position: sticky; top: 76px; height: calc(100vh - 76px); display: flex; flex-direction: column; padding: 20px 14px; color: #dce9e7; background: #071016; border-right: 1px solid rgba(255,255,255,.08); }
 .invoice-brand { display: flex; align-items: center; gap: 11px; padding: 5px 8px 22px; color: #fff; text-decoration: none; }
 .invoice-brand-mark { width: 37px; height: 37px; display: grid; place-items: center; border-radius: 11px; color: #071016; background: var(--accent); font-weight: 900; transform: rotate(-3deg); }
 .invoice-brand span { display: grid; gap: 1px; }
 .invoice-brand strong { font-size: .84rem; letter-spacing: .08em; }
 .invoice-brand small { color: #8fa4a0; font-size: .63rem; }
-.invoice-nav-label { margin: 14px 12px 7px; color: #718985; font-size: .61rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
+.invoice-nav-label { margin: 4px 12px 10px; color: #718985; font-size: .61rem; font-weight: 800; letter-spacing: .11em; text-transform: uppercase; }
 .invoice-nav { display: grid; gap: 4px; }
 .invoice-nav a { display: flex; align-items: center; gap: 10px; min-height: 42px; padding: 0 12px; color: #9db0ad; border-radius: 9px; font-size: .75rem; font-weight: 700; text-decoration: none; }
 .invoice-nav a::before { content: ""; width: 7px; height: 7px; border: 1.5px solid currentColor; border-radius: 2px; }
@@ -120,18 +120,23 @@ body:not(.invoice-loading) .invoice-boot { display: none; }
 
 .rates-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .rate-card { background: #fff; border: 1px solid var(--line); border-radius: 15px; overflow: hidden; }
-.rate-card-head { padding: 18px 20px; border-bottom: 1px solid var(--line); }
+.rate-card-head { min-height: 77px; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 20px; border-bottom: 1px solid var(--line); }
 .rate-card-head h3 { margin: 0; font: 700 1.12rem Fraunces, Georgia, serif; }
 .rate-card-head p { margin: 5px 0 0; color: var(--muted); font-size: .66rem; }
 .rate-list { padding: 6px 20px 14px; }
-.rate-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid #edf0f1; }
+.rate-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 34px; gap: 9px; align-items: end; padding: 10px 0; border-bottom: 1px solid #edf0f1; }
 .rate-row:last-child { border-bottom: 0; }
-.rate-row strong { font-size: .72rem; }
+.rate-row.agency-row { grid-template-columns: minmax(0, 1fr) 34px; }
+.rate-name { display: grid; gap: 5px; color: #647278; font-size: .56rem; font-weight: 800; }
+.rate-name input { width: 100%; min-height: 38px; padding: 8px 10px; color: var(--ink); background: #fbfcfc; border: 1px solid #d5dfe1; border-radius: 9px; }
 .rate-field { position: relative; }
-.rate-field::before { content: "$"; position: absolute; z-index: 1; top: 12px; left: 10px; color: var(--muted); font-size: .7rem; }
+.rate-field::before { content: "$"; position: absolute; z-index: 1; bottom: 11px; left: 10px; color: var(--muted); font-size: .7rem; }
+.rate-field span { font-size: .56rem; }
 .rate-field input { min-height: 38px; padding: 8px 8px 8px 22px; text-align: right; }
+.rate-card.apparatus { grid-row: span 2; }
 .rates-save { display: flex; align-items: center; justify-content: flex-end; gap: 12px; margin-top: 16px; }
 .inline-status { min-height: 18px; margin: 0; color: #227d73; font-size: .67rem; font-weight: 700; }
+.invoice-print-sheet { display: none; }
 
 @media (max-width: 1060px) {
   .invoice-shell { grid-template-columns: 200px minmax(0, 1fr); }
@@ -143,6 +148,7 @@ body:not(.invoice-loading) .invoice-boot { display: none; }
 
 @media (max-width: 760px) {
   .invoice-shell { display: block; }
+  .invoice-shell { padding-top: 68px; }
   .invoice-sidebar { position: static; width: 100%; height: auto; padding: 12px; }
   .invoice-brand { padding-bottom: 10px; }
   .invoice-nav-label, .invoice-sidebar-foot { display: none; }
@@ -166,14 +172,37 @@ body:not(.invoice-loading) .invoice-boot { display: none; }
 
 @media (max-width: 560px) {
   .rates-grid { grid-template-columns: 1fr; }
+  .rate-card.apparatus { grid-row: auto; }
   .invoice-table th, .invoice-table td { padding-right: 10px; padding-left: 10px; }
 }
 
 @media print {
-  .invoice-sidebar, .invoice-topbar, .invoice-page-head, .editor-sections, .summary-actions, .summary-note { display: none !important; }
-  .invoice-shell, .editor-layout { display: block; }
-  .invoice-content { padding: 0; }
-  .editor-summary { box-shadow: none; color: #111; background: #fff; border: 1px solid #ccc; }
-  .summary-head, .summary-body { color: #111; }
-  .summary-head span, .summary-head p, .summary-row, .summary-row strong, .summary-row.total span, .summary-row.total strong { color: #111; }
+  @page { size: letter; margin: .55in; }
+  body { color: #111; background: #fff; }
+  .product-app-header, .invoice-sidebar, .invoice-page-head, .editor-layout { display: none !important; }
+  .invoice-shell, .invoice-main, .invoice-content { display: block; min-height: 0; margin: 0; padding: 0; }
+  .invoice-print-sheet { display: block; font: 10pt/1.4 Manrope, Arial, sans-serif; }
+  .print-head { display: flex; align-items: flex-start; justify-content: space-between; padding-bottom: 18px; border-bottom: 2px solid #0c4b42; }
+  .print-head > div { display: grid; gap: 2px; }
+  .print-head > div:last-child { text-align: right; }
+  .print-head span { font-size: 16pt; font-weight: 900; letter-spacing: .14em; }
+  .print-head strong, .print-head small { color: #66767b; font-size: 8pt; text-transform: uppercase; letter-spacing: .08em; }
+  .print-head b { font-size: 14pt; }
+  .print-title { padding: 26px 0 18px; }
+  .print-title p { margin: 0 0 3px; color: #66767b; font-size: 8pt; font-weight: 800; text-transform: uppercase; }
+  .print-title h1 { margin: 0; font: 700 24pt Fraunces, Georgia, serif; }
+  .print-title span { color: #45545a; }
+  .print-details { display: grid; grid-template-columns: repeat(4, 1fr); margin: 0 0 24px; padding: 14px; background: #f1f5f5; }
+  .print-details div { min-width: 0; }
+  .print-details dt { color: #66767b; font-size: 7pt; font-weight: 800; text-transform: uppercase; }
+  .print-details dd { margin: 3px 0 0; font-weight: 700; }
+  .invoice-print-sheet h2 { margin: 22px 0 7px; font: 700 13pt Fraunces, Georgia, serif; }
+  .invoice-print-sheet table { width: 100%; border-collapse: collapse; }
+  .invoice-print-sheet th, .invoice-print-sheet td { padding: 7px 8px; border-bottom: 1px solid #d9e1e3; text-align: left; }
+  .invoice-print-sheet th:nth-last-child(-n+3), .invoice-print-sheet td:nth-last-child(-n+3) { text-align: right; }
+  .invoice-print-sheet thead th { color: #5d6b70; background: #f6f8f8; font-size: 7pt; text-transform: uppercase; }
+  .invoice-print-sheet tfoot th { padding-top: 10px; border-bottom: 0; }
+  .print-total { display: flex; align-items: baseline; justify-content: flex-end; gap: 24px; margin-top: 28px; padding-top: 15px; border-top: 2px solid #0c4b42; }
+  .print-total span { font-weight: 800; text-transform: uppercase; }
+  .print-total strong { font: 700 22pt Fraunces, Georgia, serif; }
 }
