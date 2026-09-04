@@ -303,6 +303,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-incident-actions { display: grid; grid-template-columns: 1fr 1fr; gap: .45rem; margin-top: .7rem; }
 .maps-incident-actions button { padding: .58rem; color: var(--maps-ink); border: 1px solid rgba(255,255,255,.12); border-radius: 8px; background: rgba(255,255,255,.04); font-size: .59rem; font-weight: 900; cursor: pointer; }
 .maps-incident-actions button.is-resolve { color: #07120f; border-color: transparent; background: var(--maps-mint); }
+.maps-incident-actions button.is-delete { grid-column: 1 / -1; color: #ffaaa4; border-color: rgba(240,95,85,.45); background: rgba(240,95,85,.1); }
 .maps-incident-timeline { margin-top: .8rem; padding-top: .7rem; border-top: 1px solid rgba(255,255,255,.08); }
 .maps-incident-timeline > header { display: flex; justify-content: space-between; gap: .5rem; }
 .maps-incident-timeline > header strong { font-size: .65rem; }

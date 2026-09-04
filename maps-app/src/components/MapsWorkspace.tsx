@@ -501,6 +501,12 @@ function calculateIncidentIsolation(
     return feature.geometry_type === "line" && layer?.system_type === "potable_water";
   }).map((feature) => feature.id));
   const devices = networkDevices.filter((device) => waterLineIds.has(device.line_a_feature_id) && waterLineIds.has(device.line_b_feature_id));
+  const endpointValveConnections = pointLineConnections.filter((connection) => {
+    if (!waterLineIds.has(connection.line_feature_id) || (connection.line_fraction > 0.001 && connection.line_fraction < 0.999)) return false;
+    const feature = features.find((item) => item.id === connection.point_feature_id);
+    const layer = layers.find((item) => item.id === feature?.layer_id);
+    return Boolean(feature && (layer?.standard_key === "water-valve" || layer?.icon_key === "valve"));
+  });
   const valvePairs = new Set(devices.map((device) => [device.line_a_feature_id, device.line_b_feature_id].sort().join(":")));
   const adjacency = new Map<string, Set<string>>();
   const connect = (left: string, right: string) => {
@@ -540,8 +546,30 @@ function calculateIncidentIsolation(
       }
     }
   }
-  const requiredValveIds = devices.filter((device) => reached.has(device.line_a_feature_id) !== reached.has(device.line_b_feature_id))
+  const insertedBoundaryValveIds = devices.filter((device) => reached.has(device.line_a_feature_id) !== reached.has(device.line_b_feature_id))
     .map((device) => device.device_feature_id);
+  const endpointBoundaryValveIds = endpointValveConnections
+    .filter((connection) => reached.has(connection.line_feature_id))
+    .map((connection) => connection.point_feature_id);
+  const requiredValveIds = [...new Set([...insertedBoundaryValveIds, ...endpointBoundaryValveIds])]
+    .filter((featureId) => !unavailable.has(featureId));
+
+  const reachedMainLines = features.filter((feature) => {
+    if (!reached.has(feature.id) || feature.geometry_type !== "line") return false;
+    return layers.find((layer) => layer.id === feature.layer_id)?.standard_key === "water-main";
+  });
+  const openMainEndpoints = reachedMainLines.flatMap((feature) => (["start", "end"] as const).filter((endpoint) => {
+    const connectedToLine = networkConnections.some((connection) =>
+      (connection.feature_id === feature.id && connection.endpoint === endpoint)
+      || (connection.connected_feature_id === feature.id
+        && (endpoint === "start" ? connection.connected_fraction <= 0.001 : connection.connected_fraction >= 0.999)));
+    const endpointFraction = endpoint === "start" ? 0 : 1;
+    const controlledByValve = endpointValveConnections.some((connection) =>
+      connection.line_feature_id === feature.id
+      && Math.abs(connection.line_fraction - endpointFraction) <= 0.001
+      && !unavailable.has(connection.point_feature_id));
+    return !connectedToLine && !controlledByValve;
+  }).map((endpoint) => `${feature.id}:${endpoint}`));
   const affectedMeterIds = pointLineConnections.filter((connection) => reached.has(connection.line_feature_id))
     .map((connection) => features.find((feature) => feature.id === connection.point_feature_id))
     .filter((feature): feature is MapFeature => {
@@ -552,8 +580,9 @@ function calculateIncidentIsolation(
     .map((feature) => feature.id);
   const customerReferences = [...new Set(affectedMeterIds.map((id) => features.find((feature) => feature.id === id)?.customer_reference?.trim()).filter((value): value is string => Boolean(value)))];
   const warnings: string[] = [];
-  if (!devices.length) warnings.push("No inserted network valves are mapped in this water system yet.");
-  if (devices.length && !requiredValveIds.length) warnings.push("No valve boundary closes around this break. Check line connections and add isolation valves.");
+  if (!devices.length && !endpointValveConnections.length) warnings.push("No connected network valves are mapped in this water system yet.");
+  if (!requiredValveIds.length) warnings.push("No usable valve boundary was found. Check line connections and add isolation valves.");
+  if (openMainEndpoints.length) warnings.push(`The affected network reaches ${openMainEndpoints.length} mapped water-main end${openMainEndpoints.length === 1 ? "" : "s"} without a connected valve or continuation. This plan is not a complete isolation boundary yet.`);
   if (unavailable.size) warnings.push(`${unavailable.size} unavailable valve${unavailable.size === 1 ? " was" : "s were"} bypassed; the plan expanded to the next mapped valve${unavailable.size === 1 ? "" : "s"}.`);
   if (affectedMeterIds.length > customerReferences.length) warnings.push("Some affected meters do not have a customer reference yet.");
   return {
@@ -561,7 +590,7 @@ function calculateIncidentIsolation(
     isolatedFeatureIds: [...reached],
     affectedMeterIds,
     customerReferences,
-    topologyComplete: requiredValveIds.length > 0,
+    topologyComplete: requiredValveIds.length > 0 && openMainEndpoints.length === 0,
     warnings,
   };
 }
@@ -701,6 +730,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [incidentUpdateType, setIncidentUpdateType] = useState<MapIncidentUpdate["update_type"]>("field_update");
   const [incidentUpdateStatus, setIncidentUpdateStatus] = useState<Exclude<MapIncidentStatus, "resolved">>("repairing");
   const [incidentCloseDialogOpen, setIncidentCloseDialogOpen] = useState(false);
+  const [incidentDeleteOpen, setIncidentDeleteOpen] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [basemap, setBasemap] = useState<BasemapStyle>("standard");
@@ -2506,6 +2536,25 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Incident resolved and permanent history created");
   };
 
+  const deleteActiveBreakIncident = async () => {
+    if (!client || !activeAccess || !selectedIncident || selectedIncident.status === "resolved" || !canPermanentlyDelete) return;
+    setSaving(true);
+    const incidentId = selectedIncident.id;
+    const { error } = await client.rpc("maps_delete_break_incident", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: incidentId,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The active break could not be deleted.");
+      return;
+    }
+    setIncidentDeleteOpen(false);
+    setSelectedIncidentId(null);
+    await loadWorkspace(client, activeAccess);
+    showToast("Active test break deleted");
+  };
+
   const saveEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedFeature || !canEdit) return;
@@ -3403,7 +3452,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.isolated_feature_ids.length ?? 0 : selectedIsolationEstimate?.isolatedFeatureIds.length ?? 0}</strong><span>line segments</span></div>
                 </div>
                 {selectedIncident.status !== "resolved" && <>
-                  <p>The orange pipe section is the predicted isolated area. Valves are ordered nearest to the reported break. Closing every listed boundary valve isolates that area, including looped paths.</p>
+                  <p>{selectedIsolationEstimate?.topologyComplete
+                    ? "The orange pipe section is the predicted isolated area. Valves are ordered nearest to the reported break. Closing every listed boundary valve isolates that area, including looped paths."
+                    : "The orange pipe section is the predicted affected area. The listed valves are the nearest mapped controls, but the warnings below identify open network boundaries that must be verified in the field."}</p>
                   {selectedIsolationValves.length ? <div className="maps-isolation-valves">{selectedIsolationValves.map((valve, index) => {
                     const status = selectedValveStatuses.get(valve.id) || "recommended";
                     const incidentLocation = geoPointCoordinates(selectedIncident.geometry);
@@ -3416,7 +3467,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 </>}
                 {selectedIncident.status === "resolved" && selectedSavedIsolationPlan?.warnings.length ? <ul>{selectedSavedIsolationPlan.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
               </section>}
-              {selectedIncident.status !== "resolved" && <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button></>}</div>}
+              {selectedIncident.status !== "resolved" && <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button>{canPermanentlyDelete && <button type="button" className="is-delete" onClick={() => setIncidentDeleteOpen(true)}>Delete test break</button>}</>}</div>}
               <section className="maps-incident-timeline"><header><strong>Incident timeline</strong><span>{selectedIncidentUpdates.length} permanent update{selectedIncidentUpdates.length === 1 ? "" : "s"}</span></header><div>{selectedIncidentUpdates.map((update) => <article key={update.id}><i /><div><span>{update.update_type.replaceAll("_", " ")}{update.status_after ? ` · ${update.status_after}` : ""}</span><strong>{update.note}</strong><small>{formatHistoryDate(update.occurred_at)}</small></div></article>)}</div></section>
             </article>
           )}
@@ -3575,6 +3626,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <header><div><span>PERMANENT DELETE</span><h2 id="permanent-delete-title">Delete {permanentDeleteTarget.name} forever?</h2></div><button type="button" onClick={() => setPermanentDeleteTarget(null)} aria-label="Close">×</button></header>
             <div className="maps-confirm-copy"><p>This cannot be undone. {permanentDeleteTarget.type === "layer" ? "The layer, every mapped item, immutable history, incidents, updates, tasks, photos, and linked file records inside it will be permanently removed." : "The mapped item will be permanently removed."}</p></div>
             <footer><button type="button" onClick={() => setPermanentDeleteTarget(null)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void permanentlyDeleteArchivedItem()}>{saving ? "Deleting…" : "Delete forever"}</button></footer>
+          </section>
+        </div>
+      )}
+
+      {incidentDeleteOpen && selectedIncident && selectedIncident.status !== "resolved" && (
+        <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="incident-delete-title">
+            <header><div><span>DELETE ACTIVE BREAK</span><h2 id="incident-delete-title">Delete INC-{String(selectedIncident.incident_number).padStart(5, "0")}?</h2></div><button type="button" onClick={() => setIncidentDeleteOpen(false)} aria-label="Close">×</button></header>
+            <div className="maps-confirm-copy"><p>This removes the active test break, its updates, valve actions, and saved isolation plan. It cannot be undone. Resolved break history remains permanent and cannot be deleted here.</p></div>
+            <footer><button type="button" onClick={() => setIncidentDeleteOpen(false)}>Cancel</button><button type="button" className="is-danger" disabled={saving} onClick={() => void deleteActiveBreakIncident()}>{saving ? "Deleting…" : "Delete active break"}</button></footer>
           </section>
         </div>
       )}
