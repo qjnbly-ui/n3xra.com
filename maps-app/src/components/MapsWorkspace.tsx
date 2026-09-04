@@ -173,6 +173,12 @@ interface PointConnectionCandidate {
   distanceMeters: number;
 }
 
+interface ShapeAssetConnectionTarget {
+  featureId: string;
+  title: string;
+  coordinate: [number, number];
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -626,6 +632,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [connectNewPoint, setConnectNewPoint] = useState(false);
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
   const [pendingShape, setPendingShape] = useState<ShapeDraft | null>(null);
+  const [shapeAssetConnectionTargets, setShapeAssetConnectionTargets] = useState<ShapeAssetConnectionTarget[]>([]);
   const [shapeHoverCoordinate, setShapeHoverCoordinate] = useState<[number, number] | null>(null);
   const [shapeSnapTarget, setShapeSnapTarget] = useState<LineSnapTarget | null>(null);
   const [editingShapeId, setEditingShapeId] = useState<string | null>(null);
@@ -773,6 +780,39 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setToast(message);
     window.setTimeout(() => setToast(""), 3_000);
   }, []);
+
+  const connectLineDrawingToAsset = useCallback((feature: MapFeature): boolean => {
+    if (!shapeDraft || shapeDraft.geometryType !== "line" || editingShapeId) return false;
+    const coordinate = pointCoordinates(feature);
+    const lineLayer = layers.find((layer) => layer.id === shapeDraft.layerId);
+    const assetLayer = layers.find((layer) => layer.id === feature.layer_id);
+    if (!coordinate || !lineLayer || !assetLayer) return false;
+    if (lineLayer.system_type === "other" || lineLayer.system_type === "reference" || lineLayer.system_type !== assetLayer.system_type) {
+      showToast(`${feature.title} is not part of this utility system`);
+      return true;
+    }
+    const lastCoordinate = shapeDraft.coordinates.at(-1);
+    if (lastCoordinate && coordinateDistanceMeters(lastCoordinate, coordinate) < 0.05) {
+      showToast(`${feature.title} is already the line endpoint`);
+      return true;
+    }
+    const nextDraft = { ...shapeDraft, coordinates: [...shapeDraft.coordinates, coordinate] };
+    setShapeAssetConnectionTargets((current) => current.some((target) => target.featureId === feature.id)
+      ? current
+      : [...current, { featureId: feature.id, title: feature.title, coordinate }]);
+    setSelectedFeatureId(null);
+    setShapeHoverCoordinate(null);
+    setShapeSnapTarget(null);
+    if (nextDraft.coordinates.length >= 2) {
+      setPendingShape(nextDraft);
+      setShapeDraft(null);
+      showToast(`Line snapped to ${feature.title}`);
+    } else {
+      setShapeDraft(nextDraft);
+      showToast(`Line started at ${feature.title}`);
+    }
+    return true;
+  }, [editingShapeId, layers, shapeDraft, showToast]);
 
   useEffect(() => {
     setAssetPanelTab("details");
@@ -988,7 +1028,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       const button = document.createElement("button");
       button.type = "button";
       const isMoving = movingFeatureId === feature.id;
-      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}`;
+      const drawingLayer = shapeDraft?.geometryType === "line" ? layers.find((item) => item.id === shapeDraft.layerId) : null;
+      const isConnectable = Boolean(drawingLayer && drawingLayer.system_type !== "other" && drawingLayer.system_type !== "reference" && drawingLayer.system_type === layer?.system_type);
+      button.className = `maps-marker${selectedFeatureId === feature.id ? " is-selected" : ""}${isMoving ? " is-moving" : ""}${isConnectable ? " is-connectable" : ""}`;
       button.style.setProperty("--marker-color", mapSymbolColor(layer?.icon_key || "marker"));
       const label = document.createElement("span");
       label.innerHTML = mapSymbolMarkup(layer?.icon_key || "marker");
@@ -996,6 +1038,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       button.setAttribute("aria-label", `Open ${feature.title}`);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
+        if (connectLineDrawingToAsset(feature)) return;
         setSelectedFeatureId(feature.id);
         setSidebarOpen(false);
       });
@@ -1020,7 +1063,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       }
       featureMarkersRef.current.set(feature.id, marker);
     });
-  }, [features, layers, movingFeatureId, selectedFeatureId, visibleLayers]);
+  }, [connectLineDrawingToAsset, features, layers, movingFeatureId, selectedFeatureId, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2017,12 +2060,24 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       customer_reference: String(form.get("customer_reference") || "").trim() || null,
       properties: readCustomProperties(form, fields),
     }).eq("id", featureId).eq("organization_id", activeAccess.organizationId).select("id").single();
+    const assetConnectionResults = pendingShape.geometryType === "line"
+      ? await Promise.all(shapeAssetConnectionTargets.map((target) => client.rpc("maps_connect_point_to_line", {
+        input_organization_id: activeAccess.organizationId,
+        input_point_feature_id: target.featureId,
+        input_line_feature_id: featureId,
+      })))
+      : [];
+    const assetConnectionError = assetConnectionResults.find((result) => result.error)?.error || null;
     setSaving(false);
     if (detailResult.error) showToast(`Shape saved, but its details need attention: ${detailResult.error.message}`);
+    else if (assetConnectionError) showToast(`Line saved, but an asset connection needs attention: ${assetConnectionError.message}`);
     setPendingShape(null);
+    setShapeAssetConnectionTargets([]);
     await loadWorkspace(client, activeAccess);
     setSelectedFeatureId(featureId);
-    showToast(pendingShape.geometryType === "line" ? "Line saved" : "Boundary saved");
+    if (!detailResult.error && !assetConnectionError) showToast(pendingShape.geometryType === "line" && assetConnectionResults.length
+      ? `Line saved and connected to ${assetConnectionResults.length} asset${assetConnectionResults.length === 1 ? "" : "s"}`
+      : pendingShape.geometryType === "line" ? "Line saved" : "Boundary saved");
   };
 
   const openEventDialog = (nextType: MapEventType = "inspection") => {
@@ -2768,6 +2823,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
     setShapeEditReview(false);
+    setShapeAssetConnectionTargets([]);
     setSelectedFeatureId(null);
     if (activeDrawingLayer.geometry_type === "point") {
       setPlacementMode(true);
@@ -2795,12 +2851,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
     setShapeEditReview(false);
+    setShapeAssetConnectionTargets([]);
     showToast("Drag a point, select one to remove it, or click the map to add a point.");
   };
 
   const undoShapeVertex = () => {
     if (!editingShapeId) {
-      setShapeDraft((current) => current ? { ...current, coordinates: current.coordinates.slice(0, -1) } : current);
+      setShapeDraft((current) => {
+        const removed = current?.coordinates.at(-1);
+        if (removed) setShapeAssetConnectionTargets((targets) => targets.filter((target) => coordinateDistanceMeters(target.coordinate, removed) >= 0.05));
+        return current ? { ...current, coordinates: current.coordinates.slice(0, -1) } : current;
+      });
       return;
     }
     setShapeEditHistory((history) => {
@@ -2833,6 +2894,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
     setShapeEditReview(false);
+    setShapeAssetConnectionTargets([]);
     showToast(wasEditing ? "Shape changes discarded" : "Drawing canceled");
   };
 
@@ -2949,8 +3011,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <div className="maps-result-list">
               {filteredFeatures.map((feature) => {
                 const layer = layers.find((item) => item.id === feature.layer_id);
+                const drawingLayer = shapeDraft?.geometryType === "line" ? layers.find((item) => item.id === shapeDraft.layerId) : null;
+                const isConnectable = feature.geometry_type === "point" && Boolean(drawingLayer && drawingLayer.system_type !== "other" && drawingLayer.system_type !== "reference" && drawingLayer.system_type === layer?.system_type);
                 return (
-                  <button type="button" className={selectedFeatureId === feature.id ? "is-selected" : ""} key={feature.id} onClick={() => { setSelectedFeatureId(feature.id); setSidebarOpen(false); }}>
+                  <button type="button" className={`${selectedFeatureId === feature.id ? "is-selected" : ""}${isConnectable ? " is-connectable" : ""}`} key={feature.id} onClick={() => { if (connectLineDrawingToAsset(feature)) return; setSelectedFeatureId(feature.id); setSidebarOpen(false); }}>
                     <LayerSwatch layer={layer} />
                     <span><strong>{feature.title}</strong><small>{feature.reference_code || layer?.name || "Mapped item"}</small></span>
                     <em>›</em>
@@ -3040,7 +3104,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
           {valvePlacementFeatureId && <div className="maps-move-banner maps-valve-placement"><strong>Insert a connected valve</strong><span>Click directly on the selected water line. The line will split at that exact point.</span></div>}
           {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
-          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
+          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : shapeAssetConnectionTargets.length ? `Connected to ${shapeAssetConnectionTargets.map((target) => target.title).join(", ")} · click the map or another asset` : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map or a compatible asset`}</span></div>}
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
@@ -3326,6 +3390,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="new-shape-title">
             <header><div><span>NEW {pendingShape.geometryType === "line" ? "LINE" : "BOUNDARY"}</span><h2 id="new-shape-title">Save drawn {pendingShape.geometryType === "line" ? "line" : "boundary"}</h2></div><button type="button" onClick={cancelShapeDrawing} aria-label="Close">×</button></header>
             <form onSubmit={(event) => void saveShape(event)}>
+              {shapeAssetConnectionTargets.length > 0 && <div className="maps-standard-note"><i className="maps-connection-arrow" aria-hidden="true">↳</i><span><strong>Connected to {shapeAssetConnectionTargets.map((target) => target.title).join(", ")}</strong><small>The line endpoint is snapped to the asset. Saving records the network relationship and updates any earlier line assignment for that asset.</small></span></div>}
               <label><span>Layer</span><input value={layers.find((layer) => layer.id === pendingShape.layerId)?.name || "Map layer"} disabled /></label>
               <label><span>Title</span><input name="title" required maxLength={140} placeholder={pendingShape.geometryType === "line" ? "Water main, service line…" : "District boundary, tax area…"} /></label>
               <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>

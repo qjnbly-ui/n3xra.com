@@ -99,6 +99,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-result-list { min-height: 0; overflow-y: auto; }
 .maps-result-list button { width: 100%; min-height: 64px; display: grid; grid-template-columns: 36px minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: .55rem 1rem; color: inherit; text-align: left; border: 0; border-top: 1px solid rgba(255,255,255,.065); background: transparent; cursor: pointer; }
 .maps-result-list button:hover, .maps-result-list button.is-selected { background: rgba(105,210,196,.1); }
+.maps-result-list button.is-connectable { box-shadow: inset 3px 0 var(--maps-mint); background: rgba(105,210,196,.055); }
 .maps-result-list button > i { width: 30px; height: 30px; }
 .maps-result-list button > span { min-width: 0; display: flex; flex-direction: column; }
 .maps-result-list button strong { overflow: hidden; font-size: .76rem; text-overflow: ellipsis; white-space: nowrap; }
@@ -181,6 +182,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-marker.is-moving::after { inset: -10px; border-color: #fff; border-style: dashed; animation: maps-marker-pulse 1.1s ease-in-out infinite alternate; }
 .maps-marker > span { position: relative; z-index: 1; width: 31px; height: 31px; filter: drop-shadow(0 0 2px #fff) drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
 .maps-marker.is-selected > span { transform: scale(1.16); }
+.maps-marker.is-connectable > span { transform: scale(1.18); filter: drop-shadow(0 0 4px #fff) drop-shadow(0 0 8px var(--maps-mint)) drop-shadow(0 4px 5px rgba(0,0,0,.55)); }
 .maps-incident-marker { position: absolute; display: grid; place-items: center; width: 34px; height: 34px; padding: 0; color: #fff; border: 3px solid rgba(255,255,255,.92); border-radius: 50%; background: #e05249; box-shadow: 0 0 0 5px rgba(224,82,73,.22), 0 6px 18px rgba(0,0,0,.42); cursor: pointer; }
 .maps-water-break-icon { width: 100%; height: 100%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .maps-incident-marker > .maps-water-break-icon, .maps-incident-marker > svg { width: 25px; height: 25px; }
@@ -374,6 +376,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-event-checks input, .maps-check-row input { width: auto !important; min-height: 0 !important; accent-color: var(--maps-mint); }
 .maps-standard-note { display: grid; grid-template-columns: 38px minmax(0,1fr); align-items: center; gap: .7rem; padding: .75rem; border: 1px solid rgba(105,210,196,.28); border-radius: 10px; background: rgba(105,210,196,.075); }
 .maps-standard-note > .maps-layer-swatch { width: 30px; height: 30px; }
+.maps-standard-note > .maps-connection-arrow { color: var(--maps-mint); font-size: 1.45rem; font-style: normal; font-weight: 800; text-align: center; }
 .maps-standard-note > span { display: flex; flex-direction: column; gap: .15rem; }
 .maps-standard-note strong { color: var(--maps-mint); font-size: .66rem; }
 .maps-standard-note small { color: #a9bbb6; font-size: .59rem; line-height: 1.45; }

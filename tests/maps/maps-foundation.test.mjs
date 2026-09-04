@@ -736,7 +736,12 @@ test("Point utility assets can be securely connected to compatible lines", async
   assert.match(workspace, /maps_disconnect_point_from_line/);
   assert.match(workspace, /This saves the utility relationship, not just the visual position/);
   assert.match(workspace, /pointLineConnections\.find/);
+  assert.match(workspace, /connectLineDrawingToAsset/);
+  assert.match(workspace, /Line snapped to \$\{feature\.title\}/);
+  assert.match(workspace, /shapeAssetConnectionTargets\.map/);
+  assert.match(workspace, /click the map or a compatible asset/);
   assert.match(styles, /\.maps-connect-suggestion/);
+  assert.match(styles, /\.maps-marker\.is-connectable/);
   assert.match(styles, /grid-template-rows: minmax\(0,\s*1fr\)/);
 
   assert.match(migration, /create table public\.map_point_line_connections/);
