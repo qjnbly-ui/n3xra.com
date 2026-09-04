@@ -464,6 +464,38 @@ test("Saved line and polygon geometry can be reviewed and edited", async () => {
   assert.match(migration, /revoke all on function public\.update_map_shape[\s\S]*from public, anon/);
 });
 
+test("Compatible utility lines snap together and persist network connections", async () => {
+  const [workspace, types, styles, migration] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260904155633_maps_network_line_connections.sql"),
+  ]);
+
+  assert.match(workspace, /nearestLineSnap/);
+  assert.match(workspace, /LINE_SNAP_PIXELS = 18/);
+  assert.match(workspace, /LINE_SNAP_METERS = 3/);
+  assert.match(workspace, /Connect to \$\{shapeSnapTarget\.title\}/);
+  assert.match(workspace, /map_network_connections/);
+  assert.match(workspace, /Saved as utility-network relationships for future flow and shutoff analysis/);
+  assert.match(types, /interface MapNetworkConnection/);
+  assert.match(styles, /\.maps-network-status\.is-connected/);
+
+  assert.match(migration, /create table public\.map_network_connections/);
+  assert.match(migration, /alter table public\.map_network_connections enable row level security/);
+  assert.match(migration, /grant select on public\.map_network_connections to authenticated/);
+  assert.match(migration, /create policy "map_network_connections_select"/);
+  assert.match(migration, /private\.maps_snap_line_geometry/);
+  assert.match(migration, /extensions\.st_closestpoint/);
+  assert.match(migration, /extensions\.st_dwithin[\s\S]*input_tolerance_m/);
+  assert.match(migration, /private\.maps_rebuild_line_connections/);
+  assert.match(migration, /connected_fraction/);
+  assert.match(migration, /map_features_refresh_network_connections/);
+  assert.match(migration, /layer_geometry_type = 'line'[\s\S]*private\.maps_snap_line_geometry/);
+  assert.match(migration, /feature_geometry_type = 'line'[\s\S]*private\.maps_snap_line_geometry/);
+  assert.doesNotMatch(migration, /grant (insert|update|delete|all) on public\.map_network_connections to authenticated/i);
+});
+
 test("Maps administrators assign product roles while editors and viewers remain scoped", async () => {
   const [workspace, styles, migration] = await Promise.all([
     read("maps-app/src/components/MapsWorkspace.tsx"),

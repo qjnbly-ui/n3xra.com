@@ -73,6 +73,18 @@ export interface MapFeaturePhoto {
   created_at: string;
 }
 
+export interface MapNetworkConnection {
+  id: string;
+  organization_id: string;
+  feature_id: string;
+  endpoint: "start" | "end";
+  connected_feature_id: string;
+  geometry: GeoJsonGeometry;
+  connected_fraction: number;
+  snap_distance_m: number;
+  created_at: string;
+}
+
 export interface GeoJsonGeometry {
   type: "Point" | "LineString" | "Polygon" | "MultiPoint" | "MultiLineString" | "MultiPolygon";
   coordinates: unknown;

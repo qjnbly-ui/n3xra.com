@@ -280,6 +280,12 @@ button, a { -webkit-tap-highlight-color: transparent; }
 .maps-incident-timeline article strong { font-size: .6rem; font-weight: 650; line-height: 1.4; }
 .maps-incident-timeline article small { color: var(--maps-muted); font-size: .5rem; }
 .maps-coordinate-detail { margin-top: .55rem; color: #71857f; font-family: ui-monospace, monospace; font-size: .57rem; text-align: right; }
+.maps-network-status { display: flex; align-items: flex-start; flex-direction: column; margin-top: .8rem; padding: .8rem; border: 1px solid var(--maps-line); border-radius: 11px; background: rgba(255,255,255,.025); }
+.maps-network-status > span { color: #81958f; font-size: .54rem; font-weight: 800; letter-spacing: .12em; }
+.maps-network-status strong { margin-top: .22rem; font-size: .72rem; }
+.maps-network-status small { margin-top: .14rem; color: #91a69f; font-size: .58rem; line-height: 1.45; }
+.maps-network-status.is-connected { border-color: rgba(105,210,196,.32); background: rgba(105,210,196,.07); }
+.maps-network-status.is-connected > span { color: var(--maps-mint); }
 .maps-asset-photos { margin-top: .8rem; padding-top: .75rem; border-top: 1px solid rgba(255,255,255,.08); }
 .maps-asset-photos > header { display: flex; align-items: center; justify-content: space-between; }
 .maps-asset-photos > header > span { color: var(--maps-mint); font-size: .54rem; font-weight: 850; letter-spacing: .12em; }

@@ -15,6 +15,7 @@ import type {
   MapIncidentUpdate,
   MapLayer,
   MapLayerField,
+  MapNetworkConnection,
   MapSystemType,
   MapTask,
   MapWorkspaceSnapshot,
@@ -151,6 +152,13 @@ interface PendingBreakLocation {
   latitude: number;
 }
 
+interface LineSnapTarget {
+  coordinate: [number, number];
+  featureId: string;
+  title: string;
+  distanceMeters: number;
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -273,6 +281,9 @@ const DRAFT_SHAPE_FILL_ID = "maps-draft-shape-fill";
 const DRAFT_SHAPE_CASING_ID = "maps-draft-shape-casing";
 const DRAFT_SHAPE_LINE_ID = "maps-draft-shape-line";
 const DRAFT_SHAPE_VERTICES_ID = "maps-draft-shape-vertices";
+const DRAFT_SHAPE_SNAP_ID = "maps-draft-shape-snap";
+const LINE_SNAP_PIXELS = 18;
+const LINE_SNAP_METERS = 3;
 
 function pointCoordinates(feature: MapFeature): [number, number] | null {
   if (feature.geometry.type !== "Point" || !Array.isArray(feature.geometry.coordinates)) return null;
@@ -306,6 +317,48 @@ function shapeGeometry(draft: ShapeDraft): MapFeature["geometry"] {
   const first = draft.coordinates[0];
   const ring = first ? [...draft.coordinates, first] : draft.coordinates;
   return { type: "Polygon", coordinates: [ring] };
+}
+
+function nearestLineSnap(
+  map: MapboxMap,
+  coordinate: [number, number],
+  features: MapFeature[],
+  layers: MapLayer[],
+  draftLayerId: string,
+  excludedFeatureId: string | null,
+): LineSnapTarget | null {
+  const draftLayer = layers.find((layer) => layer.id === draftLayerId);
+  if (!draftLayer || !["potable_water", "sanitary_sewer", "stormwater", "reclaimed_water"].includes(draftLayer.system_type)) return null;
+  const pointer = map.project(coordinate);
+  let nearest: LineSnapTarget | null = null;
+  let nearestPixels = Number.POSITIVE_INFINITY;
+
+  for (const feature of features) {
+    if (feature.id === excludedFeatureId || feature.geometry_type !== "line") continue;
+    const featureLayer = layers.find((layer) => layer.id === feature.layer_id);
+    if (featureLayer?.system_type !== draftLayer.system_type) continue;
+    const line = geometryCoordinates(feature.geometry);
+    for (let index = 0; index < line.length - 1; index += 1) {
+      const start = map.project(line[index]!);
+      const end = map.project(line[index + 1]!);
+      const deltaX = end.x - start.x;
+      const deltaY = end.y - start.y;
+      const lengthSquared = deltaX ** 2 + deltaY ** 2;
+      const fraction = lengthSquared === 0 ? 0 : Math.max(0, Math.min(1,
+        ((pointer.x - start.x) * deltaX + (pointer.y - start.y) * deltaY) / lengthSquared,
+      ));
+      const snappedScreen: [number, number] = [start.x + fraction * deltaX, start.y + fraction * deltaY];
+      const pixelDistance = Math.hypot(pointer.x - snappedScreen[0], pointer.y - snappedScreen[1]);
+      if (pixelDistance > LINE_SNAP_PIXELS || pixelDistance >= nearestPixels) continue;
+      const snappedLngLat = map.unproject(snappedScreen);
+      const snappedCoordinate: [number, number] = [snappedLngLat.lng, snappedLngLat.lat];
+      const distanceMeters = coordinateDistanceMeters(coordinate, snappedCoordinate);
+      if (distanceMeters > LINE_SNAP_METERS) continue;
+      nearestPixels = pixelDistance;
+      nearest = { coordinate: snappedCoordinate, featureId: feature.id, title: feature.title, distanceMeters };
+    }
+  }
+  return nearest;
 }
 
 function LayerSwatch({ layer }: { layer: Pick<MapLayer, "geometry_type" | "icon_key" | "color"> | null | undefined }) {
@@ -443,6 +496,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [mapTasks, setMapTasks] = useState<MapTask[]>([]);
   const [mapIncidents, setMapIncidents] = useState<MapIncident[]>([]);
   const [mapIncidentUpdates, setMapIncidentUpdates] = useState<MapIncidentUpdate[]>([]);
+  const [networkConnections, setNetworkConnections] = useState<MapNetworkConnection[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -488,6 +542,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [shapeDraft, setShapeDraft] = useState<ShapeDraft | null>(null);
   const [pendingShape, setPendingShape] = useState<ShapeDraft | null>(null);
   const [shapeHoverCoordinate, setShapeHoverCoordinate] = useState<[number, number] | null>(null);
+  const [shapeSnapTarget, setShapeSnapTarget] = useState<LineSnapTarget | null>(null);
   const [editingShapeId, setEditingShapeId] = useState<string | null>(null);
   const [selectedShapeVertexIndex, setSelectedShapeVertexIndex] = useState<number | null>(null);
   const [shapeEditHistory, setShapeEditHistory] = useState<[number, number][][]>([]);
@@ -538,6 +593,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const selectedTasks = mapTasks.filter((task) => task.feature_id === selectedFeatureId && task.status !== "cancelled")
     .sort((left, right) => (left.status === "completed" ? 1 : 0) - (right.status === "completed" ? 1 : 0)
       || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
+  const selectedNetworkConnections = networkConnections.filter((connection) => connection.feature_id === selectedFeatureId || connection.connected_feature_id === selectedFeatureId);
   const activeIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status !== "resolved")
     .sort((left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime()), [mapIncidents]);
   const historicalIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status === "resolved")
@@ -666,7 +722,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
     setGate("loading");
     setGateMessage("Loading map layers and assets…");
-    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult] = await Promise.all([
+    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult, connectionsResult] = await Promise.all([
       supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
       supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
       supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, organization_file_id, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
@@ -674,9 +730,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       supabase.from("map_tasks").select("id, organization_id, feature_id, source_event_id, title, category, description, priority, status, compliance_basis, compliance_source_name, compliance_source_url, due_at, assigned_to_user_id, customer_reference, request_reference, completed_at, completion_event_id, created_at, updated_at").eq("organization_id", access.organizationId).is("archived_at", null).order("due_at"),
       supabase.from("map_incidents").select("id, organization_id, incident_number, incident_type, feature_id, reported_geometry, geometry, snap_distance_m, status, severity, title, initial_report, cause, customers_affected_estimate, repair_method, pressure_lost, disinfected, sample_collected, chlorine_residual, sample_result, customer_reference, request_reference, started_at, resolved_at, closed_event_id, created_at, updated_at").eq("organization_id", access.organizationId).order("started_at", { ascending: false }),
       supabase.from("map_incident_updates").select("id, organization_id, incident_id, update_type, status_after, note, details, occurred_at, created_by_user_id, submitted_at").eq("organization_id", access.organizationId).order("occurred_at"),
+      supabase.from("map_network_connections").select("id, organization_id, feature_id, endpoint, connected_feature_id, geometry, connected_fraction, snap_distance_m, created_at").eq("organization_id", access.organizationId),
     ]);
-    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error) {
-      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error;
+    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error) {
+      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error || connectionsResult.error;
     }
     const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
@@ -689,6 +746,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setMapTasks((tasksResult.data || []) as MapTask[]);
     setMapIncidents((incidentsResult.data || []) as MapIncident[]);
     setMapIncidentUpdates((incidentUpdatesResult.data || []) as MapIncidentUpdate[]);
+    setNetworkConnections((connectionsResult.data || []) as MapNetworkConnection[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
@@ -969,6 +1027,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       features: [
         ...(previewGeometry ? [{ type: "Feature" as const, properties: { kind: "shape" }, geometry: previewGeometry }] : []),
         ...(draft.coordinates.length ? [{ type: "Feature" as const, properties: { kind: "vertices" }, geometry: { type: "MultiPoint" as const, coordinates: draft.coordinates } }] : []),
+        ...(shapeDraft?.geometryType === "line" && shapeSnapTarget ? [{ type: "Feature" as const, properties: { kind: "snap" }, geometry: { type: "Point" as const, coordinates: shapeSnapTarget.coordinate } }] : []),
       ],
     };
     const render = () => {
@@ -982,17 +1041,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.addLayer({ id: DRAFT_SHAPE_CASING_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": "#07120f", "line-width": 9, "line-opacity": 0.82 }, layout: { "line-cap": "round", "line-join": "round" } });
       map.addLayer({ id: DRAFT_SHAPE_LINE_ID, type: "line", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "shape"], paint: { "line-color": layer?.color || "#1ed7b2", "line-width": 5, "line-opacity": 1 }, layout: { "line-cap": "round", "line-join": "round" } });
       map.addLayer({ id: DRAFT_SHAPE_VERTICES_ID, type: "circle", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "vertices"], paint: { "circle-radius": 6, "circle-color": "#f5a23c", "circle-stroke-color": "#08131d", "circle-stroke-width": 2 } });
+      map.addLayer({ id: DRAFT_SHAPE_SNAP_ID, type: "circle", source: DRAFT_SHAPE_SOURCE_ID, filter: ["==", ["get", "kind"], "snap"], paint: { "circle-radius": 10, "circle-color": "rgba(105,210,196,0.2)", "circle-stroke-color": "#69d2c4", "circle-stroke-width": 3 } });
     };
     if (map.isStyleLoaded()) render();
     else map.once("style.load", render);
     return () => {
       map.off("style.load", render);
     };
-  }, [basemap, layers, mapReady, pendingShape, shapeDraft, shapeHoverCoordinate]);
+  }, [basemap, layers, mapReady, pendingShape, shapeDraft, shapeHoverCoordinate, shapeSnapTarget]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (!map || shapeDraft || pendingShape) return;
+    if (map.getLayer(DRAFT_SHAPE_SNAP_ID)) map.removeLayer(DRAFT_SHAPE_SNAP_ID);
     if (map.getLayer(DRAFT_SHAPE_VERTICES_ID)) map.removeLayer(DRAFT_SHAPE_VERTICES_ID);
     if (map.getLayer(DRAFT_SHAPE_LINE_ID)) map.removeLayer(DRAFT_SHAPE_LINE_ID);
     if (map.getLayer(DRAFT_SHAPE_CASING_ID)) map.removeLayer(DRAFT_SHAPE_CASING_ID);
@@ -1022,9 +1083,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       });
       marker.on("dragend", () => {
         const next = marker.getLngLat();
+        const proposed: [number, number] = [next.lng, next.lat];
+        const snap = shapeDraft.geometryType === "line"
+          ? nearestLineSnap(map, proposed, features, layers, shapeDraft.layerId, editingShapeId)
+          : null;
+        const finalCoordinate = snap?.coordinate || proposed;
+        marker.setLngLat(finalCoordinate);
+        setShapeSnapTarget(snap);
         setShapeDraft((current) => current ? {
           ...current,
-          coordinates: current.coordinates.map((item, itemIndex) => itemIndex === index ? [next.lng, next.lat] : item),
+          coordinates: current.coordinates.map((item, itemIndex) => itemIndex === index ? finalCoordinate : item),
         } : current);
       });
       return marker;
@@ -1034,7 +1102,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       markers.forEach((marker) => marker.remove());
       if (shapeVertexMarkersRef.current === markers) shapeVertexMarkersRef.current = [];
     };
-  }, [editingShapeId, selectedShapeVertexIndex, shapeDraft]);
+  }, [editingShapeId, features, layers, selectedShapeVertexIndex, shapeDraft]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1145,15 +1213,30 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !shapeDraft) return;
-    const handleShapeMove = (event: mapboxgl.MapMouseEvent) => setShapeHoverCoordinate([event.lngLat.lng, event.lngLat.lat]);
-    const handleShapeLeave = () => setShapeHoverCoordinate(null);
+    const handleShapeMove = (event: mapboxgl.MapMouseEvent) => {
+      const proposed: [number, number] = [event.lngLat.lng, event.lngLat.lat];
+      const snap = shapeDraft.geometryType === "line"
+        ? nearestLineSnap(map, proposed, features, layers, shapeDraft.layerId, editingShapeId)
+        : null;
+      setShapeSnapTarget(snap);
+      setShapeHoverCoordinate(snap?.coordinate || proposed);
+    };
+    const handleShapeLeave = () => {
+      setShapeHoverCoordinate(null);
+      setShapeSnapTarget(null);
+    };
     const handleShapeClick = (event: mapboxgl.MapMouseEvent) => {
       setShapeHoverCoordinate(null);
       setShapeDraft((current) => current ? {
         ...current,
         coordinates: (() => {
           if (editingShapeId) setShapeEditHistory((history) => [...history, current.coordinates]);
-          const next = [...current.coordinates, [event.lngLat.lng, event.lngLat.lat] as [number, number]];
+          const proposed: [number, number] = [event.lngLat.lng, event.lngLat.lat];
+          const snap = current.geometryType === "line"
+            ? nearestLineSnap(map, proposed, features, layers, current.layerId, editingShapeId)
+            : null;
+          const next = [...current.coordinates, snap?.coordinate || proposed];
+          setShapeSnapTarget(snap);
           if (editingShapeId) setSelectedShapeVertexIndex(next.length - 1);
           return next;
         })(),
@@ -1169,8 +1252,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().removeEventListener("mouseleave", handleShapeLeave);
       map.getCanvas().style.cursor = "";
       setShapeHoverCoordinate(null);
+      setShapeSnapTarget(null);
     };
-  }, [editingShapeId, shapeDraft?.layerId, shapeDraft?.geometryType]);
+  }, [editingShapeId, features, layers, shapeDraft?.layerId, shapeDraft?.geometryType]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2399,6 +2483,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     }
     if (activeDrawingLayer.geometry_type === "line" || activeDrawingLayer.geometry_type === "polygon") {
       setShapeHoverCoordinate(null);
+      setShapeSnapTarget(null);
       setShapeDraft({ layerId: activeDrawingLayer.id, geometryType: activeDrawingLayer.geometry_type, coordinates: [] });
       showToast(activeDrawingLayer.geometry_type === "line" ? "Click the map to draw the line." : "Click the map to draw the boundary.");
       return;
@@ -2413,6 +2498,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setEditingShapeId(selectedFeature.id);
     setShapeDraft({ layerId: selectedFeature.layer_id, geometryType: selectedFeature.geometry_type, coordinates: editableCoordinates });
     setShapeHoverCoordinate(null);
+    setShapeSnapTarget(null);
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
     setShapeEditReview(false);
@@ -2449,6 +2535,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setShapeDraft(null);
     setPendingShape(null);
     setShapeHoverCoordinate(null);
+    setShapeSnapTarget(null);
     setEditingShapeId(null);
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
@@ -2488,6 +2575,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setShapeDraft(null);
     setEditingShapeId(null);
     setShapeHoverCoordinate(null);
+    setShapeSnapTarget(null);
     setSelectedShapeVertexIndex(null);
     setShapeEditHistory([]);
     setShapeEditReview(false);
@@ -2656,7 +2744,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
           {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
-          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
+          {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
@@ -2689,6 +2777,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   })}
                 </dl>
                 <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
+                {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small></div>}
                 {selectedFeature.geometry_type === "point" && <div className="maps-proximity">
                   <span>FIELD LOCATION</span>
                   <strong>{selectedDistance === null ? "Start locating to measure distance" : formatDistance(selectedDistance)}</strong>
