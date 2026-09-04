@@ -272,7 +272,7 @@ test("Maps layers can be edited, archived, restored, and permanently deleted by 
     read("maps-app/src/components/MapsWorkspace.tsx"),
     read("maps-app/src/styles/maps.css"),
     read("supabase/migrations/20260903192631_maps_layer_archive_management.sql"),
-    read("supabase/migrations/20260904151411_maps_permanent_layer_purge.sql"),
+    read("supabase/migrations/20260904153451_maps_permanent_layer_purge.sql"),
   ]);
 
   assert.match(workspace, /Edit layer/);
