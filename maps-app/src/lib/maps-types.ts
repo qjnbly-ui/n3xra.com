@@ -1,6 +1,7 @@
 export type GeometryType = "point" | "line" | "polygon" | "raster";
 export type MapsRole = "account_admin" | "editor" | "viewer";
 export type MapSystemType = "potable_water" | "sanitary_sewer" | "stormwater" | "reclaimed_water" | "reference" | "other";
+export type MapLineEndpointType = "unknown" | "source" | "reservoir" | "dead_end";
 
 export interface OrganizationAccess {
   organizationId: string;
@@ -41,6 +42,8 @@ export interface MapFeature {
   description: string | null;
   status: "active" | "inactive" | "unknown";
   flow_direction: "unknown" | "start_to_end" | "end_to_start";
+  start_endpoint_type: MapLineEndpointType;
+  end_endpoint_type: MapLineEndpointType;
   geometry_type: GeometryType;
   geometry: GeoJsonGeometry;
   location_accuracy_m: number | null;

@@ -18,6 +18,7 @@ import type {
   MapIncidentValveStatus,
   MapLayer,
   MapLayerField,
+  MapLineEndpointType,
   MapNetworkConnection,
   MapNetworkDevice,
   MapPointLineConnection,
@@ -192,6 +193,8 @@ interface IncidentIsolationEstimate {
   warnings: string[];
 }
 
+type IncidentIsolationState = "incomplete" | "ready" | "awaiting_confirmation" | "confirmed";
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -204,6 +207,13 @@ const MAP_SYSTEM_OPTIONS: { value: MapSystemType; label: string }[] = [
   { value: "reclaimed_water", label: "Reclaimed water" },
   { value: "reference", label: "Reference / boundary" },
   { value: "other", label: "Other / general" },
+];
+
+const LINE_ENDPOINT_OPTIONS: { value: MapLineEndpointType; label: string }[] = [
+  { value: "unknown", label: "Not classified" },
+  { value: "source", label: "Water source / supply" },
+  { value: "reservoir", label: "Reservoir or tank" },
+  { value: "dead_end", label: "Intentional dead end" },
 ];
 
 const EVENT_TYPES: { value: MapEventType; label: string; compliance: MapComplianceBasis }[] = [
@@ -558,7 +568,7 @@ function calculateIncidentIsolation(
     if (!reached.has(feature.id) || feature.geometry_type !== "line") return false;
     return layers.find((layer) => layer.id === feature.layer_id)?.standard_key === "water-main";
   });
-  const openMainEndpoints = reachedMainLines.flatMap((feature) => (["start", "end"] as const).filter((endpoint) => {
+  const openMainEndpoints = reachedMainLines.flatMap((feature) => (["start", "end"] as const).flatMap((endpoint) => {
     const connectedToLine = networkConnections.some((connection) =>
       (connection.feature_id === feature.id && connection.endpoint === endpoint)
       || (connection.connected_feature_id === feature.id
@@ -568,8 +578,10 @@ function calculateIncidentIsolation(
       connection.line_feature_id === feature.id
       && Math.abs(connection.line_fraction - endpointFraction) <= 0.001
       && !unavailable.has(connection.point_feature_id));
-    return !connectedToLine && !controlledByValve;
-  }).map((endpoint) => `${feature.id}:${endpoint}`));
+    const endpointType = endpoint === "start" ? feature.start_endpoint_type : feature.end_endpoint_type;
+    if (connectedToLine || controlledByValve || endpointType === "dead_end") return [];
+    return [{ featureId: feature.id, endpoint, endpointType: endpointType || "unknown" }];
+  }));
   const affectedMeterIds = pointLineConnections.filter((connection) => reached.has(connection.line_feature_id))
     .map((connection) => features.find((feature) => feature.id === connection.point_feature_id))
     .filter((feature): feature is MapFeature => {
@@ -582,7 +594,10 @@ function calculateIncidentIsolation(
   const warnings: string[] = [];
   if (!devices.length && !endpointValveConnections.length) warnings.push("No connected network valves are mapped in this water system yet.");
   if (!requiredValveIds.length) warnings.push("No usable valve boundary was found. Check line connections and add isolation valves.");
-  if (openMainEndpoints.length) warnings.push(`The affected network reaches ${openMainEndpoints.length} mapped water-main end${openMainEndpoints.length === 1 ? "" : "s"} without a connected valve or continuation. This plan is not a complete isolation boundary yet.`);
+  const supplyEndpoints = openMainEndpoints.filter((endpoint) => endpoint.endpointType === "source" || endpoint.endpointType === "reservoir");
+  const unclassifiedEndpoints = openMainEndpoints.filter((endpoint) => endpoint.endpointType === "unknown");
+  if (supplyEndpoints.length) warnings.push(`The affected network still reaches ${supplyEndpoints.length} mapped water supply ${supplyEndpoints.length === 1 ? "endpoint" : "endpoints"} without a closed boundary valve.`);
+  if (unclassifiedEndpoints.length) warnings.push(`${unclassifiedEndpoints.length} affected water-main end${unclassifiedEndpoints.length === 1 ? " is" : "s are"} not connected or classified. Connect each end or mark it as a source, reservoir, or intentional dead end.`);
   if (unavailable.size) warnings.push(`${unavailable.size} unavailable valve${unavailable.size === 1 ? " was" : "s were"} bypassed; the plan expanded to the next mapped valve${unavailable.size === 1 ? "" : "s"}.`);
   if (affectedMeterIds.length > customerReferences.length) warnings.push("Some affected meters do not have a customer reference yet.");
   return {
@@ -731,6 +746,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [incidentUpdateStatus, setIncidentUpdateStatus] = useState<Exclude<MapIncidentStatus, "resolved">>("repairing");
   const [incidentCloseDialogOpen, setIncidentCloseDialogOpen] = useState(false);
   const [incidentDeleteOpen, setIncidentDeleteOpen] = useState(false);
+  const [isolationConfirmOpen, setIsolationConfirmOpen] = useState(false);
+  const [isolationConfirmationLocation, setIsolationConfirmationLocation] = useState<DeviceLocation | null>(null);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [basemap, setBasemap] = useState<BasemapStyle>("standard");
@@ -798,6 +815,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       ? { href: "/client-portal/", label: "Return to dashboard" }
       : { href: "/account/", label: "Dashboard" });
   }, []);
+  useEffect(() => {
+    if (isolationConfirmOpen && deviceLocation) setIsolationConfirmationLocation(deviceLocation);
+  }, [deviceLocation, isolationConfirmOpen]);
   const selectedFeature = features.find((feature) => feature.id === selectedFeatureId) || null;
   const selectedLayer = layers.find((layer) => layer.id === selectedFeature?.layer_id);
   const selectedFeatureSupportsWaterBreak = selectedFeature?.geometry_type === "line" && selectedLayer?.system_type === "potable_water";
@@ -839,6 +859,27 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       .forEach((action) => statuses.set(action.valve_feature_id, action.status));
     return statuses;
   }, [incidentValveActions, selectedIncidentId]);
+  const allRequiredValvesClosed = Boolean(selectedIsolationEstimate?.requiredValveIds.length)
+    && selectedIsolationEstimate!.requiredValveIds.every((id) => selectedValveStatuses.get(id) === "closed");
+  const latestIsolationConfirmation = [...selectedIncidentUpdates].reverse().find((update) =>
+    update.update_type === "isolation" && update.details?.recordType === "isolation_confirmation" && update.details?.isolationConfirmed === true) || null;
+  const latestRequiredValveActionAt = selectedIsolationEstimate?.requiredValveIds.reduce((latest, valveId) => {
+    const timestamp = incidentValveActions.filter((action) => action.incident_id === selectedIncidentId && action.valve_feature_id === valveId)
+      .reduce((current, action) => Math.max(current, new Date(action.submitted_at).getTime()), 0);
+    return Math.max(latest, timestamp);
+  }, 0) || 0;
+  const confirmationIsCurrent = Boolean(latestIsolationConfirmation)
+    && new Date(latestIsolationConfirmation!.submitted_at).getTime() >= Math.max(
+      latestRequiredValveActionAt,
+      selectedSavedIsolationPlan ? new Date(selectedSavedIsolationPlan.calculated_at).getTime() : 0,
+    );
+  const selectedIsolationState: IncidentIsolationState = !selectedIsolationEstimate?.topologyComplete
+    ? "incomplete"
+    : allRequiredValvesClosed && confirmationIsCurrent
+      ? "confirmed"
+      : allRequiredValvesClosed
+        ? "awaiting_confirmation"
+        : "ready";
   const selectedIsolationValves = useMemo(() => {
     if (!selectedIncident || !selectedIsolationEstimate) return [];
     const incidentLocation = geoPointCoordinates(selectedIncident.geometry);
@@ -2498,6 +2539,42 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       : `Valve marked ${status.replaceAll("_", " ")}`);
   };
 
+  const confirmIncidentIsolation = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedIncident || !selectedIsolationEstimate || !canEdit || !allRequiredValvesClosed || !selectedIsolationEstimate.topologyComplete) return;
+    const form = new FormData(event.currentTarget);
+    const occurredAt = String(form.get("occurred_at") || "");
+    const pressureValue = String(form.get("pressure_reading") || "").trim();
+    setSaving(true);
+    if (!(await saveIsolationPlan(selectedIsolationEstimate))) {
+      setSaving(false);
+      return;
+    }
+    const { error } = await client.rpc("maps_confirm_incident_isolation", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: selectedIncident.id,
+      input_water_stopped: form.get("water_stopped") === "on",
+      input_pressure_reading: pressureValue ? Number(pressureValue) : null,
+      input_pressure_unit: pressureValue ? String(form.get("pressure_unit") || "psi") : null,
+      input_longitude: isolationConfirmationLocation?.longitude ?? null,
+      input_latitude: isolationConfirmationLocation?.latitude ?? null,
+      input_accuracy_m: isolationConfirmationLocation?.accuracyMeters ?? null,
+      input_note: String(form.get("note") || "").trim(),
+      input_occurred_at: new Date(occurredAt).toISOString(),
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "Isolation could not be confirmed.");
+      return;
+    }
+    const incidentId = selectedIncident.id;
+    setIsolationConfirmOpen(false);
+    setIsolationConfirmationLocation(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedIncidentId(incidentId);
+    showToast("Isolation confirmed and permanently recorded");
+  };
+
   const closeBreakIncident = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedIncident || !canEdit) return;
@@ -2660,6 +2737,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         customer_reference: String(form.get("customer_reference") || "").trim() || null,
         description: String(form.get("description") || "").trim() || null,
         status: String(form.get("status") || "active"),
+        ...(selectedFeature.geometry_type === "line" ? {
+          start_endpoint_type: String(form.get("start_endpoint_type") || "unknown") as MapLineEndpointType,
+          end_endpoint_type: String(form.get("end_endpoint_type") || "unknown") as MapLineEndpointType,
+        } : {}),
         properties: { ...selectedFeature.properties, ...readCustomProperties(form, fields) },
       })
       .eq("id", selectedFeature.id)
@@ -3382,7 +3463,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   })}
                 </dl>
                 <div className="maps-coordinate-detail">{selectedFeature.geometry_type === "point" ? pointCoordinates(selectedFeature)?.slice().reverse().map((coordinate) => coordinate.toFixed(7)).join(", ") : `${selectedFeature.geometry_type === "line" ? "Line" : "Boundary"} · ${geometryCoordinates(selectedFeature.geometry).length - (selectedFeature.geometry_type === "polygon" ? 1 : 0)} points`}</div>
-                {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small>{canEdit && <label className="maps-flow-control"><span>Flow direction</span><select value={selectedFeature.flow_direction || "unknown"} disabled={saving} onChange={(event) => void updateFlowDirection(event.target.value as MapFeature["flow_direction"])}><option value="unknown">Not set</option><option value="start_to_end">First point → last point</option><option value="end_to_start">Last point → first point</option></select><small>Directional arrows appear on the line and are retained when a valve splits it.</small></label>}</div>}
+                {selectedFeature.geometry_type === "line" && <div className={`maps-network-status${selectedNetworkConnections.length ? " is-connected" : ""}`}><span>NETWORK</span><strong>{selectedNetworkConnections.length ? `${selectedNetworkConnections.length} connected line${selectedNetworkConnections.length === 1 ? "" : "s"}` : "No connected lines yet"}</strong><small>{selectedNetworkConnections.length ? "Saved as utility-network relationships for future flow and shutoff analysis." : "Draw a compatible utility line endpoint within 10 ft to connect it."}</small><div className="maps-endpoint-summary"><span>First end: {(selectedFeature.start_endpoint_type || "unknown").replaceAll("_", " ")}</span><span>Last end: {(selectedFeature.end_endpoint_type || "unknown").replaceAll("_", " ")}</span></div>{canEdit && <label className="maps-flow-control"><span>Flow direction</span><select value={selectedFeature.flow_direction || "unknown"} disabled={saving} onChange={(event) => void updateFlowDirection(event.target.value as MapFeature["flow_direction"])}><option value="unknown">Not set</option><option value="start_to_end">First point → last point</option><option value="end_to_start">Last point → first point</option></select><small>Directional arrows appear on the line and are retained when a valve splits it.</small></label>}</div>}
                 {selectedFeature.geometry_type === "point" && Array.isArray(selectedFeature.properties?.connectedLineIds) && <div className="maps-network-status is-connected"><span>NETWORK</span><strong>Connected network device</strong><small>This asset is inserted directly into {selectedFeature.properties.connectedLineIds.length} utility line segment{selectedFeature.properties.connectedLineIds.length === 1 ? "" : "s"}.</small></div>}
                 {selectedFeature.geometry_type === "point" && !Array.isArray(selectedFeature.properties?.connectedLineIds) && (selectedPointLineConnection || selectedPointConnectionCandidate) && <div className={`maps-network-status${selectedPointLineConnection ? " is-connected" : ""}`}>
                   <span>UTILITY CONNECTION</span>
@@ -3445,7 +3526,11 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               {selectedIncident.initial_report && <p className="maps-detail-description">{selectedIncident.initial_report}</p>}
               {selectedIncidentCloseEvent?.summary && <section className="maps-incident-resolution"><span>Final incident record</span><p>{selectedIncidentCloseEvent.summary}</p></section>}
               {(selectedIsolationEstimate || selectedSavedIsolationPlan) && <section className="maps-isolation-plan">
-                <header><div><span>NETWORK ISOLATION</span><strong>{selectedIncident.status === "resolved" ? "Recorded isolation plan" : "Nearest required valves"}</strong></div><em>{selectedIncident.status === "resolved" ? "Locked" : `${selectedIsolationValves.filter((valve) => selectedValveStatuses.get(valve.id) === "closed").length}/${selectedIsolationValves.length} closed`}</em></header>
+                <header><div><span>NETWORK ISOLATION</span><strong>{selectedIncident.status === "resolved" ? "Recorded isolation plan" : selectedIsolationState === "confirmed" ? "Isolation confirmed" : "Nearest required valves"}</strong></div><em>{selectedIncident.status === "resolved" ? "Locked" : `${selectedIsolationValves.filter((valve) => selectedValveStatuses.get(valve.id) === "closed").length}/${selectedIsolationValves.length} closed`}</em></header>
+                {selectedIncident.status !== "resolved" && <div className={`maps-isolation-state is-${selectedIsolationState}`}>
+                  <strong>{selectedIsolationState === "incomplete" ? "Isolation incomplete" : selectedIsolationState === "ready" ? "Ready to isolate" : selectedIsolationState === "awaiting_confirmation" ? "Field confirmation needed" : "Isolation confirmed"}</strong>
+                  <span>{selectedIsolationState === "incomplete" ? "Finish the network boundaries shown below before relying on this plan." : selectedIsolationState === "ready" ? "Close every listed valve, then confirm in the field that water has stopped." : selectedIsolationState === "awaiting_confirmation" ? "All required valves are recorded closed. Verify water has stopped before confirming." : `Confirmed ${latestIsolationConfirmation ? formatHistoryDate(latestIsolationConfirmation.occurred_at) : "in the field"}.`}</span>
+                </div>}
                 <div className="maps-isolation-impact">
                   <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.affected_meter_count ?? 0 : selectedIsolationEstimate?.affectedMeterIds.length ?? 0}</strong><span>meters affected</span></div>
                   <div><strong>{selectedIncident.status === "resolved" ? selectedSavedIsolationPlan?.affected_customer_count ?? 0 : selectedIsolationEstimate?.customerReferences.length ?? 0}</strong><span>customer accounts</span></div>
@@ -3464,6 +3549,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   {selectedUnavailableValves.length ? <div className="maps-isolation-bypassed"><strong>Bypassed valves</strong>{selectedUnavailableValves.map(({ feature, status }) => <span key={feature.id}>{feature.title} · {status}</span>)}</div> : null}
                   {selectedIsolationEstimate?.warnings.length ? <ul>{selectedIsolationEstimate.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
                   {canEdit && <button type="button" className="maps-save-isolation" disabled={saving || !selectedIsolationEstimate} onClick={() => { if (!selectedIsolationEstimate) return; setSaving(true); void saveIsolationPlan(selectedIsolationEstimate).then((saved) => { setSaving(false); if (saved) showToast("Isolation plan saved to the incident"); }); }}>{selectedSavedIsolationPlan ? "Save recalculated plan" : "Save plan to incident"}</button>}
+                  {canEdit && selectedIsolationState === "awaiting_confirmation" && <button type="button" className="maps-confirm-isolation" onClick={() => { setIsolationConfirmationLocation(deviceLocation); setIsolationConfirmOpen(true); }}>Confirm isolation in field</button>}
+                  {selectedIsolationState === "confirmed" && latestIsolationConfirmation && <div className="maps-isolation-confirmed-record"><strong>Field verification locked in</strong><span>{latestIsolationConfirmation.note}</span>{typeof latestIsolationConfirmation.details.pressureReading === "number" && <small>Pressure: {latestIsolationConfirmation.details.pressureReading} {String(latestIsolationConfirmation.details.pressureUnit || "")}</small>}{typeof latestIsolationConfirmation.details.accuracyMeters === "number" && <small>GPS accuracy: ±{Math.round(latestIsolationConfirmation.details.accuracyMeters * 3.28084)} ft</small>}</div>}
                 </>}
                 {selectedIncident.status === "resolved" && selectedSavedIsolationPlan?.warnings.length ? <ul>{selectedSavedIsolationPlan.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
               </section>}
@@ -3730,6 +3817,22 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         </div>
       )}
 
+      {isolationConfirmOpen && selectedIncident && selectedIsolationState === "awaiting_confirmation" && (
+        <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-incident-dialog" role="dialog" aria-modal="true" aria-labelledby="confirm-isolation-title">
+            <header><div><span>FIELD VERIFICATION</span><h2 id="confirm-isolation-title">Confirm water is isolated</h2></div><button type="button" onClick={() => setIsolationConfirmOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void confirmIncidentIsolation(event)}>
+              <div className="maps-record-lock-note"><strong>Creates permanent incident history</strong><span>All required valves are recorded closed. Confirm the actual field condition before continuing with the repair.</span></div>
+              <label className="maps-confirm-check"><input type="checkbox" name="water_stopped" required /><span><strong>Water has stopped at the break</strong><small>I verified that the mapped valve closure isolated the work area.</small></span></label>
+              <div className="maps-dialog-row"><label><span>Observed</span><input name="occurred_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Pressure reading</span><div className="maps-pressure-input"><input name="pressure_reading" type="number" min="0" step="0.01" placeholder="Optional" /><select name="pressure_unit" defaultValue="psi"><option value="psi">psi</option><option value="kpa">kPa</option><option value="bar">bar</option></select></div></label></div>
+              <label><span>Field notes</span><textarea name="note" rows={4} maxLength={8_000} required placeholder="Where the condition was checked, what was observed, and who confirmed it." /></label>
+              <div className="maps-confirm-location"><div><strong>{isolationConfirmationLocation ? "GPS captured" : locating ? "Locating…" : "GPS not captured"}</strong><span>{isolationConfirmationLocation ? `${isolationConfirmationLocation.latitude.toFixed(7)}, ${isolationConfirmationLocation.longitude.toFixed(7)} · ±${Math.round(isolationConfirmationLocation.accuracyMeters * 3.28084)} ft` : "The confirmation can be saved without GPS, or capture the worker’s current position."}</span></div><button type="button" disabled={locating} onClick={startLocating}>{locating ? "Locating…" : isolationConfirmationLocation ? "Refresh GPS" : "Use current GPS"}</button></div>
+              <footer><button type="button" onClick={() => setIsolationConfirmOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Confirming…" : "Confirm and lock record"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
       {incidentUpdateDialogOpen && selectedIncident && (
         <div className="maps-dialog-backdrop" role="presentation">
           <section className="maps-dialog maps-incident-dialog" role="dialog" aria-modal="true" aria-labelledby="incident-update-title">
@@ -3824,6 +3927,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <label><span>Address or location description</span><input name="address" maxLength={500} defaultValue={selectedFeature.address || ""} placeholder="Optional" /></label>
               <label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} defaultValue={selectedFeature.customer_reference || ""} placeholder="Optional — does not connect a customer account yet" /></label>
               <label><span>Status</span><select name="status" defaultValue={selectedFeature.status}><option value="active">Active</option><option value="inactive">Inactive</option><option value="unknown">Unknown</option></select></label>
+              {selectedFeature.geometry_type === "line" && <fieldset className="maps-endpoint-editor"><legend>Line endings</legend><p>Connections and valves are detected automatically. Classify an otherwise open pipe end so shutdown estimates know whether the map is incomplete.</p><label><span>First point on line</span><select name="start_endpoint_type" defaultValue={selectedFeature.start_endpoint_type || "unknown"}>{LINE_ENDPOINT_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label><label><span>Last point on line</span><select name="end_endpoint_type" defaultValue={selectedFeature.end_endpoint_type || "unknown"}>{LINE_ENDPOINT_OPTIONS.map((option) => <option value={option.value} key={option.value}>{option.label}</option>)}</select></label></fieldset>}
               {selectedFields.map((field) => <label key={field.id}><span>{field.label}{field.is_required ? " *" : ""}</span>{field.field_type === "select" ? <select name={`custom_${field.field_key}`} required={field.is_required} defaultValue={String(selectedFeature.properties?.[field.field_key] ?? "")}><option value="">Select…</option>{field.options.map((option) => <option value={option} key={option}>{option}</option>)}</select> : field.field_type === "boolean" ? <input name={`custom_${field.field_key}`} type="checkbox" defaultChecked={Boolean(selectedFeature.properties?.[field.field_key])} /> : <input name={`custom_${field.field_key}`} type={field.field_type === "number" ? "number" : field.field_type === "date" ? "date" : "text"} required={field.is_required} defaultValue={String(selectedFeature.properties?.[field.field_key] ?? "")} />}</label>)}
               <label><span>Notes</span><textarea name="description" maxLength={4_000} rows={4} defaultValue={selectedFeature.description || ""} placeholder="Optional field notes" /></label>
               <p>This changes the item details without moving its mapped location.</p>
