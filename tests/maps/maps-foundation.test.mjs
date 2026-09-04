@@ -356,6 +356,8 @@ test("Maps asset records support custom fields, private photos, and future custo
   assert.match(types, /customer_reference: string \| null/);
   assert.match(styles, /\.maps-asset-photos/);
   assert.match(styles, /\.maps-custom-fields-editor/);
+  assert.match(workspace, /Available choices/);
+  assert.match(workspace, /Separate each choice with a comma/);
 
   assert.match(migration, /create table public\.map_layer_fields/);
   assert.match(migration, /create table public\.map_feature_photos/);
