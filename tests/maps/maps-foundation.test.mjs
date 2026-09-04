@@ -546,22 +546,26 @@ test("Maps ties permanent operational history and completable tasks to assets", 
 });
 
 test("Water-main breaks remain one highlighted incident until closure creates permanent history", async () => {
-  const [workspace, types, styles, migration, roadmap] = await Promise.all([
+  const [workspace, types, styles, migration, classificationMigration, roadmap] = await Promise.all([
     read("maps-app/src/components/MapsWorkspace.tsx"),
     read("maps-app/src/lib/maps-types.ts"),
     read("maps-app/src/styles/maps.css"),
     read("supabase/migrations/20260904011540_maps_break_incident_workflow.sql"),
+    read("supabase/migrations/20260904135103_maps_layer_system_classification.sql"),
     read("docs/maps-product-roadmap.md"),
   ]);
 
   assert.match(types, /export interface MapIncident/);
   assert.match(types, /export interface MapIncidentUpdate/);
+  assert.match(types, /export type MapSystemType/);
   assert.match(workspace, /Active incidents/);
   assert.match(workspace, /Start water-main break/);
   assert.match(workspace, /Report break/);
   assert.match(workspace, /Active water-main break/);
   assert.match(workspace, /formatIncidentAge/);
   assert.match(workspace, /WATER_BREAK_ICON_MARKUP/);
+  assert.match(workspace, /selectedFeatureSupportsWaterBreak/);
+  assert.match(workspace, /Infrastructure system/);
   assert.match(workspace, /Click the exact break location on the selected line/);
   assert.match(workspace, /maps_start_break_incident/);
   assert.match(workspace, /maps_add_incident_update/);
@@ -589,6 +593,12 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(migration, /alter table public\.map_incident_updates enable row level security/);
   assert.doesNotMatch(migration, /grant[^;]*delete[^;]*on public\.map_incidents/);
   assert.doesNotMatch(migration, /grant[^;]*update[^;]*on public\.map_incident_updates/);
+
+  assert.match(classificationMigration, /add column standard_key text/);
+  assert.match(classificationMigration, /add column system_type text not null default 'other'/);
+  assert.match(classificationMigration, /'potable_water', 'sanitary_sewer', 'stormwater', 'reclaimed_water', 'reference', 'other'/);
+  assert.match(classificationMigration, /private\.validate_map_water_break_layer/);
+  assert.match(classificationMigration, /Water-main breaks must be linked to an active potable-water line/);
 
   assert.match(roadmap, /Connected utility-network topology \(future\)/);
   assert.match(roadmap, /adding a valve on a pipe splits the pipe into two segments/i);

@@ -1,5 +1,6 @@
 export type GeometryType = "point" | "line" | "polygon" | "raster";
 export type MapsRole = "account_admin" | "editor" | "viewer";
+export type MapSystemType = "potable_water" | "sanitary_sewer" | "stormwater" | "reclaimed_water" | "reference" | "other";
 
 export interface OrganizationAccess {
   organizationId: string;
@@ -14,6 +15,8 @@ export interface MapLayer {
   description: string | null;
   geometry_type: GeometryType;
   feature_kind: "asset" | "reference";
+  standard_key: string | null;
+  system_type: MapSystemType;
   icon_key: string;
   color: string;
   fill_color: string;

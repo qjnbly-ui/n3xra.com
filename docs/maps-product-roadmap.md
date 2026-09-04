@@ -7,6 +7,7 @@ This document records product decisions made during the N3XRA Maps build so that
 - Maps is one reusable, multi-tenant N3XRA product. It must never contain a preassigned customer, organization, user, layer, or demo record.
 - Every mapped record belongs to an organization and is protected by database authorization and row-level security.
 - A mapped item is an operational asset, not merely a drawing. Its details, files, tasks, incidents, and permanent history stay connected.
+- Every layer records its infrastructure system and, when created from an N3XRA standard, its stable standard key. Workflows must use this classification instead of guessing from a layer's editable name or color.
 - The everyday map must remain clean. Detailed workflows open from the selected asset or from a compact active-work area.
 - Submitted history is append-only. Corrections preserve the original record instead of silently replacing it.
 
