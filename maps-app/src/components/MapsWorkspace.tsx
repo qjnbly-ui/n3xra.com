@@ -191,6 +191,13 @@ interface IncidentIsolationEstimate {
   customerReferences: string[];
   topologyComplete: boolean;
   warnings: string[];
+  openEndpoints: NetworkEndpointIssue[];
+}
+
+interface NetworkEndpointIssue {
+  featureId: string;
+  endpoint: "start" | "end";
+  endpointType: MapLineEndpointType;
 }
 
 type IncidentIsolationState = "incomplete" | "ready" | "awaiting_confirmation" | "confirmed";
@@ -607,6 +614,7 @@ function calculateIncidentIsolation(
     customerReferences,
     topologyComplete: requiredValveIds.length > 0 && openMainEndpoints.length === 0,
     warnings,
+    openEndpoints: openMainEndpoints,
   };
 }
 
@@ -692,6 +700,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const mapRef = useRef<MapboxMap | null>(null);
   const featureMarkersRef = useRef<Map<string, Marker>>(new Map());
   const incidentMarkersRef = useRef<Map<string, Marker>>(new Map());
+  const endpointIssueMarkersRef = useRef<Marker[]>([]);
   const shapeVertexMarkersRef = useRef<Marker[]>([]);
   const locationMarkerRef = useRef<Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -781,6 +790,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [selectedShapeVertexIndex, setSelectedShapeVertexIndex] = useState<number | null>(null);
   const [shapeEditHistory, setShapeEditHistory] = useState<[number, number][][]>([]);
   const [shapeEditReview, setShapeEditReview] = useState(false);
+  const [endpointDialogIssue, setEndpointDialogIssue] = useState<NetworkEndpointIssue | null>(null);
+  const [endpointConnectionTarget, setEndpointConnectionTarget] = useState<NetworkEndpointIssue | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
   const [deviceLocation, setDeviceLocation] = useState<DeviceLocation | null>(null);
@@ -1187,6 +1198,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       featureMarkersRef.current.clear();
       incidentMarkersRef.current.forEach((marker) => marker.remove());
       incidentMarkersRef.current.clear();
+      endpointIssueMarkersRef.current.forEach((marker) => marker.remove());
+      endpointIssueMarkersRef.current = [];
       shapeVertexMarkersRef.current.forEach((marker) => marker.remove());
       shapeVertexMarkersRef.current = [];
       locationMarkerRef.current?.remove();
@@ -1289,6 +1302,35 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       incidentMarkersRef.current.set(incident.id, marker);
     });
   }, [features, openHistoricalIncident, openIncident, selectedIncidentId, visibleIncidents, visibleLayers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    endpointIssueMarkersRef.current.forEach((marker) => marker.remove());
+    endpointIssueMarkersRef.current = [];
+    if (!map || !selectedIncident || selectedIncident.status === "resolved" || !selectedIsolationEstimate || editingShapeId || endpointConnectionTarget) return;
+    const markers = selectedIsolationEstimate.openEndpoints.flatMap((issue) => {
+      const feature = features.find((item) => item.id === issue.featureId);
+      const coordinates = feature ? geometryCoordinates(feature.geometry) : [];
+      const coordinate = issue.endpoint === "start" ? coordinates[0] : coordinates.at(-1);
+      if (!feature || !coordinate || visibleLayers[feature.layer_id] === false) return [];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `maps-endpoint-issue-marker${issue.endpointType === "unknown" ? " is-unknown" : " is-supply"}`;
+      button.innerHTML = "<span>!</span>";
+      button.setAttribute("aria-label", `Complete ${issue.endpoint === "start" ? "first" : "last"} end of ${feature.title}`);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setSelectedFeatureId(feature.id);
+        setEndpointDialogIssue(issue);
+      });
+      return [new mapboxgl.Marker({ element: button, anchor: "center" }).setLngLat(coordinate).addTo(map)];
+    });
+    endpointIssueMarkersRef.current = markers;
+    return () => {
+      markers.forEach((marker) => marker.remove());
+      if (endpointIssueMarkersRef.current === markers) endpointIssueMarkersRef.current = [];
+    };
+  }, [editingShapeId, endpointConnectionTarget, features, selectedIncident, selectedIsolationEstimate, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1617,6 +1659,47 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().style.cursor = "";
     };
   }, [features, showToast, valvePlacementFeatureId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const target = endpointConnectionTarget;
+    const feature = features.find((item) => item.id === target?.featureId);
+    const layer = layers.find((item) => item.id === feature?.layer_id);
+    if (!map || !target || !feature || feature.geometry_type !== "line" || !layer) return;
+    const handleEndpointConnection = (event: mapboxgl.MapMouseEvent) => {
+      const snap = nearestLineSnap(
+        map,
+        [event.lngLat.lng, event.lngLat.lat],
+        features,
+        layers,
+        feature.layer_id,
+        feature.id,
+      );
+      if (!snap) {
+        showToast("Choose a compatible utility line within 10 feet of the selected location");
+        return;
+      }
+      const coordinates = geometryCoordinates(feature.geometry);
+      const endpointIndex = target.endpoint === "start" ? 0 : coordinates.length - 1;
+      const nextCoordinates = coordinates.map((coordinate, index) => index === endpointIndex ? snap.coordinate : coordinate);
+      setEditingShapeId(feature.id);
+      setSelectedFeatureId(feature.id);
+      setShapeDraft({ layerId: feature.layer_id, geometryType: "line", coordinates: nextCoordinates });
+      setShapeEditHistory([coordinates]);
+      setSelectedShapeVertexIndex(endpointIndex);
+      setShapeSnapTarget(snap);
+      setShapeHoverCoordinate(null);
+      setShapeEditReview(true);
+      setEndpointConnectionTarget(null);
+      showToast(`Connected endpoint to ${snap.title}; review and save the change`);
+    };
+    map.getCanvas().style.cursor = "crosshair";
+    map.on("click", handleEndpointConnection);
+    return () => {
+      map.off("click", handleEndpointConnection);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [endpointConnectionTarget, features, layers, showToast]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2757,6 +2840,53 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     showToast("Mapped item updated");
   };
 
+  const openEndpointCompletion = (issue: NetworkEndpointIssue) => {
+    setSelectedFeatureId(issue.featureId);
+    setEndpointDialogIssue(issue);
+    const feature = features.find((item) => item.id === issue.featureId);
+    const coordinates = feature ? geometryCoordinates(feature.geometry) : [];
+    const coordinate = issue.endpoint === "start" ? coordinates[0] : coordinates.at(-1);
+    if (coordinate) mapRef.current?.easeTo({ center: coordinate, zoom: Math.max(mapRef.current.getZoom(), 18), duration: 500 });
+  };
+
+  const beginEndpointConnection = (issue: NetworkEndpointIssue) => {
+    setEndpointDialogIssue(null);
+    setEndpointConnectionTarget(issue);
+    setSelectedFeatureId(issue.featureId);
+    showToast("Click the utility line this pipe end should connect to");
+  };
+
+  const cancelEndpointConnection = () => {
+    setEndpointConnectionTarget(null);
+    showToast("Connection canceled");
+  };
+
+  const classifyNetworkEndpoint = async (issue: NetworkEndpointIssue, endpointType: Exclude<MapLineEndpointType, "unknown">) => {
+    if (!client || !activeAccess || !canEdit) return;
+    const incidentId = selectedIncidentId;
+    const column = issue.endpoint === "start" ? "start_endpoint_type" : "end_endpoint_type";
+    setSaving(true);
+    const { data, error } = await client
+      .from("map_features")
+      .update({ [column]: endpointType })
+      .eq("id", issue.featureId)
+      .eq("organization_id", activeAccess.organizationId)
+      .select("id")
+      .single();
+    setSaving(false);
+    if (error || !data) {
+      showToast(error?.message || "That line ending could not be classified");
+      return;
+    }
+    setEndpointDialogIssue(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(issue.featureId);
+    setSelectedIncidentId(incidentId);
+    showToast(endpointType === "dead_end"
+      ? "Intentional dead end saved; the isolation estimate was recalculated"
+      : "Supply ending saved; add or connect its boundary valve before relying on isolation");
+  };
+
   const uploadFeaturePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
@@ -3413,7 +3543,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
-              {valvePlacementFeatureId ? (
+              {endpointConnectionTarget ? (
+                <><button type="button" onClick={cancelEndpointConnection}>× <span>Cancel connection</span></button><button type="button" className="is-active" disabled>↳ <span>Choose line</span></button></>
+              ) : valvePlacementFeatureId ? (
                 <><button type="button" onClick={cancelValvePlacement}>× <span>Cancel valve</span></button><button type="button" className="is-active" disabled>⌖ <span>Click water line</span></button></>
               ) : breakPlacementFeatureId ? (
                 <><button type="button" onClick={cancelBreakPlacement}>× <span>Cancel break</span></button><button type="button" className="is-incident" disabled>! <span>Click exact location</span></button></>
@@ -3428,6 +3560,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
+          {endpointConnectionTarget && <div className="maps-move-banner maps-endpoint-connection-banner"><strong>Connect the pipe ending</strong><span>Click the compatible utility line this endpoint should join.</span></div>}
           {valvePlacementFeatureId && <div className="maps-move-banner maps-valve-placement"><strong>Insert a connected valve</strong><span>Click directly on the selected water line. The line will split at that exact point.</span></div>}
           {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
           {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : shapeAssetConnectionTargets.length ? `Connected to ${shapeAssetConnectionTargets.map((target) => target.title).join(", ")} · click the map or another asset` : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map or a compatible asset`}</span></div>}
@@ -3548,7 +3681,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                   })}</div> : <p className="maps-isolation-empty">No usable valve boundary was found. Add inserted valves and verify line-to-line connections before relying on this estimate.</p>}
                   {selectedUnavailableValves.length ? <div className="maps-isolation-bypassed"><strong>Bypassed valves</strong>{selectedUnavailableValves.map(({ feature, status }) => <span key={feature.id}>{feature.title} · {status}</span>)}</div> : null}
                   {selectedIsolationEstimate?.warnings.length ? <ul>{selectedIsolationEstimate.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul> : null}
-                  {canEdit && <button type="button" className="maps-save-isolation" disabled={saving || !selectedIsolationEstimate} onClick={() => { if (!selectedIsolationEstimate) return; setSaving(true); void saveIsolationPlan(selectedIsolationEstimate).then((saved) => { setSaving(false); if (saved) showToast("Isolation plan saved to the incident"); }); }}>{selectedSavedIsolationPlan ? "Save recalculated plan" : "Save plan to incident"}</button>}
+                  {selectedIsolationEstimate?.openEndpoints.length ? <div className="maps-topology-issues"><header><strong>Complete network endings</strong><span>Select a highlighted ending on the map or choose it here.</span></header>{selectedIsolationEstimate.openEndpoints.map((issue) => {
+                    const feature = features.find((item) => item.id === issue.featureId);
+                    return <button type="button" key={`${issue.featureId}-${issue.endpoint}`} onClick={() => openEndpointCompletion(issue)}><i aria-hidden="true">!</i><span><strong>{feature?.title || "Water main"}</strong><small>{issue.endpoint === "start" ? "First" : "Last"} point · {issue.endpointType === "unknown" ? "not classified" : `${issue.endpointType} needs a boundary valve`}</small></span><em>Fix</em></button>;
+                  })}</div> : null}
                   {canEdit && selectedIsolationState === "awaiting_confirmation" && <button type="button" className="maps-confirm-isolation" onClick={() => { setIsolationConfirmationLocation(deviceLocation); setIsolationConfirmOpen(true); }}>Confirm isolation in field</button>}
                   {selectedIsolationState === "confirmed" && latestIsolationConfirmation && <div className="maps-isolation-confirmed-record"><strong>Field verification locked in</strong><span>{latestIsolationConfirmation.note}</span>{typeof latestIsolationConfirmation.details.pressureReading === "number" && <small>Pressure: {latestIsolationConfirmation.details.pressureReading} {String(latestIsolationConfirmation.details.pressureUnit || "")}</small>}{typeof latestIsolationConfirmation.details.accuracyMeters === "number" && <small>GPS accuracy: ±{Math.round(latestIsolationConfirmation.details.accuracyMeters * 3.28084)} ft</small>}</div>}
                 </>}
@@ -3915,6 +4051,23 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           </section>
         </div>
       )}
+
+      {endpointDialogIssue && (() => {
+        const feature = features.find((item) => item.id === endpointDialogIssue.featureId);
+        return <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+          <section className="maps-dialog maps-endpoint-dialog" role="dialog" aria-modal="true" aria-labelledby="complete-endpoint-title">
+            <header><div><span>WATER NETWORK</span><h2 id="complete-endpoint-title">Complete this line ending</h2></div><button type="button" onClick={() => setEndpointDialogIssue(null)} aria-label="Close">×</button></header>
+            <div className="maps-endpoint-dialog-copy"><strong>{feature?.title || "Water main"} · {endpointDialogIssue.endpoint === "start" ? "first" : "last"} point</strong><p>Tell Maps what this pipe ending connects to. This removes guesswork from valve recommendations and affected-customer estimates.</p>{endpointDialogIssue.endpointType !== "unknown" && <small>This ending is marked as a {endpointDialogIssue.endpointType.replace("_", " ")}, but a mapped boundary valve is still needed before isolation can be confirmed.</small>}</div>
+            {canEdit && <div className="maps-endpoint-actions">
+              <button type="button" className="is-primary" disabled={saving} onClick={() => beginEndpointConnection(endpointDialogIssue)}><strong>Connect to another line</strong><span>Choose the matching utility line directly on the map.</span></button>
+              <button type="button" disabled={saving || endpointDialogIssue.endpointType === "source"} onClick={() => void classifyNetworkEndpoint(endpointDialogIssue, "source")}><strong>Water source / supply</strong><span>The mapped system begins or receives water here.</span></button>
+              <button type="button" disabled={saving || endpointDialogIssue.endpointType === "reservoir"} onClick={() => void classifyNetworkEndpoint(endpointDialogIssue, "reservoir")}><strong>Reservoir or tank</strong><span>This ending connects to stored water.</span></button>
+              <button type="button" disabled={saving} onClick={() => void classifyNetworkEndpoint(endpointDialogIssue, "dead_end")}><strong>Intentional dead end</strong><span>The pipe is designed to stop at this location.</span></button>
+            </div>}
+            <footer><button type="button" onClick={() => setEndpointDialogIssue(null)}>Close</button></footer>
+          </section>
+        </div>;
+      })()}
 
       {featureEditOpen && selectedFeature && (
         <div className="maps-dialog-backdrop" role="presentation">
