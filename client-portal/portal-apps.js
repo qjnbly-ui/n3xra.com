@@ -132,6 +132,18 @@ async function canManageOrganization(supabase, organizationId) {
         return false;
     return Boolean(data?.can_manage);
 }
+async function linkedLoanOwnerId(supabase, organizationId) {
+    const { data, error } = await supabase
+        .from("loan_accounts")
+        .select("user_id")
+        .eq("organization_id", organizationId)
+        .eq("status", "active")
+        .limit(2);
+    if (error)
+        throw error;
+    const loans = (data || []);
+    return loans.length === 1 ? String(loans[0]?.user_id || "") : "";
+}
 async function loadPortalApps() {
     if (!appGrid || !hasConfig())
         return;
@@ -194,6 +206,7 @@ async function loadPortalApps() {
     if (platformAdminError)
         throw platformAdminError;
     const allowedProductKeys = new Set((memberAccess || []).map((access) => access.product_key));
+    let loanOwnerId = "";
     for (const entitlement of (data || [])) {
         const product = productFrom(entitlement);
         if (platformAdmin !== true && !allowedProductKeys.has(String(product?.product_key || "")))
@@ -203,9 +216,16 @@ async function loadPortalApps() {
         const path = safePortalPath(product?.portal_path || "");
         if (!product || !path || product.status !== "active" || !product.client_portal_available)
             continue;
-        const href = product.product_key === "records"
-            ? `${path}?support_org=${encodeURIComponent(organizationId)}`
-            : path;
+        let href = path;
+        if (product.product_key === "records") {
+            href = `${path}?support_org=${encodeURIComponent(organizationId)}`;
+        }
+        else if (product.product_key === "loan_tracker") {
+            loanOwnerId ||= await linkedLoanOwnerId(supabase, organizationId);
+            if (!loanOwnerId)
+                continue;
+            href = `${path}?user=${encodeURIComponent(loanOwnerId)}`;
+        }
         apps.push({
             key: product.product_key,
             name: product.name,
