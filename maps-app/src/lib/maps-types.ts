@@ -154,3 +154,48 @@ export interface MapTask {
   created_at: string;
   updated_at: string;
 }
+
+export type MapIncidentStatus = "open" | "responding" | "repairing" | "monitoring" | "resolved";
+
+export interface MapIncident {
+  id: string;
+  organization_id: string;
+  incident_number: number;
+  incident_type: "water_main_break";
+  feature_id: string;
+  reported_geometry: GeoJsonGeometry;
+  geometry: GeoJsonGeometry;
+  snap_distance_m: number;
+  status: MapIncidentStatus;
+  severity: "attention" | "urgent" | "emergency";
+  title: string;
+  initial_report: string | null;
+  cause: string | null;
+  customers_affected_estimate: number | null;
+  repair_method: string | null;
+  pressure_lost: boolean;
+  disinfected: boolean;
+  sample_collected: boolean;
+  chlorine_residual: string | null;
+  sample_result: string | null;
+  customer_reference: string | null;
+  request_reference: string | null;
+  started_at: string;
+  resolved_at: string | null;
+  closed_event_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface MapIncidentUpdate {
+  id: string;
+  organization_id: string;
+  incident_id: string;
+  update_type: "reported" | "crew_dispatched" | "isolation" | "repair_started" | "field_update" | "pressure_restored" | "disinfection" | "sample_collected" | "sample_result" | "customer_notice" | "monitoring" | "resolved";
+  status_after: MapIncidentStatus | null;
+  note: string;
+  details: Record<string, unknown>;
+  occurred_at: string;
+  created_by_user_id: string;
+  submitted_at: string;
+}

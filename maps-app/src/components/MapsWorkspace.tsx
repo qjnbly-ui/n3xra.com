@@ -10,6 +10,9 @@ import type {
   MapEventType,
   MapFeature,
   MapFeaturePhoto,
+  MapIncident,
+  MapIncidentStatus,
+  MapIncidentUpdate,
   MapLayer,
   MapLayerField,
   MapTask,
@@ -139,6 +142,12 @@ interface NewLayerDraft {
   color: string;
 }
 
+interface PendingBreakLocation {
+  featureId: string;
+  longitude: number;
+  latitude: number;
+}
+
 type GateState = "loading" | "signed-out" | "unassigned" | "setup" | "ready" | "error";
 type BasemapStyle = "standard" | "satellite";
 type ActivationMode = "existing" | "new";
@@ -158,6 +167,19 @@ const EVENT_TYPES: { value: MapEventType; label: string; compliance: MapComplian
   { value: "repair", label: "Repair", compliance: "operational" },
   { value: "replacement", label: "Replacement", compliance: "operational" },
   { value: "customer_request", label: "Customer request", compliance: "operational" },
+];
+
+const INCIDENT_UPDATE_TYPES: { value: MapIncidentUpdate["update_type"]; label: string; suggestedStatus: Exclude<MapIncidentStatus, "resolved"> }[] = [
+  { value: "crew_dispatched", label: "Crew dispatched", suggestedStatus: "responding" },
+  { value: "isolation", label: "Line or area isolated", suggestedStatus: "responding" },
+  { value: "repair_started", label: "Repair started", suggestedStatus: "repairing" },
+  { value: "field_update", label: "Field update", suggestedStatus: "repairing" },
+  { value: "pressure_restored", label: "Pressure restored", suggestedStatus: "monitoring" },
+  { value: "disinfection", label: "Disinfection completed", suggestedStatus: "monitoring" },
+  { value: "sample_collected", label: "Sample collected", suggestedStatus: "monitoring" },
+  { value: "sample_result", label: "Sample result received", suggestedStatus: "monitoring" },
+  { value: "customer_notice", label: "Customer notice", suggestedStatus: "responding" },
+  { value: "monitoring", label: "Monitoring update", suggestedStatus: "monitoring" },
 ];
 
 function localDateTimeValue(date = new Date()): string {
@@ -220,6 +242,12 @@ function pointCoordinates(feature: MapFeature): [number, number] | null {
   const [longitude, latitude] = feature.geometry.coordinates as unknown[];
   if (typeof longitude !== "number" || typeof latitude !== "number") return null;
   return [longitude, latitude];
+}
+
+function geoPointCoordinates(geometry: MapIncident["geometry"]): [number, number] | null {
+  if (geometry.type !== "Point" || !Array.isArray(geometry.coordinates)) return null;
+  const [longitude, latitude] = geometry.coordinates as unknown[];
+  return typeof longitude === "number" && typeof latitude === "number" ? [longitude, latitude] : null;
 }
 
 function geometryCoordinates(geometry: MapFeature["geometry"]): [number, number][] {
@@ -353,6 +381,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const featureMarkersRef = useRef<Map<string, Marker>>(new Map());
+  const incidentMarkersRef = useRef<Map<string, Marker>>(new Map());
   const shapeVertexMarkersRef = useRef<Marker[]>([]);
   const locationMarkerRef = useRef<Marker | null>(null);
   const watchIdRef = useRef<number | null>(null);
@@ -374,6 +403,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [featurePhotos, setFeaturePhotos] = useState<MapFeaturePhoto[]>([]);
   const [mapEvents, setMapEvents] = useState<MapEvent[]>([]);
   const [mapTasks, setMapTasks] = useState<MapTask[]>([]);
+  const [mapIncidents, setMapIncidents] = useState<MapIncident[]>([]);
+  const [mapIncidentUpdates, setMapIncidentUpdates] = useState<MapIncidentUpdate[]>([]);
   const [photoUrls, setPhotoUrls] = useState<Record<string, string>>({});
   const [layerFieldDrafts, setLayerFieldDrafts] = useState<LayerFieldDraft[]>([]);
   const [photoUploading, setPhotoUploading] = useState(false);
@@ -384,6 +415,14 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [eventType, setEventType] = useState<MapEventType>("inspection");
   const [taskDialogOpen, setTaskDialogOpen] = useState(false);
   const [taskCompleting, setTaskCompleting] = useState<MapTask | null>(null);
+  const [selectedIncidentId, setSelectedIncidentId] = useState<string | null>(null);
+  const [breakPlacementFeatureId, setBreakPlacementFeatureId] = useState<string | null>(null);
+  const [pendingBreakLocation, setPendingBreakLocation] = useState<PendingBreakLocation | null>(null);
+  const [breakStartDialogOpen, setBreakStartDialogOpen] = useState(false);
+  const [incidentUpdateDialogOpen, setIncidentUpdateDialogOpen] = useState(false);
+  const [incidentUpdateType, setIncidentUpdateType] = useState<MapIncidentUpdate["update_type"]>("field_update");
+  const [incidentUpdateStatus, setIncidentUpdateStatus] = useState<Exclude<MapIncidentStatus, "resolved">>("repairing");
+  const [incidentCloseDialogOpen, setIncidentCloseDialogOpen] = useState(false);
   const [selectedLayerId, setSelectedLayerId] = useState<string>("");
   const [search, setSearch] = useState("");
   const [basemap, setBasemap] = useState<BasemapStyle>("standard");
@@ -453,6 +492,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const selectedTasks = mapTasks.filter((task) => task.feature_id === selectedFeatureId && task.status !== "cancelled")
     .sort((left, right) => (left.status === "completed" ? 1 : 0) - (right.status === "completed" ? 1 : 0)
       || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
+  const activeIncidents = useMemo(() => mapIncidents.filter((incident) => incident.status !== "resolved")
+    .sort((left, right) => new Date(right.started_at).getTime() - new Date(left.started_at).getTime()), [mapIncidents]);
+  const selectedIncident = mapIncidents.find((incident) => incident.id === selectedIncidentId) || null;
+  const selectedIncidentUpdates = mapIncidentUpdates.filter((update) => update.incident_id === selectedIncidentId)
+    .sort((left, right) => new Date(left.occurred_at).getTime() - new Date(right.occurred_at).getTime());
+  const activeIncidentFeatureIds = useMemo(() => new Set(activeIncidents.map((incident) => incident.feature_id)), [activeIncidents]);
   const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
   const selectedNewLayerPreset = STANDARD_LAYER_PRESETS.find((preset) => preset.key === newLayerDraft.presetKey) || null;
 
@@ -553,15 +598,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const loadWorkspace = useCallback(async (supabase: SupabaseClient, access: OrganizationAccess) => {
     setGate("loading");
     setGateMessage("Loading map layers and assets…");
-    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult] = await Promise.all([
+    const [workspaceResult, fieldsResult, photosResult, eventsResult, tasksResult, incidentsResult, incidentUpdatesResult] = await Promise.all([
       supabase.rpc("maps_workspace_snapshot", { input_organization_id: access.organizationId }),
       supabase.from("map_layer_fields").select("id, organization_id, layer_id, field_key, label, field_type, options, is_required, sort_order").eq("organization_id", access.organizationId).order("sort_order"),
       supabase.from("map_feature_photos").select("id, organization_id, feature_id, storage_path, caption, mime_type, size_bytes, organization_file_id, created_at").eq("organization_id", access.organizationId).order("created_at", { ascending: false }),
       supabase.from("map_events").select("id, organization_id, feature_id, sequence_number, event_type, title, summary, severity, compliance_basis, occurred_at, discovered_at, resolved_at, details, customer_reference, request_reference, amends_event_id, amendment_kind, amendment_reason, record_hash, submitted_at").eq("organization_id", access.organizationId).order("occurred_at", { ascending: false }),
       supabase.from("map_tasks").select("id, organization_id, feature_id, source_event_id, title, category, description, priority, status, compliance_basis, compliance_source_name, compliance_source_url, due_at, assigned_to_user_id, customer_reference, request_reference, completed_at, completion_event_id, created_at, updated_at").eq("organization_id", access.organizationId).is("archived_at", null).order("due_at"),
+      supabase.from("map_incidents").select("id, organization_id, incident_number, incident_type, feature_id, reported_geometry, geometry, snap_distance_m, status, severity, title, initial_report, cause, customers_affected_estimate, repair_method, pressure_lost, disinfected, sample_collected, chlorine_residual, sample_result, customer_reference, request_reference, started_at, resolved_at, closed_event_id, created_at, updated_at").eq("organization_id", access.organizationId).order("started_at", { ascending: false }),
+      supabase.from("map_incident_updates").select("id, organization_id, incident_id, update_type, status_after, note, details, occurred_at, created_by_user_id, submitted_at").eq("organization_id", access.organizationId).order("occurred_at"),
     ]);
-    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error) {
-      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error;
+    if (workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error) {
+      throw workspaceResult.error || fieldsResult.error || photosResult.error || eventsResult.error || tasksResult.error || incidentsResult.error || incidentUpdatesResult.error;
     }
     const snapshot = workspaceResult.data as unknown as MapWorkspaceSnapshot;
     const nextLayers = Array.isArray(snapshot.layers) ? snapshot.layers : [];
@@ -572,6 +619,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setFeaturePhotos((photosResult.data || []) as MapFeaturePhoto[]);
     setMapEvents((eventsResult.data || []) as MapEvent[]);
     setMapTasks((tasksResult.data || []) as MapTask[]);
+    setMapIncidents((incidentsResult.data || []) as MapIncident[]);
+    setMapIncidentUpdates((incidentUpdatesResult.data || []) as MapIncidentUpdate[]);
     setVisibleLayers(Object.fromEntries(nextLayers.map((layer) => [layer.id, layer.is_visible_by_default])));
     setSelectedLayerId((current) => nextLayers.some((layer) => layer.id === current && layer.is_editable && layer.geometry_type !== "raster")
       ? current
@@ -658,6 +707,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     return () => {
       featureMarkersRef.current.forEach((marker) => marker.remove());
       featureMarkersRef.current.clear();
+      incidentMarkersRef.current.forEach((marker) => marker.remove());
+      incidentMarkersRef.current.clear();
       shapeVertexMarkersRef.current.forEach((marker) => marker.remove());
       shapeVertexMarkersRef.current = [];
       locationMarkerRef.current?.remove();
@@ -733,6 +784,30 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
   useEffect(() => {
     const map = mapRef.current;
+    if (!map) return;
+    incidentMarkersRef.current.forEach((marker) => marker.remove());
+    incidentMarkersRef.current.clear();
+    activeIncidents.forEach((incident) => {
+      const coordinates = geoPointCoordinates(incident.geometry);
+      if (!coordinates || visibleLayers[features.find((feature) => feature.id === incident.feature_id)?.layer_id || ""] === false) return;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = `maps-incident-marker is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`;
+      button.innerHTML = `<span>!</span>`;
+      button.setAttribute("aria-label", `Open active incident ${incident.title}`);
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        setSelectedFeatureId(incident.feature_id);
+        setSelectedIncidentId(incident.id);
+        setSidebarOpen(false);
+      });
+      const marker = new mapboxgl.Marker({ element: button, anchor: "center" }).setLngLat(coordinates).addTo(map);
+      incidentMarkersRef.current.set(incident.id, marker);
+    });
+  }, [activeIncidents, features, selectedIncidentId, visibleLayers]);
+
+  useEffect(() => {
+    const map = mapRef.current;
     if (!map || !mapReady) return;
     const data = {
       type: "FeatureCollection" as const,
@@ -748,6 +823,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               fillColor: layer?.fill_color || layer?.color || "#1ed7b2",
               opacity: layer?.opacity ?? 0.75,
               selected: feature.id === selectedFeatureId,
+              activeIncident: activeIncidentFeatureIds.has(feature.id),
             },
             geometry: feature.geometry,
           };
@@ -783,8 +859,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           type: "line",
           source: SAVED_SHAPES_SOURCE_ID,
           paint: {
-            "line-color": ["get", "color"],
-            "line-width": ["case", ["get", "selected"], 7, 4],
+            "line-color": ["case", ["get", "activeIncident"], "#f05f55", ["get", "color"]],
+            "line-width": ["case", ["get", "selected"], 7, ["get", "activeIncident"], 6, 4],
             "line-opacity": ["case", ["get", "selected"], 1, ["get", "opacity"]],
           },
           layout: { "line-cap": "round", "line-join": "round" },
@@ -808,7 +884,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
       map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
     };
-  }, [basemap, editingShapeId, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -971,6 +1047,26 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.getCanvas().style.cursor = "";
     };
   }, [placementMode]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !breakPlacementFeatureId) return;
+    const handleBreakClick = (event: mapboxgl.MapMouseEvent) => {
+      setPendingBreakLocation({
+        featureId: breakPlacementFeatureId,
+        longitude: event.lngLat.lng,
+        latitude: event.lngLat.lat,
+      });
+      setBreakPlacementFeatureId(null);
+      setBreakStartDialogOpen(true);
+    };
+    map.getCanvas().style.cursor = "crosshair";
+    map.once("click", handleBreakClick);
+    return () => {
+      map.off("click", handleBreakClick);
+      map.getCanvas().style.cursor = "";
+    };
+  }, [breakPlacementFeatureId]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1603,6 +1699,123 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setEventDialogOpen(true);
   };
 
+  const beginBreakPlacement = () => {
+    if (!selectedFeature || selectedFeature.geometry_type !== "line" || !canEdit) return;
+    setPlacementMode(false);
+    setShapeDraft(null);
+    setPendingShape(null);
+    setMovingFeatureId(null);
+    setSelectedIncidentId(null);
+    setBreakPlacementFeatureId(selectedFeature.id);
+    showToast("Click the exact break location on the selected line");
+  };
+
+  const cancelBreakPlacement = () => {
+    setBreakPlacementFeatureId(null);
+    setPendingBreakLocation(null);
+    setBreakStartDialogOpen(false);
+  };
+
+  const startBreakIncident = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !pendingBreakLocation || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const startedAt = String(form.get("started_at") || "");
+    setSaving(true);
+    const { data, error } = await client.rpc("maps_start_break_incident", {
+      input_organization_id: activeAccess.organizationId,
+      input_feature_id: pendingBreakLocation.featureId,
+      input_longitude: pendingBreakLocation.longitude,
+      input_latitude: pendingBreakLocation.latitude,
+      input_title: String(form.get("title") || "Water-main break").trim(),
+      input_initial_report: String(form.get("initial_report") || "").trim() || null,
+      input_severity: String(form.get("severity") || "urgent"),
+      input_started_at: new Date(startedAt).toISOString(),
+      input_customers_affected_estimate: form.get("customers_affected_estimate") ? Number(form.get("customers_affected_estimate")) : null,
+      input_customer_reference: String(form.get("customer_reference") || "").trim() || null,
+      input_request_reference: String(form.get("request_reference") || "").trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The break incident could not be started.");
+      return;
+    }
+    const incidentId = String((data as { incidentId?: unknown } | null)?.incidentId || "");
+    const featureId = pendingBreakLocation.featureId;
+    setBreakStartDialogOpen(false);
+    setPendingBreakLocation(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(featureId);
+    setSelectedIncidentId(incidentId || null);
+    showToast("Break incident started and highlighted");
+  };
+
+  const chooseIncidentUpdateType = (type: MapIncidentUpdate["update_type"]) => {
+    setIncidentUpdateType(type);
+    setIncidentUpdateStatus(INCIDENT_UPDATE_TYPES.find((item) => item.value === type)?.suggestedStatus || "repairing");
+  };
+
+  const addIncidentUpdate = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedIncident || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const occurredAt = String(form.get("occurred_at") || "");
+    setSaving(true);
+    const { error } = await client.rpc("maps_add_incident_update", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: selectedIncident.id,
+      input_update_type: incidentUpdateType,
+      input_status_after: incidentUpdateStatus,
+      input_note: String(form.get("note") || "").trim(),
+      input_occurred_at: new Date(occurredAt).toISOString(),
+      input_details: {},
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The incident update could not be added.");
+      return;
+    }
+    const incidentId = selectedIncident.id;
+    setIncidentUpdateDialogOpen(false);
+    await loadWorkspace(client, activeAccess);
+    setSelectedIncidentId(incidentId);
+    showToast("Incident update added");
+  };
+
+  const closeBreakIncident = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!client || !activeAccess || !selectedIncident || !canEdit) return;
+    const form = new FormData(event.currentTarget);
+    const resolvedAt = String(form.get("resolved_at") || "");
+    setSaving(true);
+    const { error } = await client.rpc("maps_close_break_incident", {
+      input_organization_id: activeAccess.organizationId,
+      input_incident_id: selectedIncident.id,
+      input_resolved_at: new Date(resolvedAt).toISOString(),
+      input_summary: String(form.get("summary") || "").trim(),
+      input_cause: String(form.get("cause") || "").trim() || null,
+      input_repair_method: String(form.get("repair_method") || "").trim() || null,
+      input_customers_affected_estimate: form.get("customers_affected_estimate") ? Number(form.get("customers_affected_estimate")) : null,
+      input_pressure_lost: form.get("pressure_lost") === "on",
+      input_disinfected: form.get("disinfected") === "on",
+      input_sample_collected: form.get("sample_collected") === "on",
+      input_chlorine_residual: String(form.get("chlorine_residual") || "").trim() || null,
+      input_sample_result: String(form.get("sample_result") || "").trim() || null,
+    });
+    setSaving(false);
+    if (error) {
+      showToast(error.message || "The incident could not be resolved.");
+      return;
+    }
+    const featureId = selectedIncident.feature_id;
+    setIncidentCloseDialogOpen(false);
+    setSelectedIncidentId(null);
+    await loadWorkspace(client, activeAccess);
+    setSelectedFeatureId(featureId);
+    setAssetPanelTab("history");
+    showToast("Incident resolved and permanent history created");
+  };
+
   const saveEvent = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!client || !activeAccess || !selectedFeature || !canEdit) return;
@@ -2204,6 +2417,15 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <input type="search" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search mapped items" />
           </label>
 
+          {activeIncidents.length > 0 && <section className="maps-active-incidents">
+            <header><span>Active incidents</span><small>{activeIncidents.length}</small></header>
+            <div>{activeIncidents.map((incident) => (
+              <button type="button" className={`is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`} key={incident.id} onClick={() => { setSelectedFeatureId(incident.feature_id); setSelectedIncidentId(incident.id); setSidebarOpen(false); }}>
+                <i>!</i><span><strong>INC-{String(incident.incident_number).padStart(5, "0")} · {incident.title}</strong><small>{incident.status} · {formatHistoryDate(incident.started_at)}</small></span><em>›</em>
+              </button>
+            ))}</div>
+          </section>}
+
           <section className="maps-layers">
             <header><div><span>Layers</span><small>{layers.length}</small></div>{canEdit && <div className="maps-layer-header-actions"><button type="button" className="maps-archive-button" onClick={openArchive}>Archive</button>{canManageLayers && <button type="button" className="maps-add-layer-button" onClick={() => setLayerDialogOpen(true)} aria-label="Create layer">＋</button>}</div>}</header>
             {layers.length ? layers.map((layer) => (
@@ -2302,7 +2524,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {gate === "ready" && !navigationActive && (
             <div className="maps-field-tools">
-              {shapeDraft ? (
+              {breakPlacementFeatureId ? (
+                <><button type="button" onClick={cancelBreakPlacement}>× <span>Cancel break</span></button><button type="button" className="is-incident" disabled>! <span>Click exact location</span></button></>
+              ) : shapeDraft ? (
                 <><button type="button" onClick={cancelShapeDrawing}>× <span>{editingShapeId ? "Discard" : "Cancel"}</span></button><button type="button" onClick={undoShapeVertex} disabled={editingShapeId ? !shapeEditHistory.length : !shapeDraft.coordinates.length}>↶ <span>Undo</span></button>{editingShapeId && <button type="button" onClick={removeSelectedShapeVertex} disabled={selectedShapeVertexIndex === null}>− <span>Remove point</span></button>}<button type="button" className="is-active" onClick={finishShapeDrawing}>✓ <span>{editingShapeId ? "Review" : shapeDraft.geometryType === "line" ? "Finish line" : "Finish boundary"}</span></button></>
               ) : movingFeatureId ? (
                 <><button type="button" onClick={cancelMoveFeature}>× <span>Cancel move</span></button><button type="button" onClick={proposeMoveFromGps}>◎ <span>{deviceLocation ? "Use GPS" : "Locate me"}</span></button></>
@@ -2313,11 +2537,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           )}
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
+          {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
           {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{editingShapeId ? "Drag points · select a point to remove · click map to add" : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map to continue`}</span></div>}
 
           {locationError && <p className={`maps-location-error${locating ? " is-waiting" : ""}`} role="status">{locationError}</p>}
 
-          {selectedFeature && !movingFeatureId && !editingShapeId && !directionsTargetId && (
+          {selectedFeature && !selectedIncidentId && !movingFeatureId && !editingShapeId && !directionsTargetId && (
             <article className="maps-detail-card">
               <button type="button" className="maps-detail-close" onClick={() => setSelectedFeatureId(null)} aria-label="Close mapped item">×</button>
               <div className="maps-detail-icon" style={{ color: mapSymbolColor(selectedLayer?.icon_key || "marker") }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
@@ -2355,7 +2580,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               </section>}
 
               {assetPanelTab === "history" && <section className="maps-asset-tab-panel">
-                <header className="maps-tab-heading"><div><strong>Permanent history</strong><span>Submitted records cannot be edited or deleted.</span></div>{canEdit && <button type="button" onClick={() => openEventDialog()}>＋ Add event</button>}</header>
+                <header className="maps-tab-heading"><div><strong>Permanent history</strong><span>Submitted records cannot be edited or deleted.</span></div>{canEdit && <div className="maps-tab-heading-actions">{selectedFeature.geometry_type === "line" && <button type="button" className="is-incident" onClick={beginBreakPlacement}>! Start break</button>}<button type="button" onClick={() => openEventDialog()}>＋ Add event</button></div>}</header>
                 <div className="maps-history-list">
                   {selectedEvents.map((item) => <article key={item.id} className={`is-${item.severity}`}>
                     <i aria-hidden="true" />
@@ -2380,6 +2605,22 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                 <header><span>PHOTOS & EVIDENCE</span>{canEdit && <label className={photoUploading ? "is-disabled" : ""}>＋ Add photo<input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" disabled={photoUploading} onChange={(event) => void uploadFeaturePhoto(event)} /></label>}</header>
                 {selectedPhotos.length ? <div>{selectedPhotos.map((photo) => <figure key={photo.id}>{photoUrls[photo.id] ? <img src={photoUrls[photo.id]} alt={photo.caption || selectedFeature.title} /> : <span>Loading…</span>}<figcaption>{photo.caption || "Asset photo"}</figcaption>{canEdit && <button type="button" disabled={photoUploading} onClick={() => void deleteFeaturePhoto(photo)} aria-label={`Delete ${photo.caption || "asset photo"}`}>×</button>}</figure>)}</div> : <p>No photos or evidence added yet.</p>}
               </section>}
+            </article>
+          )}
+
+          {selectedIncident && !directionsTargetId && (
+            <article className={`maps-detail-card maps-incident-card is-${selectedIncident.severity}`}>
+              <button type="button" className="maps-detail-close" onClick={() => setSelectedIncidentId(null)} aria-label="Close incident">×</button>
+              <div className="maps-incident-heading"><span>ACTIVE BREAK · INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2>{selectedIncident.title}</h2><div><strong>{selectedIncident.status}</strong><em>{selectedIncident.severity}</em></div></div>
+              <dl>
+                <div><dt>Started</dt><dd>{formatHistoryDate(selectedIncident.started_at)}</dd></div>
+                <div><dt>Linked line</dt><dd>{features.find((feature) => feature.id === selectedIncident.feature_id)?.title || "Water line"}</dd></div>
+                <div><dt>Location snap</dt><dd>{Math.round(Number(selectedIncident.snap_distance_m) * 3.28084)} ft</dd></div>
+                {selectedIncident.customers_affected_estimate !== null && <div><dt>Estimated customers</dt><dd>{selectedIncident.customers_affected_estimate}</dd></div>}
+              </dl>
+              {selectedIncident.initial_report && <p className="maps-detail-description">{selectedIncident.initial_report}</p>}
+              <div className="maps-incident-actions">{canEdit && <><button type="button" onClick={() => { setIncidentUpdateType("field_update"); setIncidentUpdateStatus(selectedIncident.status === "open" ? "responding" : selectedIncident.status as Exclude<MapIncidentStatus, "resolved">); setIncidentUpdateDialogOpen(true); }}>＋ Add update</button><button type="button" className="is-resolve" onClick={() => setIncidentCloseDialogOpen(true)}>✓ Resolve break</button></>}</div>
+              <section className="maps-incident-timeline"><header><strong>Incident timeline</strong><span>{selectedIncidentUpdates.length} permanent update{selectedIncidentUpdates.length === 1 ? "" : "s"}</span></header><div>{selectedIncidentUpdates.map((update) => <article key={update.id}><i /><div><span>{update.update_type.replaceAll("_", " ")}{update.status_after ? ` · ${update.status_after}` : ""}</span><strong>{update.note}</strong><small>{formatHistoryDate(update.occurred_at)}</small></div></article>)}</div></section>
             </article>
           )}
 
@@ -2587,13 +2828,65 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         </div>
       )}
 
+      {breakStartDialogOpen && pendingBreakLocation && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-incident-dialog" role="dialog" aria-modal="true" aria-labelledby="start-break-title">
+            <header><div><span>ACTIVE INCIDENT</span><h2 id="start-break-title">Start water-main break</h2></div><button type="button" onClick={cancelBreakPlacement} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void startBreakIncident(event)}>
+              <div className="maps-incident-start-note"><strong>Start with what you know.</strong><span>This opens one continuing incident. Add updates here until the repair and testing are complete.</span></div>
+              <label><span>Linked water line</span><input value={features.find((feature) => feature.id === pendingBreakLocation.featureId)?.title || "Selected water line"} disabled /></label>
+              <label><span>Incident title</span><input name="title" required maxLength={180} defaultValue="Water-main break" /></label>
+              <div className="maps-dialog-row"><label><span>Reported</span><input name="started_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Severity</span><select name="severity" defaultValue="urgent"><option value="attention">Needs attention</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select></label></div>
+              <label><span>What is known right now?</span><textarea name="initial_report" rows={4} maxLength={8_000} placeholder="Visible conditions, who reported it, immediate actions, or anything still unknown." /></label>
+              <label><span>Estimated customers affected</span><input name="customers_affected_estimate" type="number" min="0" placeholder="Optional — this can be finalized when resolved" /></label>
+              <div className="maps-dialog-row"><label><span>Customer/account reference</span><input name="customer_reference" maxLength={160} placeholder="Optional" /></label><label><span>Request reference</span><input name="request_reference" maxLength={160} placeholder="Optional" /></label></div>
+              <div className="maps-coordinate-readout"><span>{pendingBreakLocation.latitude.toFixed(7)}, {pendingBreakLocation.longitude.toFixed(7)}</span><small>The point will snap to the selected line while preserving the reported coordinate.</small></div>
+              <footer><button type="button" onClick={cancelBreakPlacement}>Cancel</button><button type="submit" className="is-danger-solid" disabled={saving}>{saving ? "Starting…" : "Start incident"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {incidentUpdateDialogOpen && selectedIncident && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-incident-dialog" role="dialog" aria-modal="true" aria-labelledby="incident-update-title">
+            <header><div><span>INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2 id="incident-update-title">Add incident update</h2></div><button type="button" onClick={() => setIncidentUpdateDialogOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void addIncidentUpdate(event)}>
+              <div className="maps-record-lock-note"><strong>One incident, permanent updates</strong><span>This update is added to the incident timeline and cannot be silently rewritten later.</span></div>
+              <label><span>Update</span><select name="update_type" value={incidentUpdateType} onChange={(event) => chooseIncidentUpdateType(event.target.value as MapIncidentUpdate["update_type"])}>{INCIDENT_UPDATE_TYPES.map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
+              <div className="maps-dialog-row"><label><span>Incident status after update</span><select name="status_after" value={incidentUpdateStatus} onChange={(event) => setIncidentUpdateStatus(event.target.value as Exclude<MapIncidentStatus, "resolved">)}><option value="open">Open</option><option value="responding">Responding</option><option value="repairing">Repairing</option><option value="monitoring">Monitoring / testing</option></select></label><label><span>Occurred</span><input name="occurred_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label></div>
+              <label><span>Update details</span><textarea name="note" rows={5} required maxLength={8_000} placeholder="What changed, what was completed, measurements, decisions, and what happens next." /></label>
+              <footer><button type="button" onClick={() => setIncidentUpdateDialogOpen(false)}>Cancel</button><button type="submit" className="is-primary" disabled={saving}>{saving ? "Adding…" : "Add update"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
+      {incidentCloseDialogOpen && selectedIncident && (
+        <div className="maps-dialog-backdrop" role="presentation">
+          <section className="maps-dialog maps-event-dialog" role="dialog" aria-modal="true" aria-labelledby="close-break-title">
+            <header><div><span>FINAL INCIDENT RECORD</span><h2 id="close-break-title">Resolve water-main break</h2></div><button type="button" onClick={() => setIncidentCloseDialogOpen(false)} aria-label="Close">×</button></header>
+            <form onSubmit={(event) => void closeBreakIncident(event)}>
+              <div className="maps-record-lock-note"><strong>Locked after closure</strong><span>Review the complete incident before closing it. Closure creates the immutable asset-history record.</span></div>
+              <div className="maps-dialog-row"><label><span>Resolved</span><input name="resolved_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Final customers affected</span><input name="customers_affected_estimate" type="number" min="0" defaultValue={selectedIncident.customers_affected_estimate ?? ""} /></label></div>
+              <label><span>Confirmed cause</span><input name="cause" maxLength={1_000} placeholder="Freeze, material failure, excavation damage…" /></label>
+              <label><span>Repair performed</span><input name="repair_method" maxLength={2_000} placeholder="Clamp, replaced section, coupling, valve work…" /></label>
+              <div className="maps-event-checks"><label><input name="pressure_lost" type="checkbox" /> Positive pressure was lost</label><label><input name="disinfected" type="checkbox" /> Repair was disinfected</label><label><input name="sample_collected" type="checkbox" /> Verification sample collected</label></div>
+              <div className="maps-dialog-row"><label><span>Chlorine residual</span><input name="chlorine_residual" placeholder="Value and unit" /></label><label><span>Sample result</span><input name="sample_result" placeholder="Pending, absent, report ID…" /></label></div>
+              <label><span>Final incident summary</span><textarea name="summary" rows={5} required maxLength={8_000} placeholder="Summarize the response, repair, restoration, testing, customer impact, and any follow-up." /></label>
+              <footer><button type="button" onClick={() => setIncidentCloseDialogOpen(false)}>Keep incident open</button><button type="submit" className="is-danger-solid" disabled={saving}>{saving ? "Closing…" : "Resolve and lock"}</button></footer>
+            </form>
+          </section>
+        </div>
+      )}
+
       {eventDialogOpen && selectedFeature && (
         <div className="maps-dialog-backdrop" role="presentation">
           <section className="maps-dialog maps-event-dialog" role="dialog" aria-modal="true" aria-labelledby="new-event-title">
             <header><div><span>PERMANENT HISTORY</span><h2 id="new-event-title">Record an event</h2></div><button type="button" onClick={() => setEventDialogOpen(false)} aria-label="Close">×</button></header>
             <form onSubmit={(event) => void saveEvent(event)}>
               <div className="maps-record-lock-note"><strong>Locked after submission</strong><span>Mistakes are corrected with an amendment so the original record is always preserved.</span></div>
-              <label><span>Event type</span><select name="event_type" value={eventType} onChange={(event) => setEventType(event.target.value as MapEventType)}>{EVENT_TYPES.map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
+              <label><span>Event type</span><select name="event_type" value={eventType} onChange={(event) => setEventType(event.target.value as MapEventType)}>{EVENT_TYPES.filter((type) => type.value !== "water_main_break").map((type) => <option value={type.value} key={type.value}>{type.label}</option>)}</select></label>
               <label><span>Title</span><input name="title" required maxLength={180} placeholder={EVENT_TYPES.find((type) => type.value === eventType)?.label || "Event title"} /></label>
               <div className="maps-dialog-row"><label><span>Occurred</span><input name="occurred_at" type="datetime-local" required defaultValue={localDateTimeValue()} /></label><label><span>Severity</span><select name="severity" defaultValue="routine"><option value="routine">Routine</option><option value="attention">Needs attention</option><option value="urgent">Urgent</option><option value="emergency">Emergency</option></select></label></div>
 

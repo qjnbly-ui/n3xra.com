@@ -542,3 +542,49 @@ test("Maps ties permanent operational history and completable tasks to assets", 
   assert.doesNotMatch(migration, /grant[^;]*update[^;]*on public\.map_events/);
   assert.doesNotMatch(migration, /grant[^;]*delete[^;]*on public\.map_events/);
 });
+
+test("Water-main breaks remain one highlighted incident until closure creates permanent history", async () => {
+  const [workspace, types, styles, migration, roadmap] = await Promise.all([
+    read("maps-app/src/components/MapsWorkspace.tsx"),
+    read("maps-app/src/lib/maps-types.ts"),
+    read("maps-app/src/styles/maps.css"),
+    read("supabase/migrations/20260904011540_maps_break_incident_workflow.sql"),
+    read("docs/maps-product-roadmap.md"),
+  ]);
+
+  assert.match(types, /export interface MapIncident/);
+  assert.match(types, /export interface MapIncidentUpdate/);
+  assert.match(workspace, /Active incidents/);
+  assert.match(workspace, /Start water-main break/);
+  assert.match(workspace, /Click the exact break location on the selected line/);
+  assert.match(workspace, /maps_start_break_incident/);
+  assert.match(workspace, /maps_add_incident_update/);
+  assert.match(workspace, /maps_close_break_incident/);
+  assert.match(workspace, /Incident timeline/);
+  assert.match(workspace, /Resolve and lock/);
+  assert.match(workspace, /activeIncident: activeIncidentFeatureIds\.has/);
+  assert.match(styles, /\.maps-active-incidents/);
+  assert.match(styles, /\.maps-incident-marker/);
+  assert.match(styles, /\.maps-incident-card/);
+
+  assert.match(migration, /create table public\.map_incidents/);
+  assert.match(migration, /create table public\.map_incident_updates/);
+  assert.match(migration, /reported_geometry extensions\.geometry\(Point, 4326\)/);
+  assert.match(migration, /geometry extensions\.geometry\(Point, 4326\)/);
+  assert.match(migration, /extensions\.st_closestpoint/);
+  assert.match(migration, /future_isolation_valve_ids uuid\[\]/);
+  assert.match(migration, /future_affected_customer_account_ids uuid\[\]/);
+  assert.match(migration, /future_notification_batch_id uuid/);
+  assert.match(migration, /Incident updates are permanent and cannot be edited or deleted/);
+  assert.match(migration, /insert into public\.map_events/);
+  assert.match(migration, /alter table public\.map_incidents enable row level security/);
+  assert.match(migration, /alter table public\.map_incident_updates enable row level security/);
+  assert.doesNotMatch(migration, /grant[^;]*delete[^;]*on public\.map_incidents/);
+  assert.doesNotMatch(migration, /grant[^;]*update[^;]*on public\.map_incident_updates/);
+
+  assert.match(roadmap, /Connected utility-network topology \(future\)/);
+  assert.match(roadmap, /adding a valve on a pipe splits the pipe into two segments/i);
+  assert.match(roadmap, /affected meters and customer accounts automatically/i);
+  assert.match(roadmap, /email, permission-based text messages, and automated voice calls/i);
+  assert.match(roadmap, /Do not build yet/);
+});
