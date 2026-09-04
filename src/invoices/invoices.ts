@@ -10,7 +10,8 @@ type Invoice = {
   incidentNumber: string;
   incidentName: string;
   location: string;
-  agency: string;
+  fireAgency: string;
+  protectionAgency: string;
   responseAt: string;
   releaseAt: string;
   apparatus: Line[];
@@ -19,7 +20,7 @@ type Invoice = {
   status: "draft" | "ready";
   updatedAt: string;
 };
-type Rates = { apparatus: RateMap; personnel: RateMap; agencies: string[] };
+type Rates = { apparatus: RateMap; personnel: RateMap; fireAgencies: string[]; protectionAgencies: string[] };
 
 const RATES_KEY = "n3xra-invoice-desk-rates-v1";
 const INVOICES_KEY = "n3xra-invoice-desk-invoices-v1";
@@ -31,7 +32,17 @@ const defaultRates: Rates = {
     "Type 2 Command": 100, "Type 3 Command": 45, "Ambulance ALS": 55, "Ambulance BLS": 45, "TBD": 0,
   },
   personnel: { "FFT2/FFT1": 20.1, "Apparatus Op": 22.6, "ENGB": 24, "STLD/TFLD": 26.8 },
-  agencies: ["USDA Forest Service", "DOI", "F&W", "NPS", "ODF"],
+  fireAgencies: [
+    "Bly RFPD Invoice", "Bonanza RFPD Invoice", "Burns FD Invoice", "Central Cascade Fire and EMS Invoice",
+    "Christmas Valley RFPD Invoice", "Crescent Fire District Invoice", "Chiloquin Fire & Rescue Invoice",
+    "Chemult RFPD Invoice", "Hines RFPD Invoice", "Keno RFPD Invoice", "Kingsley Field FD Invoice",
+    "KCFD1 Invoice", "KCFD3 Invoice", "KCFD4 Invoice", "KCFD5 Invoice", "Lakeview FD Invoice",
+    "Malin RFPD Invoice", "Merrill RFPD Invoice", "Oregon Outback RFPD Invoice", "Paisley FD Invoice",
+    "Rock Point Fire & EMS Invoice", "Silver Lake RFPD Invoice", "Thomas Creek-Westside RFPD Invoice",
+    "Klamath ODF Invoice", "Lake ODF Invoice", "High Desert RFPA Invoice", "Warner Valley RFPA Invoice",
+    "Walker Range FPA Invoice",
+  ],
+  protectionAgencies: ["USDA Forest Service", "DOI", "F&W", "NPS", "ODF"],
 };
 
 const app = document.querySelector<HTMLElement>("#invoice-app");
@@ -49,19 +60,20 @@ const escapeHtml = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (
 
 function readRates(): Rates {
   try {
-    const stored = JSON.parse(localStorage.getItem(`${RATES_KEY}:${activeUserKey}`) || "null") as Partial<Rates> | null;
+    const stored = JSON.parse(localStorage.getItem(`${RATES_KEY}:${activeUserKey}`) || "null") as (Partial<Rates> & { agencies?: string[] }) | null;
     return stored?.apparatus && stored?.personnel ? {
       apparatus: stored.apparatus,
       personnel: stored.personnel,
-      agencies: Array.isArray(stored.agencies) ? stored.agencies : [...defaultRates.agencies],
+      fireAgencies: Array.isArray(stored.fireAgencies) ? stored.fireAgencies : [...defaultRates.fireAgencies],
+      protectionAgencies: Array.isArray(stored.protectionAgencies) ? stored.protectionAgencies : Array.isArray(stored.agencies) ? stored.agencies : [...defaultRates.protectionAgencies],
     } : structuredClone(defaultRates);
   } catch { return structuredClone(defaultRates); }
 }
 
 function readInvoices(): Invoice[] {
   try {
-    const stored = JSON.parse(localStorage.getItem(`${INVOICES_KEY}:${activeUserKey}`) || "null") as Invoice[] | null;
-    return Array.isArray(stored) ? stored : [];
+    const stored = JSON.parse(localStorage.getItem(`${INVOICES_KEY}:${activeUserKey}`) || "null") as (Invoice & { agency?: string })[] | null;
+    return Array.isArray(stored) ? stored.map((invoice) => ({ ...invoice, fireAgency: invoice.fireAgency || "", protectionAgency: invoice.protectionAgency || invoice.agency || "" })) : [];
   } catch { return []; }
 }
 
@@ -83,7 +95,7 @@ function shell(content: string) {
     ["editor", "/n3xra-admin/invoices/new/", "New invoice"],
     ["rates", "/n3xra-admin/invoices/rates/", "Rate library"],
   ];
-  return `<header class="product-app-header"><div class="product-app-header-inner"><a class="product-app-brand" href="/n3xra-admin/invoices/" aria-label="N3XRA Invoice Desk home"><span class="product-app-logo"><b>N3</b><em>XRA</em></span><i aria-hidden="true"></i><strong>Invoice Desk</strong></a><div class="product-app-actions"><a href="/account/admin/">Dashboard</a><button id="invoice-sign-out" type="button">Sign out</button></div></div></header>
+  return `<header class="product-app-header"><div class="product-app-header-inner"><a class="product-app-brand" href="/n3xra-admin/invoices/" aria-label="N3XRA Invoice Desk home"><span class="product-app-logo"><img hidden alt=""><b>N3</b><em>XRA</em></span><i aria-hidden="true"></i><strong>Invoice Desk</strong></a><div class="product-app-actions site-nav-actions"><button type="button" data-site-assistant-open aria-expanded="false" aria-controls="site-assistant-layer">Ask Invoice Desk AI</button><a href="/account/">Dashboard</a><button class="portal-logout" id="portal-logout" type="button">Sign out</button></div></div></header>
   <div class="invoice-shell">
     <aside class="invoice-sidebar">
       <p class="invoice-nav-label">Workspace</p>
@@ -101,11 +113,12 @@ function dashboard() {
   const latest = invoices.slice().sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   const rows = latest.length ? latest.map((invoice) => {
     const total = totals(invoice).total;
-    return `<tr><td><strong>${escapeHtml(invoice.incidentName || "Untitled incident")}</strong><small>Incident ${escapeHtml(invoice.incidentNumber || "Not assigned")}</small></td><td>${escapeHtml(invoice.agency || "—")}</td><td>${escapeHtml(invoice.location || "—")}</td><td><span class="invoice-status ${invoice.status}">${invoice.status}</span></td><td><strong>${currency(total)}</strong><small>Updated ${dateLabel(invoice.updatedAt)}</small></td></tr>`;
+    const href = `/n3xra-admin/invoices/new/?id=${encodeURIComponent(invoice.id)}`;
+    return `<tr class="invoice-click-row" data-href="${href}"><td><a class="invoice-edit-link" href="${href}"><strong>${escapeHtml(invoice.incidentName || "Untitled incident")}</strong><small>Incident ${escapeHtml(invoice.incidentNumber || "Not assigned")}</small></a></td><td>${escapeHtml(invoice.fireAgency || "—")}</td><td>${escapeHtml(invoice.protectionAgency || "—")}</td><td><strong>${currency(total)}</strong><small>Updated ${dateLabel(invoice.updatedAt)}</small></td><td><a class="invoice-button secondary small" href="${href}">Edit</a></td></tr>`;
   }).join("") : `<tr><td colspan="5"><div class="invoice-empty"><strong>No previous invoices</strong><p>Invoices you create while signed in will appear here.</p><a class="invoice-button" href="/n3xra-admin/invoices/new/">Add new invoice</a></div></td></tr>`;
-  const content = `<div class="invoice-page-head"><div><p class="invoice-kicker">Invoice Desk</p><h2>Your invoices</h2><p>Only invoices saved by this signed-in administrator are shown.</p></div><a class="invoice-button" href="/n3xra-admin/invoices/new/">+ Add new</a></div>
+  const content = `<div class="invoice-page-head"><div><p class="invoice-kicker">Invoice Desk</p><h2>Your invoices</h2><p>Only invoices saved by this signed-in administrator are shown. Open any row to continue editing it.</p></div><a class="invoice-button" href="/n3xra-admin/invoices/new/">+ Add new</a></div>
     <section class="invoice-card"><header class="invoice-card-head"><div><h3>Previous invoices</h3><p>${invoices.length ? `${invoices.length} saved invoice${invoices.length === 1 ? "" : "s"}` : "No saved invoices"}</p></div></header>
-      <table class="invoice-table"><thead><tr><th>Incident</th><th>Agency</th><th>Location</th><th>Status</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table></section>`;
+      <table class="invoice-table"><thead><tr><th>Incident</th><th>Fire agency</th><th>Protection agency</th><th>Amount</th><th></th></tr></thead><tbody>${rows}</tbody></table></section>`;
   return shell(content);
 }
 
@@ -113,7 +126,11 @@ function blankInvoice(): Invoice {
   const now = new Date();
   const later = new Date(now.getTime() + 12 * 3_600_000);
   const local = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-  return { id: id(), incidentNumber: "", incidentName: "", location: "", agency: "", responseAt: local(now), releaseAt: local(later), apparatus: [], personnel: [], miscellaneous: [], status: "draft", updatedAt: new Date().toISOString() };
+  return { id: id(), incidentNumber: "", incidentName: "", location: "", fireAgency: "", protectionAgency: "", responseAt: local(now), releaseAt: local(later), apparatus: [], personnel: [], miscellaneous: [], status: "draft", updatedAt: new Date().toISOString() };
+}
+
+function agencyOptions(items: string[], selected: string, placeholder: string) {
+  return `<option value="">${placeholder}</option>${items.map((item) => `<option value="${escapeHtml(item)}" ${item === selected ? "selected" : ""}>${escapeHtml(item)}</option>`).join("")}`;
 }
 
 function rateOptions(map: RateMap, selected = "") {
@@ -153,28 +170,30 @@ function miscRows() {
 }
 
 function editor() {
-  editorState = blankInvoice();
-  const agencies = readRates().agencies;
-  const content = `<div class="invoice-page-head"><div><p class="invoice-kicker">New invoice</p><h2>Start with the incident.</h2><p>Elapsed hours are calculated from response to release. Every apparatus and personnel line uses that time and its rate-library price.</p></div><a class="invoice-button secondary" href="/n3xra-admin/invoices/">Cancel</a></div>
-    <div class="editor-layout"><div class="editor-sections">
+  const editId = new URLSearchParams(location.search).get("id");
+  const existing = editId ? readInvoices().find((invoice) => invoice.id === editId) : undefined;
+  editorState = existing || blankInvoice();
+  const rates = readRates();
+  const content = `<div class="invoice-page-head"><div><p class="invoice-kicker">${existing ? "Edit invoice" : "New invoice"}</p><h2>${existing ? escapeHtml(editorState.incidentName || "Edit invoice") : "Build the incident invoice."}</h2><p>Enter the incident and response details. Hours and costs calculate automatically from the rate library.</p></div><a class="invoice-button secondary" href="/n3xra-admin/invoices/">Back to invoices</a></div>
+    <div class="editor-sections">
       <section class="editor-card"><header class="editor-card-head"><div><h3>Incident details</h3><p>The identifying information that appears on the invoice.</p></div><span class="editor-step">01</span></header>
-        <div class="field-grid"><label class="field">Incident number<input id="incident-number" placeholder="24-048"></label><label class="field">Incident name<input id="incident-name" placeholder="Incident name"></label><label class="field">Location<input id="incident-location" placeholder="County, state"></label><label class="field">Protection agency<select id="incident-agency"><option value="">Choose agency</option>${agencies.map((agency) => `<option>${agency}</option>`).join("")}</select></label></div></section>
+        <div class="field-grid"><label class="field">Incident number<input id="incident-number" value="${escapeHtml(editorState.incidentNumber)}" placeholder="24-048"></label><label class="field">Incident name<input id="incident-name" value="${escapeHtml(editorState.incidentName)}" placeholder="Incident name"></label><label class="field">Location<input id="incident-location" value="${escapeHtml(editorState.location)}" placeholder="County, state"></label><label class="field">Fire agency invoice<select id="fire-agency">${agencyOptions(rates.fireAgencies, editorState.fireAgency, "Choose fire agency")}</select></label><label class="field">Protection agency<select id="protection-agency">${agencyOptions(rates.protectionAgencies, editorState.protectionAgency, "Choose protection agency")}</select></label></div></section>
       <section class="editor-card"><header class="editor-card-head"><div><h3>Response window</h3><p>Elapsed time is calculated automatically.</p></div><span class="editor-step">02</span></header>
         <div class="field-grid four"><label class="field">Response<input id="response-at" type="datetime-local" value="${editorState.responseAt}"></label><label class="field">Release<input id="release-at" type="datetime-local" value="${editorState.releaseAt}"></label><label class="field">Elapsed hours<input id="elapsed-hours" value="${elapsedHours(editorState).toFixed(2)}" readonly></label></div></section>
       <section class="editor-card"><header class="editor-card-head"><div><h3>Apparatus</h3><p>Add each unit used during the response.</p></div><span class="editor-step">03</span></header><div class="line-items" id="apparatus-lines">${apparatusRows()}</div><button class="invoice-button secondary small add-line" data-add-line="apparatus" type="button">+ Add apparatus</button></section>
       <section class="editor-card"><header class="editor-card-head"><div><h3>Personnel</h3><p>People × hours × rate calculates each position total.</p></div><span class="editor-step">04</span></header><div class="line-items" id="personnel-lines">${personnelRows()}</div><button class="invoice-button secondary small add-line" data-add-line="personnel" type="button">+ Add personnel</button></section>
       <section class="editor-card"><header class="editor-card-head"><div><h3>Miscellaneous</h3><p>Repairs, replacement equipment, and approved outside costs.</p></div><span class="editor-step">05</span></header><div class="line-items" id="miscellaneous-lines">${miscRows()}</div><button class="invoice-button secondary small add-line" data-add-line="miscellaneous" type="button">+ Add charge</button></section>
-    </div><aside class="editor-summary" aria-label="Invoice summary"><div class="summary-head"><span>Live preview</span><h3 id="summary-title">New incident invoice</h3><p id="summary-meta">Add incident details to begin</p></div><div class="summary-body"><div class="summary-row"><span>Elapsed time</span><strong id="summary-hours">${elapsedHours(editorState).toFixed(2)} hours</strong></div><div class="summary-row"><span>Apparatus</span><strong id="summary-apparatus">$0.00</strong></div><div class="summary-row"><span>Personnel</span><strong id="summary-personnel">$0.00</strong></div><div class="summary-row"><span>Miscellaneous</span><strong id="summary-misc">$0.00</strong></div><div class="summary-row total"><span>Invoice total</span><strong id="summary-total">$0.00</strong></div></div><div class="summary-actions"><button class="invoice-button" id="save-ready" type="button">Save as ready</button><button class="invoice-button secondary" id="save-draft" type="button">Save draft</button><button class="invoice-button secondary" id="print-invoice" type="button">Print / Save PDF</button></div><p class="summary-note" id="editor-status">Saved invoices stay private to this signed-in administrator.</p></aside></div><section class="invoice-print-sheet" id="invoice-print-sheet" aria-hidden="true"></section>`;
+      <section class="invoice-total-bar"><div class="total-breakdown"><span>Apparatus <strong id="summary-apparatus">$0.00</strong></span><span>Personnel <strong id="summary-personnel">$0.00</strong></span><span>Miscellaneous <strong id="summary-misc">$0.00</strong></span><span class="grand-total">Invoice total <strong id="summary-total">$0.00</strong></span></div><div class="invoice-final-actions"><p id="editor-status">Saved invoices remain private to this signed-in administrator.</p><button class="invoice-button secondary" id="save-invoice" type="button">Save invoice</button><button class="invoice-button" id="print-invoice" type="button">Print / Save PDF</button></div></section>
+    </div><section class="invoice-print-sheet" id="invoice-print-sheet" aria-hidden="true"></section>`;
   return shell(content);
 }
 
 function ratesPage() {
   const rates = readRates();
   const rateRows = (map: RateMap, group: "apparatus" | "personnel") => Object.entries(map).map(([name, rate]) => editableRateRow(group, name, rate)).join("");
-  const agencyRows = rates.agencies.map((agency) => editableAgencyRow(agency)).join("");
   const content = `<div class="invoice-page-head"><div><p class="invoice-kicker">Rate library</p><h2>Rates and agencies</h2><p>Edit, add, or remove the options available on new invoices.</p></div><a class="invoice-button secondary" href="/n3xra-admin/invoices/">Back to invoices</a></div>
-    <div class="rates-grid"><section class="rate-card apparatus"><header class="rate-card-head"><div><h3>Apparatus rates</h3><p>Hourly rate by equipment type</p></div><button class="invoice-button secondary small" data-add-rate="apparatus" type="button">+ Add</button></header><div class="rate-list" data-rate-list="apparatus">${rateRows(rates.apparatus, "apparatus")}</div></section><section class="rate-card"><header class="rate-card-head"><div><h3>Personnel rates</h3><p>Hourly rate by incident position</p></div><button class="invoice-button secondary small" data-add-rate="personnel" type="button">+ Add</button></header><div class="rate-list" data-rate-list="personnel">${rateRows(rates.personnel, "personnel")}</div></section><section class="rate-card agencies"><header class="rate-card-head"><div><h3>Protection agencies</h3><p>Agencies available on invoices</p></div><button class="invoice-button secondary small" data-add-agency type="button">+ Add</button></header><div class="rate-list" data-agency-list>${agencyRows}</div></section></div>
-    <div class="rates-save"><p class="inline-status" id="rates-status"></p><button class="invoice-button secondary" id="reset-rates" type="button">Reset workbook defaults</button><button class="invoice-button" id="save-rates" type="button">Save rates</button></div>`;
+    <div class="rates-grid"><section class="rate-card apparatus"><header class="rate-card-head"><div><h3>Apparatus rates</h3><p>Hourly rate by equipment type</p></div><button class="invoice-button secondary small" data-add-rate="apparatus" type="button">+ Add</button></header><div class="rate-list" data-rate-list="apparatus">${rateRows(rates.apparatus, "apparatus")}</div></section><section class="rate-card"><header class="rate-card-head"><div><h3>Personnel rates</h3><p>Hourly rate by incident position</p></div><button class="invoice-button secondary small" data-add-rate="personnel" type="button">+ Add</button></header><div class="rate-list" data-rate-list="personnel">${rateRows(rates.personnel, "personnel")}</div></section><section class="rate-card"><header class="rate-card-head"><div><h3>Fire agency invoices</h3><p>The agency name printed at the top</p></div><button class="invoice-button secondary small" data-add-agency="fire" type="button">+ Add</button></header><div class="rate-list" data-agency-list="fire">${rates.fireAgencies.map((agency) => editableAgencyRow("fire", agency)).join("")}</div></section><section class="rate-card"><header class="rate-card-head"><div><h3>Protection agencies</h3><p>The agency responsible for the incident</p></div><button class="invoice-button secondary small" data-add-agency="protection" type="button">+ Add</button></header><div class="rate-list" data-agency-list="protection">${rates.protectionAgencies.map((agency) => editableAgencyRow("protection", agency)).join("")}</div></section></div>
+    <div class="rates-save"><p class="inline-status" id="rates-status"></p><button class="invoice-button secondary" id="reset-rates" type="button">Reset workbook defaults</button><button class="invoice-button" id="save-rates" type="button">Save library</button></div>`;
   return shell(content);
 }
 
@@ -182,8 +201,8 @@ function editableRateRow(group: "apparatus" | "personnel", name = "", rate = 0) 
   return `<div class="rate-row" data-rate-row="${group}"><label class="rate-name"><span>Name</span><input value="${escapeHtml(name)}" data-rate-name placeholder="New ${group === "apparatus" ? "apparatus" : "position"}"></label><label class="rate-field"><span>Hourly rate</span><input type="number" min="0" step=".01" value="${rate || ""}" data-rate-value></label><button class="remove-line" data-delete-rate type="button" aria-label="Delete ${escapeHtml(name || "rate")}">×</button></div>`;
 }
 
-function editableAgencyRow(name = "") {
-  return `<div class="rate-row agency-row" data-agency-row><label class="rate-name"><span>Agency</span><input value="${escapeHtml(name)}" data-agency-name placeholder="New protection agency"></label><button class="remove-line" data-delete-rate type="button" aria-label="Delete ${escapeHtml(name || "agency")}">×</button></div>`;
+function editableAgencyRow(kind: "fire" | "protection", name = "") {
+  return `<div class="rate-row agency-row" data-agency-row="${kind}"><label class="rate-name"><span>${kind === "fire" ? "Fire agency invoice" : "Protection agency"}</span><input value="${escapeHtml(name)}" data-agency-name placeholder="New ${kind} agency"></label><button class="remove-line" data-delete-rate type="button" aria-label="Delete ${escapeHtml(name || "agency")}">×</button></div>`;
 }
 
 function addLine(kind: "apparatus" | "personnel" | "miscellaneous") {
@@ -214,7 +233,8 @@ function syncIncident() {
   editorState.incidentNumber = (document.querySelector<HTMLInputElement>("#incident-number")?.value || "").trim();
   editorState.incidentName = (document.querySelector<HTMLInputElement>("#incident-name")?.value || "").trim();
   editorState.location = (document.querySelector<HTMLInputElement>("#incident-location")?.value || "").trim();
-  editorState.agency = document.querySelector<HTMLSelectElement>("#incident-agency")?.value || "";
+  editorState.fireAgency = document.querySelector<HTMLSelectElement>("#fire-agency")?.value || "";
+  editorState.protectionAgency = document.querySelector<HTMLSelectElement>("#protection-agency")?.value || "";
   editorState.responseAt = document.querySelector<HTMLInputElement>("#response-at")?.value || "";
   editorState.releaseAt = document.querySelector<HTMLInputElement>("#release-at")?.value || "";
 }
@@ -225,8 +245,8 @@ function printableInvoice(invoice: Invoice) {
   const apparatusRows = invoice.apparatus.map((line) => `<tr><td>${escapeHtml(line.type)}</td><td>${escapeHtml(line.unit || "—")}</td><td>${line.hours.toFixed(2)}</td><td>${currency(line.rate)}</td><td>${currency(line.amount)}</td></tr>`).join("") || `<tr><td colspan="5">No apparatus charges</td></tr>`;
   const personnelRows = invoice.personnel.map((line) => `<tr><td>${escapeHtml(line.type)}</td><td>${line.people || 1}</td><td>${line.hours.toFixed(2)}</td><td>${currency(line.rate)}</td><td>${currency(line.amount)}</td></tr>`).join("") || `<tr><td colspan="5">No personnel charges</td></tr>`;
   const miscRows = invoice.miscellaneous.map((line) => `<tr><td colspan="4">${escapeHtml(line.type)}</td><td>${currency(line.amount)}</td></tr>`).join("");
-  return `<header class="print-head"><div><span>N3XRA</span><strong>Invoice Desk</strong></div><div><small>Incident invoice</small><b>${escapeHtml(invoice.incidentNumber || "Draft")}</b></div></header>
-    <section class="print-title"><p>Invoice for</p><h1>${escapeHtml(invoice.incidentName || "Untitled incident")}</h1><span>${escapeHtml(invoice.agency || "Protection agency not selected")}</span></section>
+  return `<header class="print-head"><div><span>${escapeHtml(invoice.fireAgency || "Fire Agency Invoice")}</span></div><div><small>Incident number</small><b>${escapeHtml(invoice.incidentNumber || "Draft")}</b></div></header>
+    <section class="print-title"><p>Incident</p><h1>${escapeHtml(invoice.incidentName || "Untitled incident")}</h1><span>Protection agency: ${escapeHtml(invoice.protectionAgency || "Not selected")}</span></section>
     <dl class="print-details"><div><dt>Location</dt><dd>${escapeHtml(invoice.location || "—")}</dd></div><div><dt>Response</dt><dd>${formatDateTime(invoice.responseAt)}</dd></div><div><dt>Release</dt><dd>${formatDateTime(invoice.releaseAt)}</dd></div><div><dt>Elapsed</dt><dd>${elapsedHours(invoice).toFixed(2)} hours</dd></div></dl>
     <h2>Apparatus</h2><table><thead><tr><th>Type</th><th>Unit</th><th>Hours</th><th>Rate</th><th>Cost</th></tr></thead><tbody>${apparatusRows}</tbody><tfoot><tr><th colspan="4">Apparatus total</th><th>${currency(summary.apparatus)}</th></tr></tfoot></table>
     <h2>Personnel</h2><table><thead><tr><th>Position</th><th>People</th><th>Hours</th><th>Rate</th><th>Cost</th></tr></thead><tbody>${personnelRows}</tbody><tfoot><tr><th colspan="4">Personnel total</th><th>${currency(summary.personnel)}</th></tr></tfoot></table>
@@ -247,16 +267,15 @@ function updateSummary() {
     const line = kind === "apparatus" ? editorState?.apparatus.find((item) => item.id === lineId) : editorState?.personnel.find((item) => item.id === lineId);
     const hoursInput = row.querySelector<HTMLInputElement>('[data-key="hours"]');
     const lineTotal = row.querySelector<HTMLElement>("[data-line-total]");
-    if (hoursInput) hoursInput.value = hours ? String(hours) : "";
+    if (hoursInput) hoursInput.value = hours ? hours.toFixed(2) : "";
     if (lineTotal && line) lineTotal.textContent = currency(line.amount);
   });
   const summary = totals(editorState);
   const set = (selector: string, text: string) => { const element = document.querySelector<HTMLElement>(selector); if (element) element.textContent = text; };
-  set("#elapsed-hours", hours.toFixed(2)); set("#summary-hours", `${hours.toFixed(2)} hours`);
+  const elapsedInput = document.querySelector<HTMLInputElement>("#elapsed-hours");
+  if (elapsedInput) elapsedInput.value = hours.toFixed(2);
   set("#summary-apparatus", currency(summary.apparatus)); set("#summary-personnel", currency(summary.personnel));
   set("#summary-misc", currency(summary.miscellaneous)); set("#summary-total", currency(summary.total));
-  set("#summary-title", editorState.incidentName || "New incident invoice");
-  set("#summary-meta", [editorState.incidentNumber && `Incident ${editorState.incidentNumber}`, editorState.agency].filter(Boolean).join(" · ") || "Add incident details to begin");
   const printSheet = document.querySelector<HTMLElement>("#invoice-print-sheet");
   if (printSheet) printSheet.innerHTML = printableInvoice(editorState);
 }
@@ -287,24 +306,25 @@ function handleLineInput(target: HTMLInputElement | HTMLSelectElement) {
   updateSummary();
 }
 
-function saveInvoice(status: "draft" | "ready") {
-  if (!editorState) return;
+function saveInvoice(requireComplete = false) {
+  if (!editorState) return false;
   updateSummary();
   const message = document.querySelector<HTMLElement>("#editor-status");
-  if (status === "ready" && (!editorState.incidentNumber || !editorState.incidentName || !editorState.agency)) {
-    if (message) message.textContent = "Add the incident number, incident name, and protection agency before marking this ready.";
-    return;
+  if (requireComplete && (!editorState.incidentNumber || !editorState.incidentName || !editorState.fireAgency || !editorState.protectionAgency)) {
+    if (message) message.textContent = "Add the incident number, incident name, fire agency, and protection agency before printing.";
+    return false;
   }
-  if (status === "ready" && elapsedHours(editorState) <= 0) {
+  if (requireComplete && elapsedHours(editorState) <= 0) {
     if (message) message.textContent = "Release must be later than response so elapsed hours can be calculated.";
-    return;
+    return false;
   }
-  editorState.status = status;
+  editorState.status = requireComplete ? "ready" : "draft";
   editorState.updatedAt = new Date().toISOString();
   const invoices = readInvoices().filter((invoice) => invoice.id !== editorState?.id);
   invoices.unshift(structuredClone(editorState));
   writeInvoices(invoices);
-  if (message) message.textContent = status === "ready" ? "Invoice saved and ready to submit." : "Draft saved in this browser.";
+  if (message) message.textContent = requireComplete ? "Invoice saved. Choose Print or Save as PDF in the print dialog." : "Invoice saved.";
+  return true;
 }
 
 function bindEditor() {
@@ -330,9 +350,8 @@ function bindEditor() {
       if (lineId) editorState[remove] = editorState[remove].filter((line) => line.id !== lineId) as Line[] & MiscLine[];
       renderLineKind(remove); updateSummary();
     }
-    if (button.id === "save-ready") saveInvoice("ready");
-    if (button.id === "save-draft") saveInvoice("draft");
-    if (button.id === "print-invoice") { updateSummary(); window.print(); }
+    if (button.id === "save-invoice") saveInvoice(false);
+    if (button.id === "print-invoice" && saveInvoice(true)) window.print();
   });
 }
 
@@ -341,21 +360,27 @@ function bindRates() {
     const button = (event.target as Element).closest<HTMLButtonElement>("button");
     if (!button) return;
     const group = button.dataset.addRate as "apparatus" | "personnel" | undefined;
+    const agency = button.dataset.addAgency as "fire" | "protection" | undefined;
     if (group) document.querySelector(`[data-rate-list="${group}"]`)?.insertAdjacentHTML("beforeend", editableRateRow(group));
-    if (button.hasAttribute("data-add-agency")) document.querySelector("[data-agency-list]")?.insertAdjacentHTML("beforeend", editableAgencyRow());
+    if (agency) document.querySelector(`[data-agency-list="${agency}"]`)?.insertAdjacentHTML("beforeend", editableAgencyRow(agency));
     if (button.hasAttribute("data-delete-rate")) button.closest(".rate-row")?.remove();
   });
   document.querySelector("#save-rates")?.addEventListener("click", () => {
-    const next: Rates = { apparatus: {}, personnel: {}, agencies: [] };
+    const next: Rates = { apparatus: {}, personnel: {}, fireAgencies: [], protectionAgencies: [] };
     document.querySelectorAll<HTMLElement>("[data-rate-row]").forEach((row) => {
       const group = row.dataset.rateRow as "apparatus" | "personnel";
       const name = (row.querySelector<HTMLInputElement>("[data-rate-name]")?.value || "").trim();
       const rate = number(row.querySelector<HTMLInputElement>("[data-rate-value]")?.value);
       if (name) next[group][name] = rate;
     });
-    document.querySelectorAll<HTMLInputElement>("[data-agency-name]").forEach((input) => { const name = input.value.trim(); if (name && !next.agencies.includes(name)) next.agencies.push(name); });
+    document.querySelectorAll<HTMLElement>("[data-agency-row]").forEach((row) => {
+      const kind = row.dataset.agencyRow as "fire" | "protection";
+      const name = (row.querySelector<HTMLInputElement>("[data-agency-name]")?.value || "").trim();
+      const list = kind === "fire" ? next.fireAgencies : next.protectionAgencies;
+      if (name && !list.includes(name)) list.push(name);
+    });
     localStorage.setItem(`${RATES_KEY}:${activeUserKey}`, JSON.stringify(next));
-    const status = document.querySelector<HTMLElement>("#rates-status"); if (status) status.textContent = "Rates and agencies saved.";
+    const status = document.querySelector<HTMLElement>("#rates-status"); if (status) status.textContent = "Rate library saved.";
   });
   document.querySelector("#reset-rates")?.addEventListener("click", () => { localStorage.removeItem(`${RATES_KEY}:${activeUserKey}`); location.reload(); });
 }
@@ -369,10 +394,17 @@ async function authorize() {
 }
 
 function bindHeader() {
-  document.querySelector("#invoice-sign-out")?.addEventListener("click", async () => {
+  document.querySelector("#portal-logout")?.addEventListener("click", async () => {
     await activeSupabase?.auth.signOut();
     location.replace("/account/");
   });
+}
+
+function bindDashboard() {
+  document.querySelectorAll<HTMLElement>("[data-href]").forEach((row) => row.addEventListener("click", (event) => {
+    if ((event.target as Element).closest("a,button")) return;
+    location.href = row.dataset.href || "/n3xra-admin/invoices/";
+  }));
 }
 
 async function init() {
@@ -381,6 +413,7 @@ async function init() {
   app.innerHTML = view === "editor" ? editor() : view === "rates" ? ratesPage() : dashboard();
   if (view === "editor") bindEditor();
   if (view === "rates") bindRates();
+  if (view === "dashboard") bindDashboard();
   bindHeader();
   if (view === "editor") updateSummary();
   document.body.classList.remove("invoice-loading");
