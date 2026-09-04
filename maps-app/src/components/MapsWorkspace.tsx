@@ -29,7 +29,7 @@ import type {
 } from "../lib/maps-types";
 import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
 import { isBrandedPortalHostname } from "../../../src/client-portal/tenant-context";
-import { prepareCrossings, type UnconnectedCrossing } from "../lib/line-crossings";
+import { prepareCrossings, groupJunctionConnections, type UnconnectedCrossing } from "../lib/line-crossings";
 
 declare global {
   interface Window {
@@ -793,6 +793,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [shapeEditReview, setShapeEditReview] = useState(false);
   const [endpointDialogIssue, setEndpointDialogIssue] = useState<NetworkEndpointIssue | null>(null);
   const [crossingDialog, setCrossingDialog] = useState<UnconnectedCrossing | null>(null);
+  const [junctionConnectionIds, setJunctionConnectionIds] = useState<string[] | null>(null);
+  const [disconnectConnectionId, setDisconnectConnectionId] = useState<string | null>(null);
+  const [junctionError, setJunctionError] = useState("");
   const [endpointConnectionTarget, setEndpointConnectionTarget] = useState<NetworkEndpointIssue | null>(null);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState("");
@@ -849,6 +852,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     .sort((left, right) => (left.status === "completed" ? 1 : 0) - (right.status === "completed" ? 1 : 0)
       || new Date(left.due_at || "9999-12-31").getTime() - new Date(right.due_at || "9999-12-31").getTime());
   const selectedNetworkConnections = networkConnections.filter((connection) => connection.feature_id === selectedFeatureId || connection.connected_feature_id === selectedFeatureId);
+  const inspectedConnections = networkConnections.filter(c => junctionConnectionIds?.includes(c.id));
+  const openJunction = (ids: string[]) => {
+    setCrossingDialog(null);
+    setJunctionConnectionIds(ids);
+    setDisconnectConnectionId(null);
+    setJunctionError("");
+  };
   const selectedPointLineConnection = pointLineConnections.find((connection) => connection.point_feature_id === selectedFeatureId) || null;
   const selectedConnectedLine = features.find((feature) => feature.id === selectedPointLineConnection?.line_feature_id) || null;
   const selectedConnectedLineLayer = layers.find((layer) => layer.id === selectedConnectedLine?.layer_id) || null;
@@ -1345,7 +1355,13 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       .map(feature => ({ id: feature.id, coordinates: geometryCoordinates(feature.geometry) })), networkConnections);
     // Hit-test the true intersection, including the visually shortened gap.
     const handleCrossingClick = (event: mapboxgl.MapMouseEvent) => {
-      if (!canEdit || shapeDraft || editingShapeId || endpointConnectionTarget || valvePlacementFeatureId || pendingShape || movingFeatureId || placementMode) return;
+      if (shapeDraft || editingShapeId || endpointConnectionTarget || valvePlacementFeatureId || pendingShape || movingFeatureId || placementMode) return;
+      const visibleIds = new Set(features.filter(f => visibleLayers[f.layer_id] !== false).map(f => f.id));
+      const junction = groupJunctionConnections(networkConnections.filter(c => visibleIds.has(c.feature_id) && visibleIds.has(c.connected_feature_id)))
+        .filter(g => map.project(g.coordinate).dist(event.point) <= 12)
+        .sort((a,b) => map.project(a.coordinate).dist(event.point) - map.project(b.coordinate).dist(event.point))[0];
+      if (junction) { openJunction(junction.connections.map(c => c.id)); return; }
+      if (!canEdit) return;
       const candidates = crossings.unconnected.filter(c => {
         const screen = map.project(c.coordinate);
         return Math.hypot(screen.x - event.point.x, screen.y - event.point.y) <= 16;
@@ -3404,6 +3420,27 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     setShapeDraft(null);
   };
 
+  const disconnectCrossing = async () => {
+    if (!client || !activeAccess || !canEdit || !disconnectConnectionId || saving) return;
+    setSaving(true);
+    setJunctionError("");
+    let removed = false;
+    try {
+      const { error } = await client.rpc("maps_disconnect_crossing", {
+        input_organization_id: activeAccess.organizationId,
+        input_connection_id: disconnectConnectionId,
+      });
+      if (error) throw error;
+      removed = true;
+      await loadWorkspace(client, activeAccess);
+      setDisconnectConnectionId(null);
+      setJunctionConnectionIds(null);
+      showToast("Crossing connection removed. Lines and history kept; network estimates updated.");
+    } catch (error) {
+      setJunctionError(removed ? "The connection was removed, but the map could not refresh. Reload before relying on the displayed network estimate." : (error as { message?: string })?.message || "Could not disconnect. Nothing has been changed.");
+    } finally { setSaving(false); }
+  };
+
   const connectCrossing = async () => {
     if (!client || !activeAccess || !canEdit || !crossingDialog || saving) return;
     setSaving(true);
@@ -3654,6 +3691,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
                     return <div key={field.id}><dt>{field.label}</dt><dd>{field.field_type === "boolean" ? value ? "Yes" : "No" : String(value)}</dd></div>;
                   })}
                 </dl>
+                {selectedNetworkConnections.length > 0 && <div className="maps-network-status"><span>JUNCTIONS</span><button type="button" onClick={() => openJunction(selectedNetworkConnections.map(c => c.id))}>View connections</button></div>}
                 {canEdit && selectedCrossings.length > 0 && <div className="maps-network-status"><span>UNCONNECTED CROSSINGS</span><small>Choose a crossing to confirm a physical junction.</small>{selectedCrossings.map((crossing, index) => {
                   const other = features.find(f => f.id === (crossing.featureId === selectedFeature.id ? crossing.otherFeatureId : crossing.featureId));
                   return <button type="button" key={`${crossing.featureId}:${crossing.otherFeatureId}:${index}`} onClick={() => {
@@ -4117,6 +4155,38 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           </section>
         </div>
       )}
+
+      {junctionConnectionIds && <div className="maps-dialog-backdrop maps-dialog-backdrop-front" role="presentation">
+        <section className="maps-dialog maps-endpoint-dialog" role="dialog" aria-modal="true" aria-labelledby="junction-title">
+          <header><div><span>NETWORK JUNCTIONS</span><h2 id="junction-title">Connected lines</h2></div><button type="button" aria-label="Close junction" disabled={saving} onClick={() => setJunctionConnectionIds(null)}>×</button></header>
+          <div className="maps-endpoint-dialog-copy"><p>Each entry shows one saved line-to-line connection. Other connections and alternate routes can remain after disconnecting a pair.</p>
+            {junctionError && <p role="alert">{junctionError}</p>}
+            {!inspectedConnections.length && <p>No connections remain here. The map may have changed since you opened this panel.</p>}
+          </div>
+          <div className="maps-endpoint-actions">
+            {inspectedConnections.map(c => {
+              const a = features.find(f => f.id === c.feature_id);
+              const b = features.find(f => f.id === c.connected_feature_id);
+              const manual = c.endpoint.startsWith("junction:");
+              const editable = canEdit && layers.find(l => l.id === a?.layer_id)?.is_editable && layers.find(l => l.id === b?.layer_id)?.is_editable;
+              return <div className="maps-network-status" key={c.id}>
+                <strong>{a?.title || "Line"} ({layers.find(l => l.id === a?.layer_id)?.name || "Layer"}) ↔ {b?.title || "Line"} ({layers.find(l => l.id === b?.layer_id)?.name || "Layer"})</strong>
+                <small>{manual ? "Confirmed crossing junction" : "Endpoint connection — use Edit shape to move the endpoint away if these pipes should not join."}</small>
+                <button type="button" disabled={saving} onClick={() => {
+                  mapRef.current?.easeTo({ center: c.geometry.coordinates as [number,number], duration: 400 });
+                  setJunctionConnectionIds(null);
+                }}>Show on map</button>
+                {manual && editable && (disconnectConnectionId === c.id ? <>
+                  <p>Disconnect only this pair here? Neither line, its assets, nor its history will be deleted or moved. The crossing gap returns if no other connection joins this pair here.</p>
+                  <button type="button" disabled={saving} onClick={() => setDisconnectConnectionId(null)}>Keep connected</button>
+                  <button type="button" className="is-danger" disabled={saving} onClick={() => void disconnectCrossing()}>{saving ? "Disconnecting…" : "Confirm disconnect"}</button>
+                </> : <button type="button" disabled={saving} onClick={() => { setDisconnectConnectionId(c.id); setJunctionError(""); }}>Disconnect crossing</button>)}
+              </div>;
+            })}
+          </div>
+          <footer><button type="button" disabled={saving} onClick={() => setJunctionConnectionIds(null)}>Close</button></footer>
+        </section>
+      </div>}
 
       {crossingDialog && (() => {
         const a = features.find(f => f.id === crossingDialog.featureId);

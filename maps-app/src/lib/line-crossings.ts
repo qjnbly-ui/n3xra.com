@@ -7,6 +7,20 @@ const unproject = ([x, y]: Point): Point => [x * 360, (2 * Math.atan(Math.exp(-y
 const distance = (a: Point, b: Point) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const interpolate = (a: Point, b: Point, t: number): Point => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 
+/** Group co-located records for inspection, retaining each pair's identity. */
+export function groupJunctionConnections<T extends CrossingConnection>(connections: T[]) {
+  const groups: { coordinate: Point; connections: T[] }[] = [];
+  for (const connection of connections) {
+    const coordinate = connection.geometry.coordinates;
+    if (!Array.isArray(coordinate) || coordinate.length !== 2 || !coordinate.every(n => typeof n === "number" && Number.isFinite(n))) continue;
+    const point = coordinate as Point;
+    const group = groups.find(g => distance(project(g.coordinate), project(point)) < 1e-10);
+    if (group) group.connections.push(connection);
+    else groups.push({ coordinate: point, connections: [connection] });
+  }
+  return groups;
+}
+
 /** Display-only geometry. Never write these shortened lines back to asset records. */
 export function prepareCrossings(lines: CrossingLine[], connections: CrossingConnection[]) {
   const unconnected: UnconnectedCrossing[] = [];
