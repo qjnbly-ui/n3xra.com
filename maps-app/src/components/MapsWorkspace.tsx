@@ -30,6 +30,7 @@ import type {
 import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
 import { isBrandedPortalHostname } from "../../../src/client-portal/tenant-context";
 import { prepareCrossings, groupJunctionConnections, type UnconnectedCrossing } from "../lib/line-crossings";
+import { valveBranches, type ValveBranch } from "../lib/valve-branches";
 
 declare global {
   interface Window {
@@ -750,6 +751,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const [valvePlacementFeatureId, setValvePlacementFeatureId] = useState<string | null>(null);
   const [pendingValveLocation, setPendingValveLocation] = useState<PendingValveLocation | null>(null);
   const [valveDialogOpen, setValveDialogOpen] = useState(false);
+  const [valveBranchChoices, setValveBranchChoices] = useState<ValveBranch[] | null>(null);
+  const [chosenValveBranch, setChosenValveBranch] = useState<ValveBranch | null>(null);
   const [valveLayerId, setValveLayerId] = useState("");
   const [incidentUpdateDialogOpen, setIncidentUpdateDialogOpen] = useState(false);
   const [incidentUpdateType, setIncidentUpdateType] = useState<MapIncidentUpdate["update_type"]>("field_update");
@@ -1690,10 +1693,29 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     const line = features.find((feature) => feature.id === valvePlacementFeatureId);
     if (!map || !line) return;
     const handleValveClick = (event: mapboxgl.MapMouseEvent) => {
+      if (valveBranchChoices) return;
+      if (!chosenValveBranch) {
+        const junction = groupJunctionConnections(networkConnections)
+          .filter(g => g.connections.some(c => c.feature_id === line.id || c.connected_feature_id === line.id) && map.project(g.coordinate).dist(event.point) <= 16)
+          .sort((a,b) => map.project(a.coordinate).dist(event.point)-map.project(b.coordinate).dist(event.point))[0];
+        if (junction) {
+          const ids=new Set(junction.connections.flatMap(c=>[c.feature_id,c.connected_feature_id]));
+          const choices=valveBranches(features.filter(f=>ids.has(f.id) && visibleLayers[f.layer_id]!==false && layers.some(l=>l.id===f.layer_id && l.system_type==="potable_water" && l.is_editable))
+            .map(f=>({id:f.id,coordinates:geometryCoordinates(f.geometry)})),junction.coordinate);
+          if (choices.length>1) { setValveBranchChoices(choices); return; }
+        }
+      }
       const nearest = nearestPointOnFeatureLine(map, [event.lngLat.lng, event.lngLat.lat], line);
       if (!nearest || nearest.pixelDistance > 28) {
         showToast("Click directly on the selected water line");
         return;
+      }
+      if (chosenValveBranch) {
+        const onBranch=nearestPointOnFeatureLine(map,nearest.coordinate,{...line,geometry:{type:"LineString",coordinates:chosenValveBranch.coordinates}});
+        if (!onBranch || onBranch.pixelDistance>1 || map.project(chosenValveBranch.coordinates[0]!).dist(map.project(nearest.coordinate))<8) {
+          showToast("Place the valve on the highlighted branch, away from the junction. Zoom in for precise placement.");
+          return;
+        }
       }
       setPendingValveLocation({
         featureId: line.id,
@@ -1709,7 +1731,19 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("click", handleValveClick);
       map.getCanvas().style.cursor = "";
     };
-  }, [features, showToast, valvePlacementFeatureId]);
+  }, [chosenValveBranch, features, layers, networkConnections, showToast, valveBranchChoices, valvePlacementFeatureId, visibleLayers]);
+
+  useEffect(() => {
+    const map=mapRef.current;
+    if (!map || !mapReady || !chosenValveBranch) return;
+    const render=() => {
+      if (map.getSource("maps-valve-branch")) return;
+      map.addSource("maps-valve-branch",{type:"geojson",data:{type:"Feature",properties:{},geometry:{type:"LineString",coordinates:chosenValveBranch.coordinates}}});
+      map.addLayer({id:"maps-valve-branch",type:"line",source:"maps-valve-branch",paint:{"line-color":"#f2a444","line-width":9,"line-opacity":0.85}});
+    };
+    if (map.isStyleLoaded()) render(); else map.once("style.load",render);
+    return () => { map.off("style.load",render); if(map.getLayer("maps-valve-branch")) map.removeLayer("maps-valve-branch"); if(map.getSource("maps-valve-branch")) map.removeSource("maps-valve-branch"); };
+  },[basemap,chosenValveBranch,mapReady]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -2498,6 +2532,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       return;
     }
     setValveLayerId(firstValveLayer.id);
+    setValveBranchChoices(null);
+    setChosenValveBranch(null);
     setPlacementMode(false);
     setShapeDraft(null);
     setPendingShape(null);
@@ -2509,6 +2545,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   };
 
   const cancelValvePlacement = () => {
+    setValveBranchChoices(null);
+    setChosenValveBranch(null);
     setValvePlacementFeatureId(null);
     setPendingValveLocation(null);
     setValveDialogOpen(false);
@@ -2535,6 +2573,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       return;
     }
     const valveFeatureId = String((data as { valveFeatureId?: unknown } | null)?.valveFeatureId || "");
+    setValveBranchChoices(null);
+    setChosenValveBranch(null);
     setValveDialogOpen(false);
     setPendingValveLocation(null);
     await loadWorkspace(client, activeAccess);
@@ -3657,7 +3697,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {movingFeatureId && !proposedMove && <div className="maps-move-banner"><strong>Move point</strong><span>Drag the selected point or click its new position.</span></div>}
           {endpointConnectionTarget && <div className="maps-move-banner maps-endpoint-connection-banner"><strong>Connect the pipe ending</strong><span>Click the compatible utility line this endpoint should join.</span></div>}
-          {valvePlacementFeatureId && <div className="maps-move-banner maps-valve-placement"><strong>Insert a connected valve</strong><span>Click directly on the selected water line. The line will split at that exact point.</span></div>}
+          {valvePlacementFeatureId && <div className="maps-move-banner maps-valve-placement"><strong>{chosenValveBranch ? `Valve on the ${chosenValveBranch.direction} branch` : "Insert a connected valve"}</strong><span>{chosenValveBranch ? "Place the valve at its actual position on the highlighted branch, away from the junction." : "Click directly on the selected water line. The line will split at that exact point."}</span>{chosenValveBranch && <button type="button" onClick={() => {setChosenValveBranch(null);showToast("Click the junction to choose a different branch");}}>Change branch</button>}</div>}
           {breakPlacementFeatureId && <div className="maps-move-banner maps-incident-placement"><strong>Place the break</strong><span>Click the exact location on the selected water line.</span></div>}
           {shapeDraft && <div className="maps-move-banner maps-drawing-banner"><strong>{editingShapeId ? `Editing ${shapeDraft.geometryType === "line" ? "line" : "boundary"}` : shapeDraft.geometryType === "line" ? "Drawing line" : "Drawing boundary"}</strong><span>{shapeSnapTarget ? `Connect to ${shapeSnapTarget.title} · ${Math.max(1, Math.round(shapeSnapTarget.distanceMeters * 3.28084))} ft` : editingShapeId ? "Drag points · select a point to remove · click map to add" : shapeAssetConnectionTargets.length ? `Connected to ${shapeAssetConnectionTargets.map((target) => target.title).join(", ")} · click the map or another asset` : `${shapeDraft.coordinates.length} point${shapeDraft.coordinates.length === 1 ? "" : "s"} added · click the map or a compatible asset`}</span></div>}
 
@@ -4020,6 +4060,15 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
         </div>
       )}
 
+      {valveBranchChoices && <div className="maps-dialog-backdrop" role="presentation"><section className="maps-dialog maps-endpoint-dialog" role="dialog" aria-modal="true" aria-labelledby="valve-branch-title">
+        <header><div><span>VALVE AT A JUNCTION</span><h2 id="valve-branch-title">Which pipe does this valve control?</h2></div><button type="button" aria-label="Cancel valve placement" onClick={cancelValvePlacement}>×</button></header>
+        <div className="maps-endpoint-dialog-copy"><p>Choose a branch, then place the valve at its actual position on the highlighted pipe. This does not assume it shuts off every branch.</p></div>
+        <div className="maps-endpoint-actions">{valveBranchChoices.map(branch=><button type="button" key={`${branch.featureId}:${branch.side}`} onClick={()=>{
+          setChosenValveBranch(branch);setValveBranchChoices(null);setValvePlacementFeatureId(branch.featureId);setSelectedFeatureId(branch.featureId);
+        }}><strong>{features.find(f=>f.id===branch.featureId)?.title} · toward {branch.direction}</strong><span>{branch.side==="start"?"Toward the line’s first point":"Toward the line’s last point"}</span></button>)}</div>
+        <footer><button type="button" onClick={cancelValvePlacement}>Cancel</button></footer>
+      </section></div>}
+
       {valveDialogOpen && pendingValveLocation && (
         <div className="maps-dialog-backdrop" role="presentation">
           <section className="maps-dialog" role="dialog" aria-modal="true" aria-labelledby="insert-valve-title">
@@ -4027,6 +4076,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
             <form onSubmit={(event) => void insertValve(event)}>
               <div className="maps-standard-note"><LayerSwatch layer={valveLayers.find((layer) => layer.id === valveLayerId)} /><span><strong>The water main will be split here.</strong><small>The original main keeps its records. A connected continuation and valve asset are created together.</small></span></div>
               <label><span>Water main</span><input value={features.find((feature) => feature.id === pendingValveLocation.featureId)?.title || "Selected water main"} disabled /></label>
+              {chosenValveBranch && <p className="maps-standard-note">Selected branch: toward {chosenValveBranch.direction}. Confirm the highlighted pipe and valve position before saving.</p>}
               <label><span>Valve layer</span><select value={valveLayerId} onChange={(event) => setValveLayerId(event.target.value)} required>{valveLayers.map((layer) => <option value={layer.id} key={layer.id}>{layer.name}</option>)}</select></label>
               <label><span>Valve title</span><input name="title" required maxLength={140} defaultValue="Isolation valve" /></label>
               <label><span>Asset or reference number</span><input name="reference_code" maxLength={100} placeholder="Optional" /></label>
