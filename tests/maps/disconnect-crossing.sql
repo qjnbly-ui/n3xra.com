@@ -3,7 +3,7 @@
 -- n3xra.test_editor, and n3xra.test_outsider. Nothing is committed.
 \set ON_ERROR_STOP on
 begin;
-\ir ../../supabase/migrations/20260904213637_maps_disconnect_crossing.sql
+\ir ../../supabase/migrations/20260904221239_maps_disconnect_crossing.sql
 do $$
 declare
   org uuid := current_setting('n3xra.test_org')::uuid;

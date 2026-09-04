@@ -3,7 +3,7 @@
 -- This checks both sides of a junction and rolls back all fixtures and DDL.
 \set ON_ERROR_STOP on
 begin;
-\ir ../../supabase/migrations/20260904214226_maps_valve_preserve_crossings.sql
+\ir ../../supabase/migrations/20260904221258_maps_valve_preserve_crossings.sql
 do $$
 declare
   org uuid := current_setting('n3xra.test_org')::uuid;

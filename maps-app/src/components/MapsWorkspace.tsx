@@ -1737,12 +1737,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     const map=mapRef.current;
     if (!map || !mapReady || !chosenValveBranch) return;
     const render=() => {
-      if (map.getSource("maps-valve-branch")) return;
+      if (!map.isStyleLoaded() || map.getSource("maps-valve-branch")) return;
       map.addSource("maps-valve-branch",{type:"geojson",data:{type:"Feature",properties:{},geometry:{type:"LineString",coordinates:chosenValveBranch.coordinates}}});
       map.addLayer({id:"maps-valve-branch",type:"line",source:"maps-valve-branch",paint:{"line-color":"#f2a444","line-width":9,"line-opacity":0.85}});
     };
-    if (map.isStyleLoaded()) render(); else map.once("style.load",render);
-    return () => { map.off("style.load",render); if(map.getLayer("maps-valve-branch")) map.removeLayer("maps-valve-branch"); if(map.getSource("maps-valve-branch")) map.removeSource("maps-valve-branch"); };
+    // Pending tiles/source updates can make isStyleLoaded false without another
+    // style.load event. Retry on idle as well so the branch cannot stay invisible.
+    map.on("style.load",render);
+    map.on("idle",render);
+    render();
+    return () => { map.off("style.load",render); map.off("idle",render); if(map.getLayer("maps-valve-branch")) map.removeLayer("maps-valve-branch"); if(map.getSource("maps-valve-branch")) map.removeSource("maps-valve-branch"); };
   },[basemap,chosenValveBranch,mapReady]);
 
   useEffect(() => {

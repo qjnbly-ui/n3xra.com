@@ -682,7 +682,7 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
 
   assert.match(roadmap, /Connected utility-network topology \(in progress\)/);
   assert.match(roadmap, /adding a valve on a pipe splits the pipe into two segments/i);
-  assert.match(roadmap, /affected meters and customer accounts automatically/i);
+  assert.match(roadmap, /affected connected water meters and distinct customer references automatically/i);
   assert.match(roadmap, /email, permission-based text messages, and automated voice calls/i);
   assert.match(roadmap, /Customer-portal request and field-report intake/);
   assert.match(roadmap, /unverified report/);
