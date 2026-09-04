@@ -66,11 +66,28 @@ Customer accounts will eventually connect to meters and service connections. A r
 - Preserve communication consent, account privacy, and organization permissions.
 - Keep customer/account, request, notification-batch, and affected-area identifiers available in the Maps data model until the full integration is built.
 
+## Customer-portal request and field-report intake (future)
+
+Customer submissions from a water department's website or customer portal should enter one shared operational intake system and remain traceable across products.
+
+- A customer can request a scheduled service or valve shutoff from the account connected to their meter or service connection.
+- A customer can report visible water, suspected leaks, unusual pressure, damaged infrastructure, or another suspicious condition and place or confirm the reported location.
+- Every submission receives a request identifier and preserves its source, customer/account reference, contact permissions, submitted location, description, photos, and timestamps.
+- A submission may appear in Maps immediately as an **unverified report**, visually distinct from a confirmed break or utility asset.
+- Staff review determines whether the submission becomes an inspection task, customer-service request, active incident, maintenance task, or a duplicate linked to existing work.
+- Converting a submission links the resulting record back to the original request; it does not copy the information into disconnected forms.
+- Customer-visible status updates must expose only approved information. Internal infrastructure, staff notes, other customer identities, and sensitive map data remain private.
+- Notifications are triggered from reviewed workflow changes and follow organization rules and customer consent; a public form never sends a system-wide notice by itself.
+- Duplicate reports near the same active incident should be grouped for staff review while each customer's original submission remains preserved.
+
+Until customer accounts and portals exist, Maps should keep nullable external request, customer/account, source-channel, and notification references so these integrations can be attached without redesigning incident history.
+
 ## Other incident and maintenance work still planned
 
 - Organization-wide active work, overdue tasks, upcoming inspections, and recent activity.
 - Task assignment, reassignment, editing, cancellation, recurring schedules, and reminders.
 - Specialized workflows for backflow tests, pressure incidents, water samples, blockages, overflows, and customer requests.
+- Unified staff intake for unverified customer reports and service requests, with review, conversion, duplicate linking, and customer-safe status updates.
 - Files and photos linked directly to an incident, update, event, or task.
 - Visible employee attribution and controlled correction/amendment screens.
 - Optional historical overlays for prior breaks, overflows, complaints, inspections, and maintenance.

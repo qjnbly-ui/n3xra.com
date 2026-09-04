@@ -558,6 +558,10 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(types, /export interface MapIncidentUpdate/);
   assert.match(workspace, /Active incidents/);
   assert.match(workspace, /Start water-main break/);
+  assert.match(workspace, /Report break/);
+  assert.match(workspace, /Active water-main break/);
+  assert.match(workspace, /formatIncidentAge/);
+  assert.match(workspace, /WATER_BREAK_ICON_MARKUP/);
   assert.match(workspace, /Click the exact break location on the selected line/);
   assert.match(workspace, /maps_start_break_incident/);
   assert.match(workspace, /maps_add_incident_update/);
@@ -567,6 +571,8 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(workspace, /activeIncident: activeIncidentFeatureIds\.has/);
   assert.match(styles, /\.maps-active-incidents/);
   assert.match(styles, /\.maps-incident-marker/);
+  assert.match(styles, /\.maps-water-break-icon/);
+  assert.match(styles, /\.maps-detail-break/);
   assert.match(styles, /\.maps-incident-card/);
 
   assert.match(migration, /create table public\.map_incidents/);
@@ -588,5 +594,9 @@ test("Water-main breaks remain one highlighted incident until closure creates pe
   assert.match(roadmap, /adding a valve on a pipe splits the pipe into two segments/i);
   assert.match(roadmap, /affected meters and customer accounts automatically/i);
   assert.match(roadmap, /email, permission-based text messages, and automated voice calls/i);
+  assert.match(roadmap, /Customer-portal request and field-report intake/);
+  assert.match(roadmap, /unverified report/);
+  assert.match(roadmap, /inspection task, customer-service request, active incident, maintenance task/);
+  assert.match(roadmap, /public form never sends a system-wide notice by itself/);
   assert.match(roadmap, /Do not build yet/);
 });

@@ -191,6 +191,21 @@ function formatHistoryDate(value: string): string {
   return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
+function formatIncidentAge(value: string): string {
+  const minutes = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 60_000));
+  if (minutes < 60) return `${minutes} min active`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hr${hours === 1 ? "" : "s"} active`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? "" : "s"} active`;
+}
+
+const WATER_BREAK_ICON_MARKUP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5l2.2 2.2M21 8h-5l-2.2 2.2M8 5v6M16 5v6M10.3 15.2l1.7-2.5 1.7 2.5a2 2 0 1 1-3.4 0Z"/></svg>';
+
+function WaterBreakIcon() {
+  return <svg className="maps-water-break-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h5l2.2 2.2M21 8h-5l-2.2 2.2M8 5v6M16 5v6M10.3 15.2l1.7-2.5 1.7 2.5a2 2 0 1 1-3.4 0Z" /></svg>;
+}
+
 function eventTypeLabel(type: MapEventType): string {
   return EVENT_TYPES.find((item) => item.value === type)?.label || type.replaceAll("_", " ");
 }
@@ -501,6 +516,12 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   const activeDrawingLayer = layers.find((layer) => layer.id === selectedLayerId && layer.is_editable) || null;
   const selectedNewLayerPreset = STANDARD_LAYER_PRESETS.find((preset) => preset.key === newLayerDraft.presetKey) || null;
 
+  const openIncident = useCallback((incident: MapIncident) => {
+    setSelectedFeatureId(incident.feature_id);
+    setSelectedIncidentId(incident.id);
+    setSidebarOpen(false);
+  }, []);
+
   const chooseLayerPreset = (presetKey: string) => {
     const preset = STANDARD_LAYER_PRESETS.find((item) => item.key === presetKey);
     if (!preset) {
@@ -793,18 +814,16 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       const button = document.createElement("button");
       button.type = "button";
       button.className = `maps-incident-marker is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`;
-      button.innerHTML = `<span>!</span>`;
+      button.innerHTML = WATER_BREAK_ICON_MARKUP;
       button.setAttribute("aria-label", `Open active incident ${incident.title}`);
       button.addEventListener("click", (event) => {
         event.stopPropagation();
-        setSelectedFeatureId(incident.feature_id);
-        setSelectedIncidentId(incident.id);
-        setSidebarOpen(false);
+        openIncident(incident);
       });
       const marker = new mapboxgl.Marker({ element: button, anchor: "center" }).setLngLat(coordinates).addTo(map);
       incidentMarkersRef.current.set(incident.id, marker);
     });
-  }, [activeIncidents, features, selectedIncidentId, visibleLayers]);
+  }, [activeIncidents, features, openIncident, selectedIncidentId, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -1004,6 +1023,14 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     );
     map.fitBounds(bounds, { padding: 100, maxZoom: 18, duration: 650 });
   }, [selectedFeature]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selectedIncident) return;
+    const coordinates = geoPointCoordinates(selectedIncident.geometry);
+    if (!coordinates) return;
+    map.easeTo({ center: coordinates, zoom: Math.max(map.getZoom(), 17), duration: 650 });
+  }, [selectedIncident]);
 
   useEffect(() => {
     if (!client || !selectedFeatureId) {
@@ -2420,8 +2447,8 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {activeIncidents.length > 0 && <section className="maps-active-incidents">
             <header><span>Active incidents</span><small>{activeIncidents.length}</small></header>
             <div>{activeIncidents.map((incident) => (
-              <button type="button" className={`is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`} key={incident.id} onClick={() => { setSelectedFeatureId(incident.feature_id); setSelectedIncidentId(incident.id); setSidebarOpen(false); }}>
-                <i>!</i><span><strong>INC-{String(incident.incident_number).padStart(5, "0")} · {incident.title}</strong><small>{incident.status} · {formatHistoryDate(incident.started_at)}</small></span><em>›</em>
+              <button type="button" className={`is-${incident.severity}${selectedIncidentId === incident.id ? " is-selected" : ""}`} key={incident.id} onClick={() => openIncident(incident)}>
+                <i><WaterBreakIcon /></i><span><strong>INC-{String(incident.incident_number).padStart(5, "0")} · {incident.title}</strong><small>{incident.status} · {incident.severity}</small><small>{formatIncidentAge(incident.started_at)}</small></span><em>›</em>
               </button>
             ))}</div>
           </section>}
@@ -2514,7 +2541,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
 
           {legendOpen && <aside className="maps-legend" aria-label="Map legend">
             <header><div><span>MAP LEGEND</span><strong>{activeAccess?.organizationName}</strong></div><button type="button" onClick={() => setLegendOpen(false)} aria-label="Close legend">×</button></header>
-            <div>{layers.filter((layer) => visibleLayers[layer.id] !== false).map((layer) => <article key={layer.id}>
+            <div>{activeIncidents.length > 0 && <article className="maps-legend-incident"><i><WaterBreakIcon /></i><span><strong>Active water-main break</strong><small>Operational incident requiring attention</small></span></article>}{layers.filter((layer) => visibleLayers[layer.id] !== false).map((layer) => <article key={layer.id}>
               <LayerSwatch layer={layer} />
               <span><strong>{layer.name}</strong><small>{features.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
             </article>)}</div>
@@ -2548,7 +2575,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <div className="maps-detail-icon" style={{ color: mapSymbolColor(selectedLayer?.icon_key || "marker") }}><MapSymbol iconKey={selectedLayer?.icon_key || "marker"} /></div>
               <div className="maps-detail-title"><span>{selectedLayer?.name || "Mapped item"}</span><h2>{selectedFeature.title}</h2>{selectedFeature.reference_code && <p>{selectedFeature.reference_code}</p>}</div>
               {selectedFeature.description && <p className="maps-detail-description">{selectedFeature.description}</p>}
-              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <><button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
+              <div className="maps-detail-actions">{selectedFeature.geometry_type === "point" && <button type="button" className="maps-detail-directions" onClick={() => startDirections(selectedFeature)}>Directions</button>}{canEdit && <>{selectedFeature.geometry_type === "line" && <button type="button" className="maps-detail-break" onClick={beginBreakPlacement}><WaterBreakIcon /> Report break</button>}<button type="button" className="maps-detail-edit" onClick={() => setFeatureEditOpen(true)}>Edit item</button>{selectedFeature.geometry_type === "point" ? <button type="button" className="maps-detail-move" onClick={beginMoveFeature}>Move point</button> : <button type="button" className="maps-detail-move" onClick={beginShapeEdit}>Edit shape</button>}<button type="button" className="maps-detail-delete" onClick={() => setFeatureDeleteOpen(true)}>Delete item</button></>}</div>
               <nav className="maps-asset-tabs" aria-label="Mapped item sections">
                 {(["details", "history", "tasks", "files"] as AssetPanelTab[]).map((tab) => (
                   <button type="button" className={assetPanelTab === tab ? "is-active" : ""} onClick={() => setAssetPanelTab(tab)} key={tab}>
@@ -2611,7 +2638,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           {selectedIncident && !directionsTargetId && (
             <article className={`maps-detail-card maps-incident-card is-${selectedIncident.severity}`}>
               <button type="button" className="maps-detail-close" onClick={() => setSelectedIncidentId(null)} aria-label="Close incident">×</button>
-              <div className="maps-incident-heading"><span>ACTIVE BREAK · INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2>{selectedIncident.title}</h2><div><strong>{selectedIncident.status}</strong><em>{selectedIncident.severity}</em></div></div>
+              <div className="maps-incident-heading"><i><WaterBreakIcon /></i><div><span>ACTIVE BREAK · INC-{String(selectedIncident.incident_number).padStart(5, "0")}</span><h2>{selectedIncident.title}</h2><div><strong>{selectedIncident.status}</strong><em>{selectedIncident.severity}</em><small>{formatIncidentAge(selectedIncident.started_at)}</small></div></div></div>
               <dl>
                 <div><dt>Started</dt><dd>{formatHistoryDate(selectedIncident.started_at)}</dd></div>
                 <div><dt>Linked line</dt><dd>{features.find((feature) => feature.id === selectedIncident.feature_id)?.title || "Water line"}</dd></div>
