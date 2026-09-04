@@ -29,6 +29,7 @@ import type {
 } from "../lib/maps-types";
 import { MAP_SYMBOLS, MapSymbol, STANDARD_LAYER_PRESETS, mapSymbolColor, mapSymbolMarkup } from "../lib/map-standards";
 import { isBrandedPortalHostname } from "../../../src/client-portal/tenant-context";
+import { prepareCrossings } from "../lib/line-crossings";
 
 declare global {
   interface Window {
@@ -1335,13 +1336,18 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !mapReady) return;
-    const data = {
+    const crossings = prepareCrossings(features.filter(feature => feature.geometry.type === "LineString" && feature.id !== editingShapeId && visibleLayers[feature.layer_id] !== false)
+      .map(feature => ({ id: feature.id, coordinates: geometryCoordinates(feature.geometry) })), networkConnections);
+    const buildData = () => {
+      const pieces = crossings.atZoom(map.getZoom());
+      return {
       type: "FeatureCollection" as const,
       features: features.filter((feature) => feature.id !== editingShapeId && (feature.geometry.type === "LineString" || feature.geometry.type === "Polygon"))
         .filter((feature) => visibleLayers[feature.layer_id] !== false)
-        .map((feature) => {
+        .flatMap((feature) => {
           const layer = layers.find((item) => item.id === feature.layer_id);
-          return {
+          const geometries = feature.geometry.type === "LineString" ? (pieces.get(feature.id) || []).map(coordinates => ({ type: "LineString", coordinates })) : [feature.geometry];
+          return geometries.map(geometry => ({
             type: "Feature" as const,
             properties: {
               featureId: feature.id,
@@ -1353,10 +1359,17 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               isolatedEstimate: highlightedIsolationFeatureIds.has(feature.id),
               flowDirection: feature.flow_direction || "unknown",
             },
-            geometry: feature.geometry,
-          };
-        }),
+            geometry,
+          }));
+        }).concat(crossings.junctions.map(junction => ({
+          type: "Feature" as const,
+          properties: { featureId: junction.featureId, color: "#172432", fillColor: "#172432", opacity: 1, selected: false, activeIncident: false, isolatedEstimate: false, flowDirection: "unknown" as const },
+          geometry: { type: "Point", coordinates: junction.coordinate },
+        }))),
+      };
     };
+    const data = buildData();
+    const refreshCrossings = () => { (map.getSource(SAVED_SHAPES_SOURCE_ID) as GeoJSONSource | undefined)?.setData(buildData()); };
     const handleShapeClick = (event: mapboxgl.MapLayerMouseEvent) => {
       if (shapeDraft) return;
       const featureId = (event.features?.[0] as { properties?: { featureId?: unknown } } | undefined)?.properties?.featureId;
@@ -1386,6 +1399,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           id: SAVED_SHAPES_LINE_ID,
           type: "line",
           source: SAVED_SHAPES_SOURCE_ID,
+          filter: ["!=", ["geometry-type"], "Point"],
           paint: {
             "line-color": ["case", ["get", "activeIncident"], "#f05f55", ["get", "isolatedEstimate"], "#f2a444", ["get", "color"]],
             "line-width": ["case", ["get", "selected"], 7, ["get", "activeIncident"], 6, ["get", "isolatedEstimate"], 6, 4],
@@ -1393,6 +1407,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
           },
           layout: { "line-cap": "round", "line-join": "round" },
         });
+        map.addLayer({ id: "maps-saved-junctions", type: "circle", source: SAVED_SHAPES_SOURCE_ID,
+          filter: ["==", ["geometry-type"], "Point"],
+          paint: { "circle-radius": 5, "circle-color": "#172432", "circle-stroke-color": "#ffffff", "circle-stroke-width": 1.5 } });
         map.addLayer({
           id: SAVED_SHAPES_FLOW_ID,
           type: "symbol",
@@ -1423,7 +1440,9 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
     };
     if (map.isStyleLoaded()) render();
     else map.once("style.load", render);
+    map.on("zoom", refreshCrossings);
     return () => {
+      map.off("zoom", refreshCrossings);
       map.off("style.load", render);
       map.off("click", SAVED_SHAPES_FILL_ID, handleShapeClick);
       map.off("mouseenter", SAVED_SHAPES_FILL_ID, showPointer);
@@ -1432,7 +1451,7 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
       map.off("mouseenter", SAVED_SHAPES_LINE_ID, showPointer);
       map.off("mouseleave", SAVED_SHAPES_LINE_ID, clearPointer);
     };
-  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, highlightedIsolationFeatureIds, layers, mapReady, selectedFeatureId, shapeDraft, visibleLayers]);
+  }, [activeIncidentFeatureIds, basemap, editingShapeId, features, highlightedIsolationFeatureIds, layers, mapReady, networkConnections, selectedFeatureId, shapeDraft, visibleLayers]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -3537,6 +3556,10 @@ export default function MapsWorkspace({ mapboxToken }: MapsWorkspaceProps) {
               <LayerSwatch layer={layer} />
               <span><strong>{layer.name}</strong><small>{features.filter((feature) => feature.layer_id === layer.id).length} mapped items</small></span>
             </article>)}</div>
+            <div className="maps-crossing-legend">
+              <article><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><path d="M2 16h28M16 2v28" stroke="currentColor" strokeWidth="3"/><circle cx="16" cy="16" r="5" fill="#172432" stroke="white"/></svg><span><strong>Connected junction</strong><small>Saved pipe connection</small></span></article>
+              <article><svg width="32" height="32" viewBox="0 0 32 32" aria-hidden="true"><path d="M2 16h28M16 2v7m0 14v7" stroke="currentColor" strokeWidth="3"/></svg><span><strong>Unconnected crossing</strong><small>No saved connection. Gap does not indicate depth.</small></span></article>
+            </div>
             {!layers.some((layer) => visibleLayers[layer.id] !== false) && <p>No visible layers.</p>}
             <footer>Updates automatically from your visible layers.</footer>
           </aside>}
