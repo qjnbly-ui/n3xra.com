@@ -25,6 +25,10 @@ interface ProductMemberAccessRow {
   product_key: string;
 }
 
+interface LoanAccountLinkRow {
+  user_id: string;
+}
+
 interface PortalApp {
   key: string;
   name: string;
@@ -170,6 +174,21 @@ async function canManageOrganization(supabase: NonNullable<ReturnType<typeof cre
   return Boolean((data as { can_manage?: boolean } | null)?.can_manage);
 }
 
+async function linkedLoanOwnerId(
+  supabase: NonNullable<ReturnType<typeof createBrowserSupabase>>,
+  organizationId: string,
+): Promise<string> {
+  const { data, error } = await supabase
+    .from("loan_accounts")
+    .select("user_id")
+    .eq("organization_id", organizationId)
+    .eq("status", "active")
+    .limit(2);
+  if (error) throw error;
+  const loans = (data || []) as LoanAccountLinkRow[];
+  return loans.length === 1 ? String(loans[0]?.user_id || "") : "";
+}
+
 async function loadPortalApps(): Promise<void> {
   if (!appGrid || !hasConfig()) return;
   // Hash routes are website-workspace sections, not the application chooser.
@@ -229,6 +248,7 @@ async function loadPortalApps(): Promise<void> {
   if (memberAccessError) throw memberAccessError;
   if (platformAdminError) throw platformAdminError;
   const allowedProductKeys = new Set(((memberAccess || []) as ProductMemberAccessRow[]).map((access) => access.product_key));
+  let loanOwnerId = "";
 
   for (const entitlement of (data || []) as EntitlementRow[]) {
     const product = productFrom(entitlement);
@@ -236,9 +256,14 @@ async function loadPortalApps(): Promise<void> {
     if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase())) continue;
     const path = safePortalPath(product?.portal_path || "");
     if (!product || !path || product.status !== "active" || !product.client_portal_available) continue;
-    const href = product.product_key === "records"
-      ? `${path}?support_org=${encodeURIComponent(organizationId)}`
-      : path;
+    let href = path;
+    if (product.product_key === "records") {
+      href = `${path}?support_org=${encodeURIComponent(organizationId)}`;
+    } else if (product.product_key === "loan_tracker") {
+      loanOwnerId ||= await linkedLoanOwnerId(supabase, organizationId);
+      if (!loanOwnerId) continue;
+      href = `${path}?user=${encodeURIComponent(loanOwnerId)}`;
+    }
     apps.push({
       key: product.product_key,
       name: product.name,

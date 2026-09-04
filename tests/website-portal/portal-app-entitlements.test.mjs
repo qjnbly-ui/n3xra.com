@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=10/);
+  assert.match(html, /portal-apps\.js\?v=11/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -139,6 +139,23 @@ test("platform administrators can open entitled customer apps without customer m
   assert.match(apps, /platformAdmin !== true && !allowedProductKeys\.has/);
   assert.match(workspaceContext, /supabase\.rpc\("is_platform_admin"\)/);
   assert.match(workspaceContext, /platformAdmin \|\| allowedProductKeys\.has\(productKey\)/);
+});
+
+test("an organization-linked Loan Tracker opens the authorized loan owner workspace", async () => {
+  const [apps, migration] = await Promise.all([
+    projectFile("src/client-portal/portal-apps.ts"),
+    projectFile("supabase/migrations/20260904023306_link_loan_tracker_to_organization.sql"),
+  ]);
+
+  assert.match(migration, /add column if not exists organization_id uuid[\s\S]*references public\.organizations/);
+  assert.match(migration, /loan_accounts_one_active_per_organization/);
+  assert.match(migration, /'loan_tracker',[\s\S]*'Mortgage Calculator'/);
+  assert.match(migration, /website\.portal_slug = 'the-bly-outdoor-store'/);
+  assert.match(migration, /insert into public\.organization_product_entitlements/);
+  assert.match(migration, /grant select \([\s\S]*organization_id/);
+  assert.match(apps, /function linkedLoanOwnerId/);
+  assert.match(apps, /\.from\("loan_accounts"\)[\s\S]*\.eq\("organization_id", organizationId\)/);
+  assert.match(apps, /product\.product_key === "loan_tracker"[\s\S]*\?user=/);
 });
 
 test("client navigation separates apps from the website workspace", async () => {
