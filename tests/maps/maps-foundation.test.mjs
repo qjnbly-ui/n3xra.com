@@ -312,6 +312,15 @@ test("Maps layers can be edited, archived, restored, and permanently deleted by 
   assert.match(purgeMigration, /revoke all on function private\.maps_permanently_delete_archived_layer\(uuid, uuid\) from public, anon/);
 });
 
+test("Maps permanent layer purge safely defers self-referential event checks", async () => {
+  const migration = await read("supabase/migrations/20260904154334_fix_maps_layer_purge_deferred_constraints.sql");
+
+  assert.match(migration, /create or replace function private\.maps_permanently_delete_archived_layer/);
+  assert.match(migration, /security definer[\s\S]*set search_path = ''/);
+  assert.match(migration, /set constraints all deferred/);
+  assert.doesNotMatch(migration, /set constraints map_events_amends_fkey deferred/);
+});
+
 test("Mapped points can be repositioned with review before saving", async () => {
   const [workspace, styles, migration] = await Promise.all([
     read("maps-app/src/components/MapsWorkspace.tsx"),
