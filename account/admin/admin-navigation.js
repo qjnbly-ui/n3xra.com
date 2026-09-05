@@ -7,6 +7,7 @@ const overviewLinks = [
 
 const peopleLinks = [
   ["/account/admin/accounts/", "Accounts"],
+  ["/account/admin/organizations/", "Organizations"],
   ["/account/admin/platform-admins/", "Administrators"],
 ];
 
