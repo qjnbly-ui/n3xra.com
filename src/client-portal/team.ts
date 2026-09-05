@@ -1,6 +1,7 @@
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { portalLoginUrl, resolvePortalTenant, scopeWebsitesToPortalTenant } from "./tenant-context.js";
 
+export function startOrganizationTeam({ root = document, organizationId: requestedOrganizationId = "", supabase: suppliedSupabase = null }: { root?: Document | HTMLElement; organizationId?: string; supabase?: any } = {}): Promise<void> {
 interface Website { id: string; name: string; organization_id: string | null }
 interface Member { id: string; user_id: string; role: string; full_name: string; email: string; is_owner: boolean; created_at: string }
 interface ProductAccess { access_key: string; product_key: string; name: string; status: string; workspace_name: string; manage_path: string }
@@ -8,18 +9,18 @@ interface Invite { id: string; code: string; recipient_email: string; recipient_
 interface TeamSnapshot { organization: { id: string; name: string; owner_user_id: string; user_limit: number }; can_manage: boolean; current_user_id: string; members: Member[]; invites: Invite[] }
 interface AccessSnapshot { organization: { id: string; name: string }; products: ProductAccess[]; member_access: Record<string, Record<string, string>> }
 
-const screen = document.querySelector<HTMLElement>("#portal-status");
-const team = document.querySelector<HTMLElement>("#client-team");
-const message = document.querySelector<HTMLElement>("#team-message");
-const memberList = document.querySelector<HTMLElement>("#team-member-list");
-const inviteList = document.querySelector<HTMLElement>("#team-invite-list");
-const inviteForm = document.querySelector<HTMLFormElement>("#team-invite-form");
-const inviteProductAccess = document.querySelector<HTMLElement>("#team-invite-product-access");
-const limitForm = document.querySelector<HTMLFormElement>("#team-limit-form");
+const screen = root.querySelector<HTMLElement>("#portal-status");
+const team = root.querySelector<HTMLElement>("#client-team");
+const message = root.querySelector<HTMLElement>("#team-message");
+const memberList = root.querySelector<HTMLElement>("#team-member-list");
+const inviteList = root.querySelector<HTMLElement>("#team-invite-list");
+const inviteForm = root.querySelector<HTMLFormElement>("#team-invite-form");
+const inviteProductAccess = root.querySelector<HTMLElement>("#team-invite-product-access");
+const limitForm = root.querySelector<HTMLFormElement>("#team-limit-form");
 const limitMode = limitForm?.querySelector<HTMLSelectElement>('[name="limit-mode"]') || null;
 const limitValue = limitForm?.querySelector<HTMLInputElement>('[name="limit-value"]') || null;
 const limitValueWrap = limitForm?.querySelector<HTMLElement>("[data-limit-value]") || null;
-const supabase = createBrowserSupabase();
+const supabase = suppliedSupabase || createBrowserSupabase();
 let organizationId = "";
 let snapshot: TeamSnapshot | null = null;
 let accessSnapshot: AccessSnapshot | null = null;
@@ -62,7 +63,7 @@ async function sendInviteEmail(invite: { id: string }): Promise<void> {
 
 function renderMembers(): void {
   if (!snapshot || !memberList) return;
-  const summary = document.querySelector<HTMLElement>("#team-member-summary");
+  const summary = root.querySelector<HTMLElement>("#team-member-summary");
   if (summary) summary.textContent = `${snapshot.members.length} ${snapshot.members.length === 1 ? "person has" : "people have"} access to ${snapshot.organization.name}.`;
   memberList.innerHTML = snapshot.members.map((member) => {
     const protectedMember = member.is_owner || member.user_id === snapshot?.current_user_id;
@@ -87,7 +88,7 @@ function renderTeamLimit(): void {
 
 function renderInvites(): void {
   if (!snapshot || !inviteList) return;
-  const panel = document.querySelector<HTMLElement>("#team-invites-panel");
+  const panel = root.querySelector<HTMLElement>("#team-invites-panel");
   if (!snapshot.can_manage) { if (panel) panel.hidden = true; return; }
   if (panel) panel.hidden = false;
   const pending = snapshot.invites.filter((invite) => !invite.is_disabled && !invite.revoked_at && invite.redeemed_uses < invite.max_uses && new Date(invite.expires_at).getTime() > Date.now());
@@ -96,9 +97,9 @@ function renderInvites(): void {
 
 function renderProductAccess(): void {
   if (!snapshot || !accessSnapshot) return;
-  const grid = document.querySelector<HTMLElement>("#organization-product-grid");
-  const head = document.querySelector<HTMLElement>("#organization-access-head");
-  const body = document.querySelector<HTMLElement>("#organization-access-body");
+  const grid = root.querySelector<HTMLElement>("#organization-product-grid");
+  const head = root.querySelector<HTMLElement>("#organization-access-head");
+  const body = root.querySelector<HTMLElement>("#organization-access-body");
   if (!grid || !head || !body) return;
   grid.innerHTML = accessSnapshot.products.map((product) => `<a class="client-product-card" href="${escapeHtml(product.manage_path)}"><span>${escapeHtml(statusLabel(product.status))}</span><strong>${escapeHtml(product.name)}</strong><small>${escapeHtml(product.workspace_name)}</small></a>`).join("") || '<p class="client-team-empty">No products or website workspaces are connected yet.</p>';
   head.innerHTML = `<tr><th>Person</th><th>Organization role</th>${accessSnapshot.products.map((product) => `<th>${escapeHtml(product.name)}<br><small>${escapeHtml(product.workspace_name)}</small></th>`).join("")}</tr>`;
@@ -128,16 +129,16 @@ async function loadSnapshot(): Promise<void> {
     rpc<TeamSnapshot>("client_portal_team_snapshot", { input_organization_id: organizationId }),
     rpc<AccessSnapshot>("client_portal_organization_access_snapshot", { input_organization_id: organizationId }),
   ]);
-  const invitePanel = document.querySelector<HTMLElement>("#team-invite-panel");
+  const invitePanel = root.querySelector<HTMLElement>("#team-invite-panel");
   if (invitePanel) invitePanel.hidden = !snapshot.can_manage;
   renderMembers();
   renderTeamLimit();
   renderInvites();
   renderProductAccess();
   renderInviteProductAccess();
-  const organizationName = document.querySelector<HTMLElement>("#client-organization-name");
-  const organizationStatus = document.querySelector<HTMLElement>("#client-organization-status");
-  const pickerLabel = document.querySelector<HTMLElement>("#client-organization-picker-label");
+  const organizationName = root.querySelector<HTMLElement>("#client-organization-name");
+  const organizationStatus = root.querySelector<HTMLElement>("#client-organization-status");
+  const pickerLabel = root.querySelector<HTMLElement>("#client-organization-picker-label");
   if (organizationName) organizationName.textContent = snapshot.organization.name;
   if (organizationStatus) organizationStatus.textContent = "Organization";
   if (pickerLabel) pickerLabel.textContent = "Linked website";
@@ -148,13 +149,22 @@ async function init(): Promise<void> {
   if (!hasConfig() || !supabase) throw new Error("Portal configuration is unavailable.");
   const session = await getSessionOrNull(supabase);
   if (!session?.user) { window.location.replace(portalLoginUrl()); return; }
+  if (requestedOrganizationId) {
+    const { data: admin, error: adminError } = await supabase.rpc("is_platform_admin");
+    if (adminError || admin !== true) throw new Error("Platform administrator access is required.");
+    organizationId = requestedOrganizationId;
+    await loadSnapshot();
+    if (screen) screen.hidden = true;
+    team?.setAttribute("aria-busy", "false");
+    return;
+  }
   const tenant = await resolvePortalTenant(supabase);
   const { data, error } = await supabase.from("client_websites").select("id,name,organization_id").order("name");
   if (error) throw error;
   const websites = scopeWebsitesToPortalTenant((data || []) as Website[], tenant);
-  const requestedOrganizationId = new URLSearchParams(window.location.search).get("organization");
+  const requestedClientOrganizationId = new URLSearchParams(window.location.search).get("organization");
   const requestedWebsiteId = storedWebsiteId(session.user.id);
-  const website = websites.find((item) => item.organization_id === requestedOrganizationId)
+  const website = websites.find((item) => item.organization_id === requestedClientOrganizationId)
     || websites.find((item) => item.id === requestedWebsiteId)
     || websites[0];
   organizationId = String(website?.organization_id || "");
@@ -263,10 +273,16 @@ team?.addEventListener("click", (event) => {
   })();
 });
 
-void init().catch((error: unknown) => {
+return init().catch((error: unknown) => {
   document.body.classList.remove("portal-loading");
   const copy = error instanceof Error ? error.message : "Team access could not be opened.";
   showMessage(copy, true);
   team?.setAttribute("aria-busy", "false");
   if (screen) screen.hidden = true;
 });
+
+}
+
+if (document.body.dataset.adminView !== "organizations" && document.querySelector("#client-team")) {
+  void startOrganizationTeam();
+}

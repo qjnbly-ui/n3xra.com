@@ -223,7 +223,10 @@ function selectInvestmentSection() {
 window.addEventListener("hashchange", selectInvestmentSection);
 
 async function loadAdminView(adminContext) {
-  if (view === "accounts") {
+  if (view === "organizations") {
+    const organizations = await import("/client-portal/organizations-admin.js?v=2");
+    await organizations.startOrganizations({ supabase });
+  } else if (view === "accounts") {
     const accountsController = await import("/account/admin/controllers/accounts.js?v=5");
     await accountsController.startAccounts({ supabase, invoke, escapeHtml, formatDate, formatPhone, providerLabel, setStatus, confirmAdminAction, promptAdminText, platformAdminRole: adminContext.admin?.role, currentUserId: adminContext.user?.id });
   } else if (view === "files") {

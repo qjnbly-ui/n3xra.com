@@ -1,3 +1,4 @@
+import { loadPrivateProducts, privateProductPath } from "./private-products.js";
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { isBrandedPortalHostname, resolvePortalTenant } from "./tenant-context.js";
@@ -102,6 +103,11 @@ function openOnlyAvailableApp(app: PortalApp): void {
 }
 
 function routeOrRenderApps(apps: PortalApp[], { preferWebsite = false } = {}): void {
+  if (appGrid?.hasAttribute("data-organization-landing")) {
+    renderApps(apps);
+    if (!apps.length && appStatus) { appStatus.hidden = false; appStatus.textContent = "No products are available for your organization yet."; }
+    return;
+  }
   const website = apps.find((app) => app.key === "website");
   if (preferWebsite && website && apps.length === 1) {
     openOnlyAvailableApp(website);
@@ -197,32 +203,44 @@ async function loadPortalApps(): Promise<void> {
   if (window.location.hash && window.location.hash !== "#overview") return;
   const supabase = createBrowserSupabase();
   const session = await getSessionOrNull(supabase);
-  if (!session?.user) return;
+  if (!session?.user) {
+    if (appGrid.hasAttribute("data-organization-landing")) window.location.replace(`/client-portal/login/?next=${encodeURIComponent(location.pathname + location.search)}`);
+    return;
+  }
 
   const tenant = await resolvePortalTenant(supabase);
+  const landing = appGrid.hasAttribute("data-organization-landing");
+  let organizationId = "";
+  let websiteId = "";
   if (tenant.mode === "unbound") {
-    window.location.replace(requestedWebsiteHref(websiteApp().href));
-    return;
+    if (!landing) { window.location.replace(requestedWebsiteHref(websiteApp().href)); return; }
+    const requested = new URLSearchParams(location.search).get("organization") || "";
+    const { data: admin, error } = await supabase.rpc("is_platform_admin");
+    if (error || admin !== true || !UUID_PATTERN.test(requested)) throw new Error("Open your organization portal through your website sign-in.");
+    organizationId = requested;
+    document.querySelector<HTMLElement>("#organization-preview")?.removeAttribute("hidden");
+  } else if (tenant.mode === "tenant") {
+    websiteId = tenant.website_id;
+    const { data: website, error } = await supabase.from("client_websites")
+      .select("id,organization_id").eq("id", websiteId).maybeSingle();
+    if (error) throw error;
+    organizationId = String(website?.organization_id || "");
+  } else { throw new Error("This organization portal is not available."); }
+  let features: Record<string, boolean> = {};
+  if (websiteId) {
+    const { data: featureRows, error } = await supabase.from("website_portal_features")
+      .select("feature_key,enabled").eq("website_id", websiteId);
+    if (error) throw error;
+    features = Object.fromEntries(((featureRows || []) as PortalFeatureRow[]).map(feature => [feature.feature_key,feature.enabled]));
   }
-  if (tenant.mode !== "tenant") {
-    return;
+  const apps: PortalApp[] = websiteId ? [websiteApp(features)] : [];
+  if (organizationId && landing) {
+    const {data: org, error} = await supabase.from("organizations").select("name").eq("id",organizationId).single();
+    if (error) throw error;
+    const heading = document.querySelector("#organization-name");
+    if (heading) heading.textContent = org.name;
+    document.title = `${org.name} | Organization portal`;
   }
-
-  const { data: website, error: websiteError } = await supabase
-    .from("client_websites")
-    .select("id,organization_id")
-    .eq("id", tenant.website_id)
-    .maybeSingle();
-  if (websiteError) throw websiteError;
-
-  const { data: featureRows, error: featureError } = await supabase
-    .from("website_portal_features")
-    .select("feature_key,enabled")
-    .eq("website_id", tenant.website_id);
-  if (featureError) throw featureError;
-  const features = Object.fromEntries(((featureRows || []) as PortalFeatureRow[]).map((feature) => [feature.feature_key, feature.enabled]));
-  const apps = [websiteApp(features)];
-  const organizationId = String(website?.organization_id || "");
   if (!organizationId) {
     routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
     return;
@@ -256,7 +274,9 @@ async function loadPortalApps(): Promise<void> {
     if (HIDDEN_CUSTOMER_PRODUCT_KEYS.has(String(product?.product_key || "").toLowerCase())) continue;
     const path = safePortalPath(product?.portal_path || "");
     if (!product || !path || product.status !== "active" || !product.client_portal_available) continue;
-    let href = path;
+    const productUrl = new URL(path, window.location.origin);
+    productUrl.searchParams.set("organization", organizationId);
+    let href = `${productUrl.pathname}${productUrl.search}${productUrl.hash}`;
     if (product.product_key === "records") {
       href = `${path}?support_org=${encodeURIComponent(organizationId)}`;
     } else if (product.product_key === "loan_tracker") {
@@ -276,6 +296,14 @@ async function loadPortalApps(): Promise<void> {
     });
   }
 
+  const privateProducts = await loadPrivateProducts(supabase, organizationId);
+  for (const product of privateProducts) {
+    const href = privateProductPath(product.app_path, organizationId, product.id);
+    if (!href) continue;
+    apps.push({key: `private:${product.id}`, name: product.name, description: product.description,
+      href, iconKey: "organization-admin", badge: "Private", sortOrder: 80, organizationId});
+  }
+
   if (await canManageOrganization(supabase, organizationId)) {
     apps.push(organizationAdminApp(organizationId));
   }
@@ -291,5 +319,9 @@ appGrid?.addEventListener("click", (event) => {
 
 void loadPortalApps().catch((error: unknown) => {
   console.warn("Portal applications could not be loaded.", error);
-  openOnlyAvailableApp(websiteApp());
+  if (appGrid) appGrid.innerHTML = "";
+  if (appStatus) {
+    appStatus.hidden = false;
+    appStatus.textContent = error instanceof Error ? error.message : "Your organization’s products could not be loaded. Please try again.";
+  }
 });

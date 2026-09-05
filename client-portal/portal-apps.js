@@ -1,3 +1,4 @@
+import { loadPrivateProducts, privateProductPath } from "./private-products.js";
 import { createBrowserSupabase, getSessionOrNull, hasConfig } from "/shared/lib/supabase-client.js";
 import { setStoredActiveOrganizationId } from "/shared/lib/orgs.js";
 import { isBrandedPortalHostname, resolvePortalTenant } from "./tenant-context.js";
@@ -56,6 +57,14 @@ function openOnlyAvailableApp(app) {
     window.location.replace(app.href);
 }
 function routeOrRenderApps(apps, { preferWebsite = false } = {}) {
+    if (appGrid?.hasAttribute("data-organization-landing")) {
+        renderApps(apps);
+        if (!apps.length && appStatus) {
+            appStatus.hidden = false;
+            appStatus.textContent = "No products are available for your organization yet.";
+        }
+        return;
+    }
     const website = apps.find((app) => app.key === "website");
     if (preferWebsite && website && apps.length === 1) {
         openOnlyAvailableApp(website);
@@ -154,32 +163,56 @@ async function loadPortalApps() {
         return;
     const supabase = createBrowserSupabase();
     const session = await getSessionOrNull(supabase);
-    if (!session?.user)
+    if (!session?.user) {
+        if (appGrid.hasAttribute("data-organization-landing"))
+            window.location.replace(`/client-portal/login/?next=${encodeURIComponent(location.pathname + location.search)}`);
         return;
+    }
     const tenant = await resolvePortalTenant(supabase);
+    const landing = appGrid.hasAttribute("data-organization-landing");
+    let organizationId = "";
+    let websiteId = "";
     if (tenant.mode === "unbound") {
-        window.location.replace(requestedWebsiteHref(websiteApp().href));
-        return;
+        if (!landing) {
+            window.location.replace(requestedWebsiteHref(websiteApp().href));
+            return;
+        }
+        const requested = new URLSearchParams(location.search).get("organization") || "";
+        const { data: admin, error } = await supabase.rpc("is_platform_admin");
+        if (error || admin !== true || !UUID_PATTERN.test(requested))
+            throw new Error("Open your organization portal through your website sign-in.");
+        organizationId = requested;
+        document.querySelector("#organization-preview")?.removeAttribute("hidden");
     }
-    if (tenant.mode !== "tenant") {
-        return;
+    else if (tenant.mode === "tenant") {
+        websiteId = tenant.website_id;
+        const { data: website, error } = await supabase.from("client_websites")
+            .select("id,organization_id").eq("id", websiteId).maybeSingle();
+        if (error)
+            throw error;
+        organizationId = String(website?.organization_id || "");
     }
-    const { data: website, error: websiteError } = await supabase
-        .from("client_websites")
-        .select("id,organization_id")
-        .eq("id", tenant.website_id)
-        .maybeSingle();
-    if (websiteError)
-        throw websiteError;
-    const { data: featureRows, error: featureError } = await supabase
-        .from("website_portal_features")
-        .select("feature_key,enabled")
-        .eq("website_id", tenant.website_id);
-    if (featureError)
-        throw featureError;
-    const features = Object.fromEntries((featureRows || []).map((feature) => [feature.feature_key, feature.enabled]));
-    const apps = [websiteApp(features)];
-    const organizationId = String(website?.organization_id || "");
+    else {
+        throw new Error("This organization portal is not available.");
+    }
+    let features = {};
+    if (websiteId) {
+        const { data: featureRows, error } = await supabase.from("website_portal_features")
+            .select("feature_key,enabled").eq("website_id", websiteId);
+        if (error)
+            throw error;
+        features = Object.fromEntries((featureRows || []).map(feature => [feature.feature_key, feature.enabled]));
+    }
+    const apps = websiteId ? [websiteApp(features)] : [];
+    if (organizationId && landing) {
+        const { data: org, error } = await supabase.from("organizations").select("name").eq("id", organizationId).single();
+        if (error)
+            throw error;
+        const heading = document.querySelector("#organization-name");
+        if (heading)
+            heading.textContent = org.name;
+        document.title = `${org.name} | Organization portal`;
+    }
     if (!organizationId) {
         routeOrRenderApps(apps, { preferWebsite: isBrandedPortalHostname() });
         return;
@@ -216,7 +249,9 @@ async function loadPortalApps() {
         const path = safePortalPath(product?.portal_path || "");
         if (!product || !path || product.status !== "active" || !product.client_portal_available)
             continue;
-        let href = path;
+        const productUrl = new URL(path, window.location.origin);
+        productUrl.searchParams.set("organization", organizationId);
+        let href = `${productUrl.pathname}${productUrl.search}${productUrl.hash}`;
         if (product.product_key === "records") {
             href = `${path}?support_org=${encodeURIComponent(organizationId)}`;
         }
@@ -237,6 +272,14 @@ async function loadPortalApps() {
             organizationId,
         });
     }
+    const privateProducts = await loadPrivateProducts(supabase, organizationId);
+    for (const product of privateProducts) {
+        const href = privateProductPath(product.app_path, organizationId, product.id);
+        if (!href)
+            continue;
+        apps.push({ key: `private:${product.id}`, name: product.name, description: product.description,
+            href, iconKey: "organization-admin", badge: "Private", sortOrder: 80, organizationId });
+    }
     if (await canManageOrganization(supabase, organizationId)) {
         apps.push(organizationAdminApp(organizationId));
     }
@@ -250,5 +293,10 @@ appGrid?.addEventListener("click", (event) => {
 });
 void loadPortalApps().catch((error) => {
     console.warn("Portal applications could not be loaded.", error);
-    openOnlyAvailableApp(websiteApp());
+    if (appGrid)
+        appGrid.innerHTML = "";
+    if (appStatus) {
+        appStatus.hidden = false;
+        appStatus.textContent = error instanceof Error ? error.message : "Your organization’s products could not be loaded. Please try again.";
+    }
 });

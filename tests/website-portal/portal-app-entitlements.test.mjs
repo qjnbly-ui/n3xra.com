@@ -13,7 +13,7 @@ test("the branded portal root is the business dashboard instead of the project w
 
   assert.match(html, /id="portal-view-dashboard"/);
   assert.match(html, /id="portal-app-grid"/);
-  assert.match(html, /portal-apps\.js\?v=11/);
+  assert.match(html, /portal-apps\.js\?v=12/);
   assert.doesNotMatch(html, /portal-dashboard-hero|portal-apps-heading|portal-app-summary/);
   assert.match(shell, /key: "dashboard"[\s\S]*href: "\/client-portal\/"/);
   assert.doesNotMatch(shell, /window\.location\.replace\(`\/project-workspace/);
@@ -26,7 +26,7 @@ test("portal apps are loaded from the tenant website's linked organization", asy
 
   assert.match(apps, /resolvePortalTenant/);
   assert.match(apps, /\.from\("client_websites"\)/);
-  assert.match(apps, /\.eq\("id", tenant\.website_id\)/);
+  assert.match(apps, /\.eq\("id", websiteId\)/);
   assert.match(apps, /\.from\("organization_product_entitlements"\)/);
   assert.match(apps, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
   assert.match(apps, /"ai_music", "music", "virals"/);
@@ -45,7 +45,7 @@ test("unbranded portals skip the app dashboard unless multiple N3XRA apps are su
   assert.match(apps, /if \(subscribedApps\.length > 1\)/);
   assert.match(apps, /window\.location\.replace\(app\.href\)/);
   assert.match(apps, /routeOrRenderApps\(apps, \{ preferWebsite: isBrandedPortalHostname\(\) \}\)/);
-  assert.match(apps, /catch\(\(error\) => \{[\s\S]*openOnlyAvailableApp\(websiteApp\(\)\)/);
+  assert.match(apps, /catch\(\(error\) => \{[\s\S]*appGrid.innerHTML = ""/);
 });
 
 test("branded portals open Website Management directly only when it is the sole available workspace", async () => {
@@ -71,7 +71,7 @@ test("the website app lands on the first enabled section when Progress is off", 
   assert.match(apps, /features\.progress !== false[\s\S]*return "\/project-workspace\/"/);
   assert.match(apps, /features\.files_assets !== false[\s\S]*return "\/client-portal\/files\/"/);
   assert.doesNotMatch(apps, /features\.overview/);
-  assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", tenant\.website_id\)/);
+  assert.match(apps, /\.from\("website_portal_features"\)[\s\S]*\.eq\("website_id", websiteId\)/);
   assert.match(workspaceContext, /const currentFeature = PAGE_FEATURES\[pageKey\]/);
   assert.match(workspaceContext, /currentFeature && !featureEnabled\(currentFeature, selectedFeatures\)/);
   assert.match(workspaceContext, /window\.location\.replace\(routeForWebsite\(defaultWebsiteRoute\(selectedFeatures\), website\.id/);
@@ -125,8 +125,8 @@ test("explicit website selection survives every unbranded workspace transition",
   assert.match(workspaceContext, /function routeForWebsite\(href, websiteId, organizationId = ""\)/);
   assert.match(workspaceContext, /\.website-organization-navigation a/);
   assert.match(workspaceContext, /routeForWebsite\(defaultWebsiteRoute\(selectedFeatures\), website\.id/);
-  assert.match(shell, /client-workspace-context\.js\?v=23/);
-  assert.match(html, /client-shell\.js\?v=27/);
+  assert.match(shell, /client-workspace-context\.js\?v=\d+/);
+  assert.match(html, /client-shell\.js\?v=\d+/);
 });
 
 test("platform administrators can open entitled customer apps without customer membership grants", async () => {
@@ -226,7 +226,7 @@ test("Apps Dashboard navigation appears only when the tenant has multiple subscr
   assert.match(workspaceContext, /HIDDEN_CUSTOMER_PRODUCT_KEYS/);
   assert.match(workspaceContext, /!HIDDEN_CUSTOMER_PRODUCT_KEYS\.has\(productKey\)/);
   assert.match(workspaceContext, /portal_path/);
-  assert.match(workspaceContext, /setAppsDashboardAvailability\(portalAppKeys\.length > 1 \|\| organizationAdminAvailable\)/);
+  assert.match(workspaceContext, /setAppsDashboardAvailability\(portalAppKeys\.length > 1 \|\| organizationAdminAvailable \|\| privateProducts\.length > 0\)/);
   assert.match(workspaceContext, /data-client-app-dashboard hidden/);
 });
 

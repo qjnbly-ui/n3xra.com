@@ -1,3 +1,4 @@
+import { loadPrivateProducts } from "./private-products.js";
 import { createBrowserSupabase, hasConfig } from "/shared/lib/supabase-client.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 import { resolveWebsiteUrl } from "/client-portal/website-url.js";
@@ -232,7 +233,9 @@ export async function initializeClientWorkspaceContext(panel, { pageKey = "overv
       canManageOrganization(supabase, selectedWebsite?.organization_id),
     ])
     : [[], false];
-  setAppsDashboardAvailability(portalAppKeys.length > 1 || organizationAdminAvailable);
+  const privateProducts = tenantResolution.mode === "tenant" && selectedWebsite?.organization_id
+    ? await loadPrivateProducts(supabase, selectedWebsite.organization_id).catch(() => []) : [];
+  setAppsDashboardAvailability(portalAppKeys.length > 1 || organizationAdminAvailable || privateProducts.length > 0);
   setRecordsAvailability(portalAppKeys.includes("records"), selectedWebsite?.organization_id);
   setCommunicationsAvailability(portalAppKeys.includes("communications"));
   setOrganizationAdminAvailability(organizationAdminAvailable);
