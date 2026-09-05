@@ -89,3 +89,15 @@ test('cancel is available only for an active request and sync problems block edi
  api.renderSession(session({state:'working',cancellable:false}));assert.equal(get('build-cancel').hidden,true);
  api.renderSession(session({syncIssue:'Save your unfinished changes first.'}));assert.equal(get('build-prompt').disabled,true);assert.equal(get('build-sync-issue').hidden,false);
 });
+
+test('previous conversations render separately without old notes or stale session state',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());
+ const old={id:44,eventType:'agent_message',history:true,replay:true,message:'Previous reply',technicalNotes:'Old diagnostics',metadata:{conversationVersion:2,session:session({state:'failed'})}};
+ api.handleWorkerEvent(old);api.handleWorkerEvent(old);
+ assert.equal(get('build-messages').children.length,0);
+ assert.equal(get('build-history-messages').children.length,1);
+ assert.equal(get('build-history').hidden,false);
+ assert.equal(get('build-workspace').hidden,false);
+ api.handleWorkerEvent({id:45,eventType:'agent_message',message:'New reply',metadata:{conversationVersion:2}});
+ assert.equal(get('build-messages').children.length,1);
+});

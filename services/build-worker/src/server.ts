@@ -217,7 +217,10 @@ function publicSession(session: Session) {
 
 async function sessionEvents(sessionId: string) {
   const rows = await supabase(`/rest/v1/website_build_events?session_id=eq.${encodeURIComponent(sessionId)}&select=id,event_type,message,technical_notes,metadata,created_at&order=created_at.asc,id.asc`);
-  return (Array.isArray(rows) ? rows : []).map((event: Json) => ({ id: event.id, eventType: event.event_type, message: event.message, technicalNotes: event.technical_notes, metadata: event.metadata || {} }));
+  const events: Json[] = Array.isArray(rows) ? rows : [];
+  let boundary = -1;
+  events.forEach((event, index) => { if (event.metadata?.conversationStart) boundary = index; });
+  return events.map((event, index) => ({ id: event.id, history: index < boundary, eventType: event.event_type, message: event.message, technicalNotes: event.technical_notes, metadata: event.metadata || {} }));
 }
 
 async function updateStatus(session: Session) {
@@ -492,6 +495,12 @@ async function openProjectOnce(user: Identity, websiteId: string): Promise<Sessi
     if (previous.repository_full_name !== repository.full_name) throw new Error("This website’s repository changed. Preserve the existing workspace before switching repositories.");
     let existing = sessions.get(String(previous.id));
     if (existing && existing.userId !== user.id) throw new Error("Workspace access denied.");
+    if (previous.state === "stopped") {
+      // A deliberate reopen starts a new conversation; recovery of an open session does not.
+      await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: previous.id, website_id: websiteId, actor_user_id: user.id, event_type: "status", message: "New conversation. Syncing your saved workspace with GitHub.", metadata: { conversationVersion: 2, conversationStart: true } }) });
+      await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(String(previous.id))}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: null }) });
+      if (existing) existing.codexThreadId = "";
+    }
     if (!existing) {
       await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(String(previous.id))}`, { method: "PATCH", body: JSON.stringify({ state: "preparing", error_message: null }) });
       existing = await recoverSession(user, String(previous.id)) || undefined;

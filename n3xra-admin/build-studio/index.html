@@ -62,6 +62,7 @@
               <div class="build-chat-head"><div><p class="portal-kicker">Codex</p><h3>Build conversation</h3></div><span id="build-change-count">No changes</span></div>
               <div class="build-model-controls"><label>Model<select id="build-model" disabled><option>Loading models…</option></select></label><label>Thinking effort<select id="build-effort" disabled><option>Default</option></select></label></div>
               <label class="build-notes-toggle"><input type="checkbox" id="build-show-notes"> Show technical notes</label>
+              <details id="build-history" hidden><summary>Previous conversations</summary><div class="build-messages" id="build-history-messages"></div></details>
               <div class="build-messages" id="build-messages" aria-live="polite"></div>
               <div class="build-activity" id="build-activity" role="status" aria-live="polite" hidden></div>
               <pre class="build-activity-detail" id="build-activity-detail" hidden></pre>
@@ -95,6 +96,6 @@
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=7"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=8"></script>
 </body>
 </html>

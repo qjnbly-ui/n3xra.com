@@ -210,6 +210,20 @@ function handleWorkerEvent(event) {
             return;
         seenEvents.add(event.id);
     }
+    if (event.history) {
+        if (event.message && (event.eventType === "user_message" || (event.eventType === "agent_message" && event.metadata?.conversationVersion === 2))) {
+            const article = document.createElement("article");
+            article.className = `build-message${event.eventType === "user_message" ? " is-user" : ""}`;
+            const label = document.createElement("small");
+            label.textContent = event.eventType === "user_message" ? "You" : "Codex";
+            const content = document.createElement("div");
+            content.textContent = event.message;
+            article.append(label, content);
+            byId("build-history-messages").append(article);
+            byId("build-history").hidden = false;
+        }
+        return;
+    }
     // Older development output stays stored unchanged; the toggle controls its presentation.
     const legacyDiagnostic = event.replay && event.metadata?.conversationVersion !== 2 && ["agent_message", "status", "error"].includes(event.eventType);
     if (legacyDiagnostic && event.message)
@@ -328,6 +342,9 @@ async function inspectWorker() {
             return;
         if (active.session) {
             messages.replaceChildren();
+            byId("build-history-messages").replaceChildren();
+            byId("build-history").hidden = true;
+            byId("build-history").open = false;
             technicalEntries.length = 0;
             seenEvents.clear();
             (active.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
@@ -359,6 +376,9 @@ async function startSession() {
         if (currentWebsite?.id !== selectedWebsiteId)
             return;
         messages.replaceChildren();
+        byId("build-history-messages").replaceChildren();
+        byId("build-history").hidden = true;
+        byId("build-history").open = false;
         technicalEntries.length = 0;
         seenEvents.clear();
         (result.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
@@ -403,6 +423,9 @@ async function initialize() {
         renderActivity();
         eventAbort?.abort();
         messages.replaceChildren();
+        byId("build-history-messages").replaceChildren();
+        byId("build-history").hidden = true;
+        byId("build-history").open = false;
         technicalEntries.length = 0;
         seenEvents.clear();
         previewFrame.src = "about:blank";

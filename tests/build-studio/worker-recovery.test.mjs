@@ -140,6 +140,7 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     await waitFor(()=>Promise.resolve(events.find(e=>e.message?.startsWith('Request canceled.'))));
     state=await waitFor(async()=>{const s=await active();return s.session?.state==='ready'?s:null;});
     assert.equal(state.session.selectedModel,'fixture-model');assert.equal(state.session.selectedEffort,'high');
+    const previousThread=rows[0].codex_thread_id;
     const oldPreview=state.session.previewUrl;
     const closed=await request(`/v1/sessions/${id}/close`,{});assert.equal(closed.status,200,JSON.stringify(closed));
     assert.equal(rows[0].state,'stopped');assert.equal((await active()).closed,true);
@@ -149,6 +150,12 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     await request('/v1/projects/open',{websiteId});
     state=await waitFor(async()=>{const s=await active();return s.session?.state==='ready'&&s.session.previewState==='ready'?s:null;});
     assert.equal(state.session.syncIssue,'',JSON.stringify(state.session));
+    assert.notEqual(rows[0].codex_thread_id,previousThread,'reopening creates a fresh Codex conversation');
+    assert.ok(state.events.some(e=>e.history && e.eventType==='user_message'),'previous conversation is retained as history');
+    assert.ok(!state.events.some(e=>!e.history && e.eventType==='user_message'),'fresh conversation contains no old requests');
+    const reopenedThread=rows[0].codex_thread_id;
+    await request('/v1/projects/open',{websiteId});
+    assert.equal(rows[0].codex_thread_id,reopenedThread,'opening an already-open workspace preserves its current conversation');
     assert.equal(await readFile(join(repository,'external.txt'),'utf8'),'Change made in another editor');
     assert.equal(state.session.selectedEffort,'high');
     assert.equal((await request(`/v1/sessions/${id}/publish`,{},'other')).status,404);
