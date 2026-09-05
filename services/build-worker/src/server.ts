@@ -322,7 +322,7 @@ async function launchRemotePreview(session: Session) {
     session.previewUsesAstro = /astro/.test(String(packageJson.scripts[script]));
     const args = manager === "npm" ? ["run", script, "--"] : [script];
     args.push("--host", "127.0.0.1", "--port", "5173", "--base", session.previewBasePath);
-    await remote.rpc("preview/start", { cmd: manager, args });
+    await remote.rpc("preview/start", { cmd: manager, args, astro: session.previewUsesAstro });
   }
   await emit(session, "status", "Starting the private live preview.", { session: publicSession(session) });
   for (let attempt = 0; attempt < 90; attempt++) {

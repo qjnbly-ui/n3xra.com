@@ -42,3 +42,9 @@ test('each isolated workspace requires its own sign-in before editing',async()=>
  api.handleWorkerEvent({id:3,eventType:'session',metadata:{session:session({codexAuthenticated:true})}});
  assert.equal(get('build-setup').hidden,true);assert.equal(get('build-prompt').disabled,false);
 });
+test('historical preview collision reports a readable recovery message',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());
+ api.handleWorkerEvent({id:10,eventType:'error',message:'Another astro dev server is already running.\nPID: 687\nStack trace: internal',replay:true});
+ const text=get('build-messages').children[0].children[1].textContent;
+ assert.match(text,/Your work is saved/);assert.doesNotMatch(text,/PID|Stack trace|astro/);
+});

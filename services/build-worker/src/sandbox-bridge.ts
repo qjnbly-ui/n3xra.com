@@ -5,7 +5,7 @@ import { writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { timingSafeEqual, randomUUID } from "node:crypto";
 import { CodexAppServer } from "./codex-app-server.js";
-import { stopProcessGroup } from "./process-lifecycle.js";
+import { stopProcessGroup, removeStaleAstroLock } from "./process-lifecycle.js";
 
 type Json = Record<string, any>;
 const config = JSON.parse(readFileSync("/vercel/.n3xra/config.json", "utf8")) as { secret: string; sessionId: string; version: string };
@@ -51,7 +51,8 @@ const server = createServer(async (req, res) => {
     if (input.method === "preview/stop") { await stopPreview(); result = {}; }
     else if (input.method === "preview/start") {
       await stopPreview(); previewOutput = "";
-      const { cmd, args } = input.params as { cmd: string; args: string[] };
+      const { cmd, args, astro } = input.params as { cmd: string; args: string[]; astro?: boolean };
+      if (astro) await removeStaleAstroLock("/vercel/repository");
       preview = spawn(cmd, args, { cwd: "/vercel/repository", env: { ...process.env, NODE_ENV: "development", ASTRO_DEV_BACKGROUND: "1", ASTRO_TELEMETRY_DISABLED: "1", BROWSER: "none" }, detached: true, stdio: ["ignore", "pipe", "pipe"] });
       preview.stdout?.on("data", chunk => { previewOutput = (previewOutput + chunk).slice(-4000); });
       preview.stderr?.on("data", chunk => { previewOutput = (previewOutput + chunk).slice(-4000); });

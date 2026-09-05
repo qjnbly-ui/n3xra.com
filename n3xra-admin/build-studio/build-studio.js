@@ -58,7 +58,9 @@ function addMessage(role, text) {
     const small = document.createElement("small");
     small.textContent = label;
     const body = document.createElement("div");
-    body.textContent = text;
+    body.textContent = role === "status" && text.includes("Another astro dev server is already running")
+        ? "The preview could not restart because an earlier preview had not cleared. Your work is saved. Use Restart preview to try again."
+        : text;
     item.append(small, body);
     messages.append(item);
     messages.scrollTop = messages.scrollHeight;
