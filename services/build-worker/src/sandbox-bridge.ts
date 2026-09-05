@@ -19,7 +19,9 @@ const events: { sequence: number; method: string; params: Json }[] = [];
 codex.onEvent((method, params) => {
   if (method === "turn/started") activeTurn = { threadId: String(params.threadId), turnId: String((params.turn as Json)?.id || "") };
   if (method === "turn/completed" || method === "worker/disconnected") activeTurn = null;
-  if (!["item/agentMessage/delta", "turn/completed", "account/login/completed", "account/updated", "worker/disconnected"].includes(method)) return;
+  if (!["item/started", "item/completed", "item/agentMessage/delta", "turn/completed", "account/login/completed", "account/updated", "worker/disconnected"].includes(method)) return;
+  // Reasoning items are not troubleshooting notes and must not be forwarded.
+  if ((method === "item/started" || method === "item/completed") && !["agentMessage", "commandExecution", "fileChange", "webSearch", "mcpToolCall", "contextCompaction"].includes(String((params.item as Json | undefined)?.type))) return;
   events.push({ sequence: ++sequence, method, params });
   if (events.length > 2000) events.shift();
 });

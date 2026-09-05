@@ -10,10 +10,11 @@ type BuildSession = {
   previewUrl?: string;
   previewState: "offline" | "starting" | "ready" | "failed";
   changedFileCount: number;
+  progress?: string;
   hasUnpushedCommits?: boolean;
   codexAuthenticated?: boolean;
 };
-type WorkerEvent = { replay?: boolean; id?: number; eventType: string; message?: string; metadata?: Record<string, unknown> };
+type WorkerEvent = { replay?: boolean; id?: number; eventType: string; message?: string; technicalNotes?: string; metadata?: Record<string, unknown> };
 
 const workerBase = String(window.RECORDS_APP_CONFIG?.buildWorkerUrl || "").replace(/\/+$/, "");
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -27,6 +28,9 @@ const servicesLink = byId<HTMLAnchorElement>("build-open-services");
 const composer = byId<HTMLFormElement>("build-composer");
 const prompt = byId<HTMLTextAreaElement>("build-prompt");
 const messages = byId<HTMLElement>("build-messages");
+const activity = byId<HTMLElement>("build-activity");
+const notesToggle = byId<HTMLInputElement>("build-show-notes");
+const technicalEntries: HTMLElement[] = [];
 const notice = byId<HTMLElement>("build-notice");
 const previewFrame = byId<HTMLIFrameElement>("build-preview-frame");
 const checkpointButton = byId<HTMLButtonElement>("build-checkpoint");
@@ -68,11 +72,16 @@ async function workerRequest<T>(path: string, options: RequestInit = {}): Promis
   return data;
 }
 
-function addMessage(role: "user" | "agent" | "status", text: string) {
+function addMessage(role: "user" | "agent" | "status" | "technical", text: string) {
   if (!text.trim()) return;
   const item = document.createElement("article");
   item.className = `build-message${role === "user" ? " is-user" : ""}`;
-  const label = role === "agent" ? "Codex" : role === "user" ? "You" : "Build Studio";
+  if (role === "technical") {
+    item.classList.add("is-technical");
+    item.hidden = !notesToggle.checked;
+    technicalEntries.push(item);
+  }
+  const label = role === "technical" ? "Technical notes" : role === "agent" ? "Codex" : role === "user" ? "You" : "Build Studio";
   const small = document.createElement("small");
   small.textContent = label;
   const body = document.createElement("div");
@@ -84,8 +93,18 @@ function addMessage(role: "user" | "agent" | "status", text: string) {
   messages.scrollTop = messages.scrollHeight;
 }
 
+function renderActivity(message = "") {
+  activity.hidden = !message;
+  activity.textContent = message;
+}
+
+notesToggle.addEventListener("change", () => {
+  technicalEntries.forEach(item => { item.hidden = !notesToggle.checked; });
+});
+
 function renderSession(session: BuildSession) {
   activeSession = session;
+  renderActivity(session.state === "working" ? session.progress || "Working on your request…" : sending ? "Sending your request…" : "");
   const needsConnection = session.codexAuthenticated === false && session.state === "ready";
   setup.hidden = !needsConnection;
   if (needsConnection) {
@@ -126,16 +145,28 @@ function renderPreview(session: BuildSession) {
 }
 
 function handleWorkerEvent(event: WorkerEvent) {
+  if (event.eventType === "progress") {
+    const session = event.metadata?.session as BuildSession | undefined;
+    if (!event.replay && session && session.id === activeSession?.id) renderSession(session);
+    return;
+  }
   if (event.id !== undefined) {
     if (seenEvents.has(event.id)) return;
     seenEvents.add(event.id);
   }
-  if (["user_message", "agent_message"].includes(event.eventType) && event.message) addMessage(event.eventType === "user_message" ? "user" : "agent", event.message);
-  if (["status", "error", "checkpoint", "push"].includes(event.eventType) && event.message) addMessage("status", event.message);
+  // Older development output stays stored unchanged; the toggle controls its presentation.
+  const legacyDiagnostic = event.replay && event.metadata?.conversationVersion !== 2 && ["agent_message", "status", "error"].includes(event.eventType);
+  if (legacyDiagnostic && event.message) addMessage("technical", event.message);
+  else {
+    if (["user_message", "agent_message"].includes(event.eventType) && event.message) addMessage(event.eventType === "user_message" ? "user" : "agent", event.message);
+    if (["status", "error", "checkpoint", "push"].includes(event.eventType) && event.message) addMessage("status", event.message);
+  }
+  if (event.technicalNotes) addMessage("technical", event.technicalNotes);
   if (event.replay) return;
   const session = event.metadata?.session as BuildSession | undefined;
   if (session?.state === "failed") {
     activeSession = null;
+    renderActivity();
     eventAbort?.abort();
     workspace.hidden = true;
     setup.hidden = false;
@@ -227,6 +258,7 @@ async function inspectWorker() {
     if (currentWebsite?.id !== selectedWebsiteId) return;
     if (active.session) {
       messages.replaceChildren();
+      technicalEntries.length = 0;
       seenEvents.clear();
       (active.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
       renderSession(active.session);
@@ -255,6 +287,7 @@ async function startSession() {
     });
     if (currentWebsite?.id !== selectedWebsiteId) return;
     messages.replaceChildren();
+    technicalEntries.length = 0;
     seenEvents.clear();
     (result.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
     renderSession(result.session);
@@ -288,8 +321,10 @@ async function initialize() {
     currentWebsite = websites.find((item) => item.id === websiteSelect.value) || null;
     if (currentWebsite) writeWorkspaceContext("admin", context.session!.user.id, { websiteId: currentWebsite.id, name: currentWebsite.name });
     activeSession = null;
+    renderActivity();
     eventAbort?.abort();
     messages.replaceChildren();
+    technicalEntries.length = 0;
     seenEvents.clear();
     previewFrame.src = "about:blank";
     previewFrame.dataset.previewState = "offline";
@@ -328,7 +363,7 @@ composer.addEventListener("submit", async (event) => {
     await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
     if (activeSession?.id === sessionId) prompt.value = "";
   } catch (error) {
-    addMessage("status", error instanceof Error ? error.message : "The message could not be sent.");
+    if (activeSession?.id === sessionId) addMessage("status", "The request could not be completed. Check the connection and try again.");
   } finally {
     sending = false;
     if (activeSession?.id === sessionId) renderSession(activeSession);

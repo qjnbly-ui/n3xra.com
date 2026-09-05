@@ -11,6 +11,7 @@ import { CodexAppServer } from "./codex-app-server.js";
 import { signalProcessGroup as killProcessGroup, stopProcessGroup } from "./process-lifecycle.js";
 import { VercelWorkspace } from "./vercel-workspace.js";
 import { gitCommitIdentity } from "./git-identity.js";
+import { ConversationTurn, conversationSchema, readableError, redactNotes } from "./conversation.js";
 
 type Json = Record<string, any>;
 type Identity = { id: string; email?: string };
@@ -19,7 +20,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean;
+  codexAuthenticated?: boolean; progress?: string;
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -43,8 +44,7 @@ const remoteWorkspaces = new Map<string, VercelWorkspace>();
 const sessions = new Map<string, Session>();
 const listeners = new Map<string, Set<ServerResponse>>();
 const turnSessions = new Map<string, string>();
-const partialMessages = new Map<string, string>();
-const lastMessageItems = new Map<string, string>();
+const conversationTurns = new Map<string, ConversationTurn>();
 const recovering = new Map<string, Promise<Session | null>>();
 const opening = new Map<string, Promise<Session>>();
 const commandChildren = new Set<ChildProcess>();
@@ -70,7 +70,7 @@ function sessionCodex(session: Session) {
     account: () => remote.rpc("account/read", { refreshToken: false }),
     startThread: async (_cwd: string) => (await remote.rpc("thread/start", { cwd: "/vercel/repository", approvalPolicy: "never", sandbox: "workspace-write", personality: "pragmatic" })).thread.id as string,
     resumeThread: async (threadId: string, _cwd: string) => (await remote.rpc("thread/resume", { threadId, cwd: "/vercel/repository", approvalPolicy: "never", sandbox: "workspace-write" })).thread.id as string,
-    startTurn: (threadId: string, _cwd: string, text: string) => remote.rpc("turn/start", { threadId, approvalPolicy: "never", input: [{ type: "text", text }] }),
+    startTurn: (threadId: string, _cwd: string, text: string) => remote.rpc("turn/start", { threadId, approvalPolicy: "never", outputSchema: conversationSchema, input: [{ type: "text", text }] }),
   };
 }
 
@@ -165,20 +165,34 @@ async function gitEnvironment(sessionId: string, repositoryFullName: string) {
   return { GIT_ASKPASS: script, GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: token };
 }
 
-async function emit(session: Session, eventType: string, message = "", metadata: Json = {}) {
-  const rows = await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: session.id, website_id: session.websiteId, actor_user_id: session.userId, event_type: eventType, message: message || null, metadata }) });
-  const event = Array.isArray(rows) ? rows[0] : { event_type: eventType, message, metadata };
-  listeners.get(session.id)?.forEach((res) => res.write(`data: ${JSON.stringify({ id: event.id, eventType, message, metadata })}\n\n`));
+function broadcast(session: Session, event: Json) {
+  listeners.get(session.id)?.forEach((res) => res.write(`data: ${JSON.stringify(event)}\n\n`));
+}
+function progress(session: Session, message: string) {
+  if (session.progress === message) return;
+  session.progress = message;
+  broadcast(session, { eventType: "progress", message, metadata: { session: publicSession(session) } });
+}
+async function emit(session: Session, eventType: string, message = "", metadata: Json = {}, technicalNotes = "") {
+  if (eventType === "error") {
+    technicalNotes = [technicalNotes, message].filter(Boolean).join("\n\n");
+    message = readableError(message);
+  }
+  technicalNotes = redactNotes(technicalNotes);
+  metadata = { ...metadata, conversationVersion: 2 };
+  const rows = await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: session.id, website_id: session.websiteId, actor_user_id: session.userId, event_type: eventType, message: message || null, technical_notes: technicalNotes || null, metadata }) });
+  const event = Array.isArray(rows) ? rows[0] : {};
+  broadcast(session, { id: event.id, eventType, message, technicalNotes, metadata });
 }
 
 function publicSession(session: Session) {
   const publicUrl = process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-  return { id: session.id, state: session.state, workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
+  return { id: session.id, state: session.state, progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
 }
 
 async function sessionEvents(sessionId: string) {
-  const rows = await supabase(`/rest/v1/website_build_events?session_id=eq.${encodeURIComponent(sessionId)}&select=id,event_type,message,metadata,created_at&order=created_at.asc,id.asc`);
-  return (Array.isArray(rows) ? rows : []).map((event: Json) => ({ id: event.id, eventType: event.event_type, message: event.message, metadata: event.metadata || {} }));
+  const rows = await supabase(`/rest/v1/website_build_events?session_id=eq.${encodeURIComponent(sessionId)}&select=id,event_type,message,technical_notes,metadata,created_at&order=created_at.asc,id.asc`);
+  return (Array.isArray(rows) ? rows : []).map((event: Json) => ({ id: event.id, eventType: event.event_type, message: event.message, technicalNotes: event.technical_notes, metadata: event.metadata || {} }));
 }
 
 async function updateStatus(session: Session) {
@@ -521,11 +535,12 @@ function handleCodexEvent(method: string, params: Json, sourceSessionId?: string
     for (const session of sessions.values()) {
       if (sourceSessionId && session.id !== sourceSessionId) continue;
       if (session.state !== "working") continue;
-      session.state = "ready";
-      void updateStatus(session).then((state) => emit(session, "error", "Codex disconnected. Your files are preserved; check changes before sending another request.", { session: state })).catch(() => null);
+      session.state = "ready"; session.progress = "";
+      const detail = String(params.message || "Codex disconnected");
+      void updateStatus(session).catch(() => publicSession(session)).then((state) => emit(session, "error", "The builder was disconnected before finishing.", { session: state }, detail)).catch(() => broadcast(session, { eventType: "error", message: readableError(detail), metadata: { session: publicSession(session) } }));
     }
-    if (!sourceSessionId) { turnSessions.clear(); partialMessages.clear(); lastMessageItems.clear(); }
-    else for (const [turnId, sessionId] of turnSessions) if (sessionId === sourceSessionId) { turnSessions.delete(turnId); partialMessages.delete(turnId); lastMessageItems.delete(turnId); }
+    if (!sourceSessionId) { turnSessions.clear(); conversationTurns.clear(); }
+    else for (const [turnId, sessionId] of turnSessions) if (sessionId === sourceSessionId) { turnSessions.delete(turnId); conversationTurns.delete(turnId); }
     return;
   }
   const turn = params.turn as Json | undefined;
@@ -533,20 +548,31 @@ function handleCodexEvent(method: string, params: Json, sourceSessionId?: string
   const sessionId = turnSessions.get(turnId);
   const session = (sessionId ? sessions.get(sessionId) : null) || [...sessions.values()].find((item) => item.codexThreadId === params.threadId && item.state === "working");
   if (!session) return;
-  if (method === "item/agentMessage/delta") {
-    const itemId = String(params.itemId || "");
-    const previous = partialMessages.get(turnId) || "";
-    const separator = previous && itemId && lastMessageItems.get(turnId) !== itemId ? "\n\n" : "";
-    partialMessages.set(turnId, `${previous}${separator}${String(params.delta || "")}`);
-    lastMessageItems.set(turnId, itemId);
+  if (sourceSessionId && session.id !== sourceSessionId) return;
+  if (!turnId) return;
+  let conversation = conversationTurns.get(turnId);
+  if (!conversation) { conversation = new ConversationTurn(); conversationTurns.set(turnId, conversation); }
+  if (method === "item/agentMessage/delta") conversation.delta(String(params.itemId || ""), String(params.delta || ""));
+  if (method === "item/started" || method === "item/completed") {
+    const update = conversation.item(params.item || {}, method === "item/completed");
+    if (update) progress(session, update);
   }
   if (method === "turn/completed") {
+    for (const item of turn?.items || []) conversation.item(item, true);
     const failed = turn?.status !== "completed";
-    const message = failed ? String(turn?.error?.message || "The Codex turn was interrupted. Check the changes before retrying.") : partialMessages.get(turnId) || "Codex returned no message. Check the changes before continuing.";
-    partialMessages.delete(turnId); turnSessions.delete(turnId); lastMessageItems.delete(turnId);
-    session.state = "ready";
+    const failure = failed ? String(turn?.error?.message || "The builder was interrupted before finishing.") : undefined;
+    const result = conversation.finish(failure);
+    conversationTurns.delete(turnId); turnSessions.delete(turnId);
+    progress(session, "Finishing the update…");
     session.lastPreviewActivity = Date.now();
-    void updateStatus(session).then((state) => emit(session, failed ? "error" : "agent_message", message, { session: state })).catch(() => null);
+    void (async () => {
+      let diagnostics = result.technicalNotes;
+      try { await updateStatus(session); }
+      catch (error) { diagnostics += `\nChange check failed: ${String(error)}`; result.message += " I couldn’t refresh the list of changed files. Refresh before saving."; }
+      session.state = "ready"; session.progress = "";
+      await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "ready" }) }).catch(() => null);
+      await emit(session, failed ? "error" : "agent_message", result.message, { session: publicSession(session) }, diagnostics);
+    })().catch(() => broadcast(session, { eventType: "error", message: "Your reply could not be saved. Refresh before continuing.", metadata: { session: publicSession(session) } }));
   }
 }
 codex.onEvent(handleCodexEvent);
@@ -588,6 +614,7 @@ function previewSession(req: IncomingMessage, url: URL) {
 }
 
 const server = createServer(async (req, res) => {
+  let requestSession: Session | undefined;
   try {
     const url = new URL(req.url || "/", "http://worker.local");
     if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
@@ -622,6 +649,7 @@ const server = createServer(async (req, res) => {
     const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
+    requestSession = session;
     const action = match[2] || "";
     if (action === "events" && req.method === "GET") {
       headers(res, 200, "text/event-stream"); res.write(": connected\n\n");
@@ -653,18 +681,20 @@ const server = createServer(async (req, res) => {
       // Reserve the session before any awaits so two requests cannot start overlapping turns.
       if (session.state !== "ready") return json(res, 409, { error: "Codex is still working." });
       session.state = "working";
+      progress(session, "Opening your workspace…");
       try {
         if (isolated) await remoteWorkspace(session).wake();
         await ensureThread(session);
         await emit(session, "user_message", text, { session: publicSession(session) });
-        const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes.\n\n";
-        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`);
+        const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes. Speak to the website owner in clear everyday language. Your final response must match the requested JSON schema: message is the short user-facing reply, and technicalNotes holds file paths, commands, test results, and diagnostic details. Keep meaningful limitations and actions the owner needs in message. Do not claim a check succeeded unless you ran it. Never include secrets in either field.\n\n";
+        progress(session, "Working on your request…");
+        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`, conversationSchema);
         if (session.state === "working") turnSessions.set(turn.turn.id, session.id);
         return json(res, 202, { accepted: true });
       } catch (error) {
         session.state = "ready";
         await emit(session, "error", String((error as Error).message), { session: await updateStatus(session) });
-        throw error;
+        return json(res, 500, { error: readableError(String(error)), recorded: true });
       }
     }
     if ((action === "checkpoint" || action === "push") && req.method === "POST") {
@@ -696,7 +726,11 @@ const server = createServer(async (req, res) => {
       return json(res, 202, { session: publicSession(session) });
     }
     return json(res, 405, { error: "Method not allowed." });
-  } catch (error) { json(res, /Authentication|required|expired|access/.test(String((error as Error).message)) ? 401 : 500, { error: error instanceof Error ? error.message : "Build worker error." }); }
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "Build worker error.";
+    if (requestSession) await emit(requestSession, "error", detail, { session: publicSession(requestSession) }).catch(() => null);
+    json(res, /Authentication|required|expired|access/.test(detail) ? 401 : 500, { error: readableError(detail) });
+  }
 });
 
 // Vite/Astro hot reload uses a WebSocket on the same authenticated preview path.
