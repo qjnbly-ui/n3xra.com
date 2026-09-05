@@ -142,7 +142,7 @@ function renderSession(session) {
         previewFrame.src = "about:blank";
         openPreviewLink.hidden = true;
         checkpointButton.disabled = pushButton.disabled = true;
-        byId("build-close").disabled = byId("build-sync").disabled = true;
+        byId("build-publish").disabled = byId("build-close").disabled = byId("build-sync").disabled = true;
         renderActivity();
         return;
     }
@@ -165,7 +165,7 @@ function renderSession(session) {
     const cancel = byId("build-cancel");
     cancel.hidden = !session.cancellable;
     cancel.disabled = !session.cancellable;
-    byId("build-close").disabled = byId("build-sync").disabled = session.state !== "ready" || session.previewState === "starting";
+    byId("build-publish").disabled = byId("build-close").disabled = byId("build-sync").disabled = session.state !== "ready" || session.previewState === "starting";
     const syncIssue = byId("build-sync-issue");
     syncIssue.textContent = session.syncIssue || "";
     syncIssue.hidden = !session.syncIssue;
@@ -458,13 +458,13 @@ composer.addEventListener("submit", async (event) => {
             renderSession(activeSession);
     }
 });
-for (const action of ["close", "sync", "cancel"]) {
+for (const action of ["close", "sync", "cancel", "publish"]) {
     byId(`build-${action}`).addEventListener("click", async () => {
         if (!activeSession)
             return;
         const id = activeSession.id;
         byId(`build-${action}`).disabled = true;
-        renderActivity(action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
+        renderActivity(action === "publish" ? "Preparing to publish to main…" : action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
         try {
             const result = await workerRequest(`/v1/sessions/${id}/${action}`, { method: "POST", body: "{}" });
             if (activeSession?.id === id) {

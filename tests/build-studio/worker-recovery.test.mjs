@@ -135,6 +135,7 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     assert.equal((await request(`/v1/sessions/${id}/messages`,{text:'CANCEL_TEST',model:'fixture-model',effort:'high'})).status,202);
     assert.equal((await request(`/v1/sessions/${id}/cancel`,{},'other')).status,404);
     assert.equal((await request(`/v1/sessions/${id}/close`,{})).status,409,'close must not race an active edit');
+    assert.equal((await request(`/v1/sessions/${id}/publish`,{})).status,409,'publish must not race an active edit');
     assert.equal((await request(`/v1/sessions/${id}/cancel`,{})).status,202);
     await waitFor(()=>Promise.resolve(events.find(e=>e.message?.startsWith('Request canceled.'))));
     state=await waitFor(async()=>{const s=await active();return s.session?.state==='ready'?s:null;});
@@ -150,6 +151,20 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     assert.equal(state.session.syncIssue,'',JSON.stringify(state.session));
     assert.equal(await readFile(join(repository,'external.txt'),'utf8'),'Change made in another editor');
     assert.equal(state.session.selectedEffort,'high');
+    assert.equal((await request(`/v1/sessions/${id}/publish`,{},'other')).status,404);
+    const mainBefore=execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim();
+    await writeFile(join(repository,'publish-test.txt'),'Publish only when explicitly requested');
+    await writeFile(join(bare,'hooks','pre-receive'),'#!/bin/sh\nwhile read old new ref; do\n  if [ "$ref" = "refs/heads/main" ]; then exit 1; fi\ndone\n',{mode:0o755});
+    const blockedPublish=await request(`/v1/sessions/${id}/publish`,{});
+    assert.equal(blockedPublish.status,409,JSON.stringify(blockedPublish));
+    assert.equal(execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim(),mainBefore,'protected main stays unchanged');
+    assert.equal((await active()).session.state,'ready');
+    await rm(join(bare,'hooks','pre-receive'));
+    const published=await request(`/v1/sessions/${id}/publish`,{});
+    assert.equal(published.status,200,JSON.stringify(published));
+    assert.equal(published.session.state,'ready','publishing does not close the workspace');
+    assert.equal(execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim(),execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim());
+    assert.equal(execFileSync(git,['show','main:publish-test.txt'],{cwd:bare,encoding:'utf8'}),'Publish only when explicitly requested');
     // Remote rejection must leave the workspace open and its commits intact.
     await writeFile(join(bare,'hooks','pre-receive'),'#!/bin/sh\nexit 1\n',{mode:0o755});
     await writeFile(join(repository,'close-test.txt'),'Saved before close');

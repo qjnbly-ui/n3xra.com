@@ -22,7 +22,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; operation?: "request" | "sync" | "close"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
+  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; operation?: "request" | "sync" | "close" | "publish"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -679,7 +679,7 @@ const server = createServer(async (req, res) => {
     const activeProjectMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/active$/);
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|sync|cancel|models|preview\/restart))?$/);
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|publish|sync|cancel|models|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
@@ -711,16 +711,16 @@ const server = createServer(async (req, res) => {
     if (!action && req.method === "GET") return json(res, 200, { session: publicSession(session) });
     session.lastPreviewActivity = Date.now();
     if (session.state !== "ready") return json(res, 409, { error: session.state === "working" ? "Codex is still working. Wait for its reply." : "The workspace is not ready. Reopen Build Studio to retry." });
-    if ((action === "close" || action === "sync") && req.method === "POST") {
+    if ((action === "close" || action === "sync" || action === "publish") && req.method === "POST") {
       session.state = "working"; session.operation = action;
-      progress(session, action === "close" ? "Saving your work…" : "Checking GitHub for changes…");
+      progress(session, action !== "sync" ? "Saving your work…" : "Checking GitHub for changes…");
       try {
         if (session.previewStarting) await session.previewStarting;
         if (isolated) await remoteWorkspace(session).wake();
         const identity = gitCommitIdentity();
-        if (action === "close" && (await command("git", ["status", "--porcelain"], session.cwd)).trim()) {
+        if (action !== "sync" && (await command("git", ["status", "--porcelain"], session.cwd)).trim()) {
           await command("git", ["add", "--all"], session.cwd);
-          await command("git", ["-c", "core.hooksPath=/dev/null", "commit", "-m", "Save Build Studio work before closing"], session.cwd, identity);
+          await command("git", ["-c", "core.hooksPath=/dev/null", "commit", "-m", action === "publish" ? "Save Build Studio work for publishing" : "Save Build Studio work before closing"], session.cwd, identity);
         }
         progress(session, "Syncing with GitHub…");
         await syncRepository(session);
@@ -730,12 +730,28 @@ const server = createServer(async (req, res) => {
           void startPreview(session).catch(error => emit(session, "error", String(error), { session: publicSession(session) }));
           return json(res, 200, { session: publicSession(session) });
         }
+        const publishAuth = isolated ? { GIT_ASKPASS: "/vercel/.n3xra/askpass.sh", GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: await githubInstallationToken(session.repositoryFullName) } : await gitEnvironment(session.id, session.repositoryFullName);
+        if (action === "publish") {
+          progress(session, "Checking the latest main branch…");
+          // Fetch the exact existing main branch; never create a missing main silently.
+          await command("git", ["fetch", "origin", "refs/heads/main:refs/remotes/origin/main"], session.cwd, publishAuth);
+          await syncWorkingCopy(args => command("git", args, session.cwd, { ...publishAuth, ...identity }), "main", session.workingBranch);
+        }
         progress(session, "Pushing your changes to GitHub…");
         if (isolated) await remoteWorkspace(session).push(session.workingBranch, session.repositoryFullName, await githubInstallationToken(session.repositoryFullName));
         else await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id, session.repositoryFullName));
         const auth = isolated ? { GIT_ASKPASS: "/vercel/.n3xra/askpass.sh", GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: await githubInstallationToken(session.repositoryFullName) } : await gitEnvironment(session.id, session.repositoryFullName);
         const head = await verifyRemoteHead(args => command("git", args, session.cwd, auth), session.workingBranch);
         await updateStatus(session);
+        if (action === "publish") {
+          progress(session, "Publishing to main…");
+          // A normal push rejects concurrent main changes and respects branch protection.
+          await command("git", ["push", "origin", "HEAD:refs/heads/main"], session.cwd, publishAuth);
+          const publishedHead = await verifyRemoteHead(args => command("git", args, session.cwd, publishAuth), "main");
+          session.state = "ready"; delete session.operation; delete session.syncIssue;
+          await emit(session, "push", "Published to main on GitHub. Your connected hosting service handles deployment next.", { session: await updateStatus(session), commit: publishedHead, branch: "main" });
+          return json(res, 200, { session: publicSession(session) });
+        }
         progress(session, "GitHub verified. Closing the workspace…");
         if (isolated) await remoteWorkspace(session).stop(); else await stopPreview(session);
         // Persist closed state only after push verification and successful shutdown.

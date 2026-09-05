@@ -148,7 +148,7 @@ function renderSession(session: BuildSession) {
     setSetup("Workspace closed", "All changes were verified on GitHub. Open the workspace to sync the latest repository changes.");
     previewFrame.src = "about:blank"; openPreviewLink.hidden = true;
     checkpointButton.disabled = pushButton.disabled = true;
-    byId<HTMLButtonElement>("build-close").disabled = byId<HTMLButtonElement>("build-sync").disabled = true;
+    byId<HTMLButtonElement>("build-publish").disabled = byId<HTMLButtonElement>("build-close").disabled = byId<HTMLButtonElement>("build-sync").disabled = true;
     renderActivity(); return;
   }
   const needsConnection = session.codexAuthenticated === false && session.state === "ready";
@@ -165,7 +165,7 @@ function renderSession(session: BuildSession) {
   const pauseButton = document.getElementById("build-pause") as HTMLButtonElement | null;
   if (pauseButton) pauseButton.disabled = session.state !== "ready" || session.previewState === "offline" || session.previewState === "starting";
   const cancel = byId<HTMLButtonElement>("build-cancel"); cancel.hidden = !session.cancellable; cancel.disabled = !session.cancellable;
-  byId<HTMLButtonElement>("build-close").disabled = byId<HTMLButtonElement>("build-sync").disabled = session.state !== "ready" || session.previewState === "starting";
+  byId<HTMLButtonElement>("build-publish").disabled = byId<HTMLButtonElement>("build-close").disabled = byId<HTMLButtonElement>("build-sync").disabled = session.state !== "ready" || session.previewState === "starting";
   const syncIssue = byId("build-sync-issue"); syncIssue.textContent = session.syncIssue || ""; syncIssue.hidden = !session.syncIssue;
   modelSelect.disabled = effortSelect.disabled = session.state !== "ready" || modelSessionId !== session.id;
   if (session.codexAuthenticated && session.state === "ready") void loadModels(session);
@@ -420,12 +420,12 @@ composer.addEventListener("submit", async (event) => {
     if (activeSession?.id === sessionId) renderSession(activeSession);
   }
 });
-for (const action of ["close", "sync", "cancel"] as const) {
+for (const action of ["close", "sync", "cancel", "publish"] as const) {
   byId<HTMLButtonElement>(`build-${action}`).addEventListener("click", async () => {
     if (!activeSession) return;
     const id = activeSession.id;
     byId<HTMLButtonElement>(`build-${action}`).disabled = true;
-    renderActivity(action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
+    renderActivity(action === "publish" ? "Preparing to publish to main…" : action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
     try {
       const result = await workerRequest<{ session: BuildSession }>(`/v1/sessions/${id}/${action}`, { method: "POST", body: "{}" });
       if (activeSession?.id === id) { renderSession(result.session); if (action === "close") { eventAbort?.abort(); modelSessionId = ""; } }

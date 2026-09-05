@@ -23,7 +23,9 @@ export function redactNotes(text: string): string {
 
 export function readableError(detail: string): string {
   if (/Sync needs attention:/.test(detail)) return detail.slice(detail.indexOf("Sync needs attention:")).split("Details:")[0]!.trim();
-  if (/Close (could not|found)/.test(detail)) return detail.replace(/^Error: /, "");
+  if (/(?:Close|Push) (could not|found)/.test(detail)) return detail.replace(/^Error: /, "");
+  if (/protected branch|pre-receive hook declined|GH006|GH013|non-fast-forward|fetch first/i.test(detail)) return "GitHub blocked the push. Your work is preserved. Check branch rules or sync newer changes, then try again.";
+  if (/couldn't find remote ref refs\/heads\/main/i.test(detail)) return "This repository does not have a main branch. Nothing was published.";
   if (/selected (model|thinking effort)/i.test(detail)) return detail.replace(/^Error: /, "");
   if (/sign.in|authenticat|token.*expired/i.test(detail)) return "Your connection needs attention. Reconnect your account, then try again.";
   if (/Another astro dev server|preview/i.test(detail)) return "The live preview couldn’t start. Try restarting the preview. Technical notes contain the details.";

@@ -22,7 +22,7 @@ export async function syncWorkingCopy(git: GitRunner, baseBranch: string, workin
 export async function verifyRemoteHead(git: GitRunner, branch: string) {
   const local = (await git(['rev-parse', 'HEAD'])).trim();
   const remote = (await git(['ls-remote', '--heads', 'origin', branch])).trim().split(/\s+/)[0];
-  if (!remote || remote !== local) throw new Error('Close could not verify the latest changes on GitHub. The workspace remains open; try again.');
-  if ((await git(['status', '--porcelain'])).trim()) throw new Error('Close found additional unfinished changes. The workspace remains open; try again.');
+  if (!remote || remote !== local) throw new Error('Push could not verify the latest changes on GitHub. The workspace remains open; try again.');
+  if ((await git(['status', '--porcelain'])).trim()) throw new Error('Push found additional unfinished changes. The workspace remains open; try again.');
   return local;
 }
