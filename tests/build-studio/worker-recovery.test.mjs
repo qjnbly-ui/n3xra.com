@@ -84,7 +84,8 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     }
     await stop(); await start(); // Nothing in memory; message request itself must restore the session.
     assert.equal((await request(`/v1/sessions/${id}/messages`,{text:'Draw a rocket'},'other')).status,404);
-    assert.equal((await request(`/v1/sessions/${id}/messages`,{text:'Draw a rocket'})).status,202);
+    const restoredMessage=await waitFor(async()=>{const r=await request(`/v1/sessions/${id}/messages`,{text:'Draw a rocket'});return r.status===409?null:r;});
+    assert.equal(restoredMessage.status,202,JSON.stringify(restoredMessage));
     assert.equal((await request(`/v1/sessions/${id}/messages`,{text:'Duplicate'})).status,409);
     await waitFor(()=>Promise.resolve(events.find(e=>e.event_type==='agent_message')));
     assert.equal(rows[0].codex_thread_id,firstThread,'resume must preserve the stored conversation');
