@@ -62,11 +62,11 @@ const server = createServer(async (req, res) => {
       result = {};
     } else if (input.method === "preview/status") result = { running: Boolean(preview && preview.exitCode === null && !preview.killed), output: previewOutput };
     else {
-      const allowed = new Set(["account/read", "account/login/start", "account/logout", "thread/start", "thread/resume", "turn/start"]);
+      const allowed = new Set(["account/read", "account/login/start", "account/logout", "thread/start", "thread/resume", "turn/start", "turn/interrupt", "model/list"]);
       if (!allowed.has(String(input.method))) throw new Error("Unsupported workspace operation.");
       const params = input.params || {};
       // The coordinator chooses the workspace; callers cannot select another root.
-      if (/^(thread|turn)\//.test(input.method)) params.cwd = "/vercel/repository";
+      if (["thread/start", "thread/resume", "turn/start"].includes(input.method)) params.cwd = "/vercel/repository";
       if (input.method === "turn/start") params.sandboxPolicy = { type: "externalSandbox", networkAccess: "restricted" };
       await codex.start(); result = await codex.request(input.method, params);
     }

@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=21">
-  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=3">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=4">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -37,6 +37,8 @@
             <div class="build-toolbar-actions">
               <span class="build-branch" id="build-branch">No session</span>
               <button class="build-button build-button-secondary" id="build-checkpoint" type="button" disabled>Checkpoint</button>
+              <button class="build-button build-button-secondary" id="build-sync" type="button" disabled>Sync GitHub</button>
+              <button class="build-button" id="build-close" type="button" disabled>Save, push &amp; close</button>
               <button class="build-button" id="build-push" type="button" disabled>Push branch</button>
             </div>
           </header>
@@ -47,7 +49,7 @@
             <h2 id="build-setup-title">Preparing your workspace</h2>
             <p id="build-setup-copy">Checking the selected website, repository, and secure Codex worker.</p>
             <div class="build-setup-actions">
-              <button class="build-button" id="build-start" type="button" hidden>Start building</button>
+              <button class="build-button" id="build-start" type="button" hidden>Open workspace</button>
               <button class="build-button build-button-secondary" id="build-connect" type="button" hidden>Connect Codex</button>
               <a class="build-button build-button-secondary" id="build-open-services" href="/n3xra-admin/services/" hidden>Connect repository</a>
             </div>
@@ -57,9 +59,13 @@
           <div class="build-workspace" id="build-workspace" hidden>
             <section class="build-chat" aria-label="Build conversation">
               <div class="build-chat-head"><div><p class="portal-kicker">Codex</p><h3>Build conversation</h3></div><span id="build-change-count">No changes</span></div>
+              <div class="build-model-controls"><label>Model<select id="build-model" disabled><option>Loading models…</option></select></label><label>Thinking effort<select id="build-effort" disabled><option>Default</option></select></label></div>
               <label class="build-notes-toggle"><input type="checkbox" id="build-show-notes"> Show technical notes</label>
               <div class="build-messages" id="build-messages" aria-live="polite"></div>
               <div class="build-activity" id="build-activity" role="status" aria-live="polite" hidden></div>
+              <pre class="build-activity-detail" id="build-activity-detail" hidden></pre>
+              <button class="build-button build-button-secondary build-cancel" id="build-cancel" type="button" hidden>Cancel request</button>
+              <p class="build-notice" id="build-sync-issue" hidden></p>
               <form class="build-composer" id="build-composer">
                 <textarea id="build-prompt" rows="3" placeholder="What should we build or change next?" required></textarea>
                 <div><span>Changes stay on this branch until you push.</span><button class="build-button" type="submit">Send</button></div>
@@ -88,6 +94,6 @@
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=5"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=6"></script>
 </body>
 </html>

@@ -12,6 +12,11 @@ const servicesLink = byId("build-open-services");
 const composer = byId("build-composer");
 const prompt = byId("build-prompt");
 const messages = byId("build-messages");
+const modelSelect = byId("build-model");
+const effortSelect = byId("build-effort");
+let availableModels = [];
+let modelSessionId = "";
+let modelsLoading = "";
 const activity = byId("build-activity");
 const notesToggle = byId("build-show-notes");
 const technicalEntries = [];
@@ -76,13 +81,71 @@ function addMessage(role, text) {
 function renderActivity(message = "") {
     activity.hidden = !message;
     activity.textContent = message;
+    const detail = byId("build-activity-detail");
+    detail.textContent = activeSession?.progressDetail || "";
+    detail.hidden = !message || !notesToggle.checked || !detail.textContent;
 }
 notesToggle.addEventListener("change", () => {
     technicalEntries.forEach(item => { item.hidden = !notesToggle.checked; });
+    renderActivity(activity.hidden ? "" : activity.textContent || "");
 });
+function renderEfforts(preferred = "") {
+    effortSelect.replaceChildren();
+    const model = availableModels.find(item => item.model === modelSelect.value);
+    for (const effort of model?.supportedReasoningEfforts || []) {
+        const option = document.createElement("option");
+        option.value = effort.reasoningEffort;
+        option.textContent = effort.reasoningEffort;
+        option.title = effort.description;
+        effortSelect.append(option);
+    }
+    effortSelect.value = model?.supportedReasoningEfforts.some(item => item.reasoningEffort === preferred) ? preferred : model?.defaultReasoningEffort || "";
+}
+modelSelect.addEventListener("change", () => renderEfforts());
+async function loadModels(session) {
+    if (modelSessionId === session.id || modelsLoading === session.id)
+        return;
+    modelsLoading = session.id;
+    try {
+        const result = await workerRequest(`/v1/sessions/${session.id}/models`);
+        if (activeSession?.id !== session.id || activeSession.state === "stopped")
+            return;
+        availableModels = result.models;
+        modelSelect.replaceChildren();
+        for (const model of availableModels) {
+            const option = document.createElement("option");
+            option.value = model.model;
+            option.textContent = model.displayName;
+            modelSelect.append(option);
+        }
+        modelSelect.value = availableModels.some(item => item.model === session.selectedModel) ? session.selectedModel : (availableModels.find(item => item.isDefault) || availableModels[0])?.model || "";
+        renderEfforts(session.selectedEffort);
+        modelSessionId = session.id;
+        modelSelect.disabled = effortSelect.disabled = activeSession.state !== "ready";
+        renderSession(activeSession);
+    }
+    catch {
+        setNotice("Model choices could not load. Reopen the workspace to try again.", true);
+    }
+    finally {
+        modelsLoading = "";
+    }
+}
 function renderSession(session) {
     activeSession = session;
     renderActivity(session.state === "working" ? session.progress || "Working on your request…" : sending ? "Sending your request…" : "");
+    if (session.state === "stopped") {
+        workspace.hidden = true;
+        setup.hidden = false;
+        showOnly("start");
+        setSetup("Workspace closed", "All changes were verified on GitHub. Open the workspace to sync the latest repository changes.");
+        previewFrame.src = "about:blank";
+        openPreviewLink.hidden = true;
+        checkpointButton.disabled = pushButton.disabled = true;
+        byId("build-close").disabled = byId("build-sync").disabled = true;
+        renderActivity();
+        return;
+    }
     const needsConnection = session.codexAuthenticated === false && session.state === "ready";
     setup.hidden = !needsConnection;
     if (needsConnection) {
@@ -99,7 +162,17 @@ function renderSession(session) {
     const pauseButton = document.getElementById("build-pause");
     if (pauseButton)
         pauseButton.disabled = session.state !== "ready" || session.previewState === "offline" || session.previewState === "starting";
-    prompt.disabled = sending || session.state !== "ready" || session.codexAuthenticated === false;
+    const cancel = byId("build-cancel");
+    cancel.hidden = !session.cancellable;
+    cancel.disabled = !session.cancellable;
+    byId("build-close").disabled = byId("build-sync").disabled = session.state !== "ready" || session.previewState === "starting";
+    const syncIssue = byId("build-sync-issue");
+    syncIssue.textContent = session.syncIssue || "";
+    syncIssue.hidden = !session.syncIssue;
+    modelSelect.disabled = effortSelect.disabled = session.state !== "ready" || modelSessionId !== session.id;
+    if (session.codexAuthenticated && session.state === "ready")
+        void loadModels(session);
+    prompt.disabled = Boolean(session.codexAuthenticated && modelSessionId !== session.id) || Boolean(session.syncIssue) || sending || session.state !== "ready" || session.codexAuthenticated === false;
     composer.querySelector('button[type="submit"]').disabled = prompt.disabled;
     renderPreview(session);
 }
@@ -154,6 +227,8 @@ function handleWorkerEvent(event) {
     const session = event.metadata?.session;
     if (session?.state === "failed") {
         activeSession = null;
+        modelSessionId = "";
+        availableModels = [];
         renderActivity();
         eventAbort?.abort();
         workspace.hidden = true;
@@ -261,7 +336,7 @@ async function inspectWorker() {
             setNotice(active.session.state === "preparing" ? "Restored the workspace. Preparation is still running." : "Workspace restored.");
             return;
         }
-        setSetup("Ready to build", "Open a secure branch and live preview for this website.");
+        setSetup(active.closed ? "Workspace closed" : "Ready to build", active.closed ? "All changes were verified on GitHub. Open the workspace to sync the latest repository changes." : "Open a secure branch and live preview for this website.");
         showOnly("start");
     }
     catch (error) {
@@ -323,6 +398,8 @@ async function initialize() {
         if (currentWebsite)
             writeWorkspaceContext("admin", context.session.user.id, { websiteId: currentWebsite.id, name: currentWebsite.name });
         activeSession = null;
+        modelSessionId = "";
+        availableModels = [];
         renderActivity();
         eventAbort?.abort();
         messages.replaceChildren();
@@ -367,7 +444,7 @@ composer.addEventListener("submit", async (event) => {
     sending = true;
     renderSession(activeSession);
     try {
-        await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+        await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text, model: modelSelect.value, effort: effortSelect.value }) });
         if (activeSession?.id === sessionId)
             prompt.value = "";
     }
@@ -381,6 +458,30 @@ composer.addEventListener("submit", async (event) => {
             renderSession(activeSession);
     }
 });
+for (const action of ["close", "sync", "cancel"]) {
+    byId(`build-${action}`).addEventListener("click", async () => {
+        if (!activeSession)
+            return;
+        const id = activeSession.id;
+        byId(`build-${action}`).disabled = true;
+        renderActivity(action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
+        try {
+            const result = await workerRequest(`/v1/sessions/${id}/${action}`, { method: "POST", body: "{}" });
+            if (activeSession?.id === id) {
+                renderSession(result.session);
+                if (action === "close") {
+                    eventAbort?.abort();
+                    modelSessionId = "";
+                }
+            }
+        }
+        catch (error) {
+            setNotice(error instanceof Error ? error.message : "The action could not finish.", true);
+            if (activeSession?.id === id)
+                renderSession(activeSession);
+        }
+    });
+}
 checkpointButton.addEventListener("click", async () => {
     if (!activeSession)
         return;

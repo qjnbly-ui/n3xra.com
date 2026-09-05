@@ -13,6 +13,8 @@ import { VercelWorkspace } from "./vercel-workspace.js";
 import { gitCommitIdentity } from "./git-identity.js";
 import { ConversationTurn, conversationSchema, readableError, redactNotes } from "./conversation.js";
 
+import { syncWorkingCopy, verifyRemoteHead } from "./workspace-sync.js";
+
 type Json = Record<string, any>;
 type Identity = { id: string; email?: string };
 type Session = {
@@ -20,7 +22,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean; progress?: string;
+  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; operation?: "request" | "sync" | "close"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -70,8 +72,31 @@ function sessionCodex(session: Session) {
     account: () => remote.rpc("account/read", { refreshToken: false }),
     startThread: async (_cwd: string) => (await remote.rpc("thread/start", { cwd: "/vercel/repository", approvalPolicy: "never", sandbox: "workspace-write", personality: "pragmatic" })).thread.id as string,
     resumeThread: async (threadId: string, _cwd: string) => (await remote.rpc("thread/resume", { threadId, cwd: "/vercel/repository", approvalPolicy: "never", sandbox: "workspace-write" })).thread.id as string,
-    startTurn: (threadId: string, _cwd: string, text: string) => remote.rpc("turn/start", { threadId, approvalPolicy: "never", outputSchema: conversationSchema, input: [{ type: "text", text }] }),
+    startTurn: (threadId: string, _cwd: string, text: string, _schema?: unknown, settings: Json = {}) => remote.rpc("turn/start", { threadId, approvalPolicy: "never", outputSchema: conversationSchema, ...settings, input: [{ type: "text", text }] }),
   };
+}
+
+async function codexRequest(session: Session, method: string, params: Json = {}) {
+  if (isolated) return remoteWorkspace(session).rpc(method, params);
+  await codex.start(); return codex.request<Json>(method, params);
+}
+async function modelCatalog(session: Session) {
+  if (session.models) return session.models;
+  const models: Json[] = []; let cursor: string | undefined;
+  do {
+    const page = await codexRequest(session, "model/list", { limit: 50, includeHidden: false, ...(cursor ? { cursor } : {}) });
+    models.push(...(page.data || [])); cursor = page.nextCursor || undefined;
+  } while (cursor && models.length < 500);
+  session.models = models.filter(item => !item.hidden).map(item => ({ model: item.model, displayName: item.displayName, isDefault: item.isDefault, defaultReasoningEffort: item.defaultReasoningEffort, supportedReasoningEfforts: item.supportedReasoningEfforts || [] }));
+  return session.models;
+}
+async function syncRepository(session: Session) {
+  await prepareRepository(session);
+  const auth = isolated ? { GIT_ASKPASS: "/vercel/.n3xra/askpass.sh", GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: await githubInstallationToken(session.repositoryFullName) } : await gitEnvironment(session.id, session.repositoryFullName);
+  let identity: NodeJS.ProcessEnv = {};
+  try { identity = gitCommitIdentity(); } catch { /* Fast-forward sync does not need a commit author. */ }
+  await syncWorkingCopy(args => command("git", args, session.cwd, { ...auth, ...identity }), session.baseBranch, session.workingBranch);
+  session.syncIssue = "";
 }
 
 async function logResources(stage: string, session: Session) {
@@ -168,9 +193,9 @@ async function gitEnvironment(sessionId: string, repositoryFullName: string) {
 function broadcast(session: Session, event: Json) {
   listeners.get(session.id)?.forEach((res) => res.write(`data: ${JSON.stringify(event)}\n\n`));
 }
-function progress(session: Session, message: string) {
-  if (session.progress === message) return;
-  session.progress = message;
+function progress(session: Session, message: string, detail = "") {
+  if (session.progress === message && session.progressDetail === detail) return;
+  session.progress = message; session.progressDetail = redactNotes(detail);
   broadcast(session, { eventType: "progress", message, metadata: { session: publicSession(session) } });
 }
 async function emit(session: Session, eventType: string, message = "", metadata: Json = {}, technicalNotes = "") {
@@ -187,7 +212,7 @@ async function emit(session: Session, eventType: string, message = "", metadata:
 
 function publicSession(session: Session) {
   const publicUrl = process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-  return { id: session.id, state: session.state, progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
+  return { id: session.id, state: session.state, cancellable: session.operation === "request" && !session.cancelRequested, syncIssue: session.syncIssue || "", selectedModel: session.selectedModel || "", selectedEffort: session.selectedEffort || "", progressDetail: session.state === "working" ? session.progressDetail || "" : "", progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
 }
 
 async function sessionEvents(sessionId: string) {
@@ -215,8 +240,10 @@ async function prepareRepository(session: Session) {
   }
   await command("git", ["fetch", "origin", session.baseBranch], session.cwd, gitEnv);
   const branches = await command("git", ["branch", "--list", session.workingBranch], session.cwd);
+  const remoteWork = await command("git", ["ls-remote", "--heads", "origin", session.workingBranch], session.cwd, gitEnv);
+  if (remoteWork) await command("git", ["fetch", "origin", `${session.workingBranch}:refs/remotes/origin/${session.workingBranch}`], session.cwd, gitEnv);
   if (branches) await command("git", ["checkout", session.workingBranch], session.cwd);
-  else await command("git", ["checkout", "-b", session.workingBranch, `origin/${session.baseBranch}`], session.cwd);
+  else await command("git", ["checkout", "-b", session.workingBranch, `origin/${remoteWork ? session.workingBranch : session.baseBranch}`], session.cwd);
 }
 
 async function startPreview(session: Session) {
@@ -412,7 +439,7 @@ async function prepareProjectOnce(session: Session) {
       if (status.activeTurn?.turnId) {
         session.codexThreadId = String(status.activeTurn.threadId);
         session.codexAuthenticated = true;
-        session.state = "working";
+        session.state = "working"; session.operation = "request"; session.activeTurnId = String(status.activeTurn.turnId);
         session.previewBasePath = `/preview/${session.id}/`;
         session.previewState = status.previewRunning ? "ready" : "offline";
         session.lastPreviewActivity = Date.now();
@@ -423,7 +450,8 @@ async function prepareProjectOnce(session: Session) {
       }
     }
     await emit(session, "status", "Opening the connected GitHub repository.", { session: publicSession(session) });
-    await prepareRepository(session);
+    try { await syncRepository(session); }
+    catch (error) { session.syncIssue = readableError(String(error)); await emit(session, "error", String(error)); }
     if (!sessions.has(session.id)) return;
     await emit(session, "status", "Starting the secure Codex workspace.", { session: publicSession(session) });
     if (isolated) session.codexAuthenticated = Boolean((await sessionCodex(session).account()).account);
@@ -490,7 +518,7 @@ async function activeProject(user: Identity, websiteId: string) {
   const rows = await supabase(`/rest/v1/website_build_sessions?website_id=eq.${encodeURIComponent(websiteId)}&created_by_user_id=eq.${encodeURIComponent(user.id)}&archived_at=is.null&select=id,website_id,created_by_user_id,repository_full_name,base_branch,working_branch,codex_thread_id,state,preview_state,changed_file_count&order=created_at.desc&limit=1`);
   const row = Array.isArray(rows) ? rows[0] : null;
   if (!row) return { session: null, events: [] };
-  if (["failed", "stopped"].includes(String(row.state))) return { session: null, events: [] };
+  if (["failed", "stopped"].includes(String(row.state))) return { session: null, events: [], closed: row.state === "stopped" };
   const session = await recoverSession(user, String(row.id));
   return { session: session ? publicSession(session) : null, events: session ? await sessionEvents(session.id) : [] };
 }
@@ -513,6 +541,9 @@ async function recoverSession(user: Identity, id: string): Promise<Session | nul
       state: "preparing", previewState: "starting", changedFileCount: Number(row.changed_file_count || 0),
       previewToken: createHash("sha256").update(randomUUID()).digest("hex"),
     };
+    const choices = await supabase(`/rest/v1/website_build_events?session_id=eq.${session.id}&event_type=eq.user_message&select=metadata&order=id.desc&limit=1`);
+    if (choices?.[0]?.metadata?.model) session.selectedModel = String(choices[0].metadata.model);
+    if (choices?.[0]?.metadata?.effort) session.selectedEffort = String(choices[0].metadata.effort);
     sessions.set(session.id, session);
     void prepareProject(session);
     return session;
@@ -535,7 +566,7 @@ function handleCodexEvent(method: string, params: Json, sourceSessionId?: string
     for (const session of sessions.values()) {
       if (sourceSessionId && session.id !== sourceSessionId) continue;
       if (session.state !== "working") continue;
-      session.state = "ready"; session.progress = "";
+      session.state = "ready"; session.progress = ""; delete session.operation; delete session.activeTurnId; session.cancelRequested = false;
       const detail = String(params.message || "Codex disconnected");
       void updateStatus(session).catch(() => publicSession(session)).then((state) => emit(session, "error", "The builder was disconnected before finishing.", { session: state }, detail)).catch(() => broadcast(session, { eventType: "error", message: readableError(detail), metadata: { session: publicSession(session) } }));
     }
@@ -555,21 +586,23 @@ function handleCodexEvent(method: string, params: Json, sourceSessionId?: string
   if (method === "item/agentMessage/delta") conversation.delta(String(params.itemId || ""), String(params.delta || ""));
   if (method === "item/started" || method === "item/completed") {
     const update = conversation.item(params.item || {}, method === "item/completed");
-    if (update) progress(session, update);
+    if (update && !session.cancelRequested) progress(session, update, JSON.stringify(params.item || {}));
   }
   if (method === "turn/completed") {
     for (const item of turn?.items || []) conversation.item(item, true);
-    const failed = turn?.status !== "completed";
+    const cancelled = turn?.status === "interrupted" && session.cancelRequested;
+    const failed = turn?.status !== "completed" && !cancelled;
     const failure = failed ? String(turn?.error?.message || "The builder was interrupted before finishing.") : undefined;
     const result = conversation.finish(failure);
-    conversationTurns.delete(turnId); turnSessions.delete(turnId);
+    if (cancelled) result.message = "Request canceled. Any changes already made are still here for you to review.";
+    conversationTurns.delete(turnId); turnSessions.delete(turnId); delete session.operation; delete session.activeTurnId;
     progress(session, "Finishing the update…");
     session.lastPreviewActivity = Date.now();
     void (async () => {
       let diagnostics = result.technicalNotes;
       try { await updateStatus(session); }
       catch (error) { diagnostics += `\nChange check failed: ${String(error)}`; result.message += " I couldn’t refresh the list of changed files. Refresh before saving."; }
-      session.state = "ready"; session.progress = "";
+      session.state = "ready"; session.progress = ""; delete session.operation; delete session.activeTurnId; session.cancelRequested = false;
       await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "ready" }) }).catch(() => null);
       await emit(session, failed ? "error" : "agent_message", result.message, { session: publicSession(session) }, diagnostics);
     })().catch(() => broadcast(session, { eventType: "error", message: "Your reply could not be saved. Refresh before continuing.", metadata: { session: publicSession(session) } }));
@@ -622,7 +655,7 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/healthz") return json(res, 200, { ok: true });
     if (url.pathname.startsWith("/preview/")) {
       const session = previewSession(req, url);
-      if (!session) return json(res, 404, { error: "Preview not found." });
+      if (!session || session.state === "stopped") return json(res, 404, { error: "Preview not found. Open the workspace first." });
       session.lastPreviewActivity = Date.now();
       return await proxyPreview(req, res, session, session.previewBasePath === "/" ? `/${url.pathname.split("/").slice(3).join("/")}` : url.pathname);
     }
@@ -646,7 +679,7 @@ const server = createServer(async (req, res) => {
     const activeProjectMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/active$/);
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|preview\/restart))?$/);
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|sync|cancel|models|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
@@ -660,10 +693,63 @@ const server = createServer(async (req, res) => {
       res.write(`data: ${JSON.stringify({ eventType: "session", metadata: { session: publicSession(session) } })}\n\n`);
       return;
     }
+    if (action === "cancel" && req.method === "POST") {
+      if (session.operation !== "request") return json(res, 409, { error: "There is no active request to cancel." });
+      session.cancelRequested = true;
+      progress(session, "Canceling your request…");
+      if (session.activeTurnId) {
+        try { await codexRequest(session, "turn/interrupt", { threadId: session.codexThreadId, turnId: session.activeTurnId }); }
+        catch (error) { session.cancelRequested = false; throw error; }
+      }
+      return json(res, 202, { session: publicSession(session) });
+    }
     if (session.preparation) await session.preparation;
+    if (action === "models" && req.method === "GET") {
+      if (session.state === "stopped") return json(res, 409, { error: "Open the workspace first." });
+      return json(res, 200, { models: await modelCatalog(session) });
+    }
     if (!action && req.method === "GET") return json(res, 200, { session: publicSession(session) });
     session.lastPreviewActivity = Date.now();
     if (session.state !== "ready") return json(res, 409, { error: session.state === "working" ? "Codex is still working. Wait for its reply." : "The workspace is not ready. Reopen Build Studio to retry." });
+    if ((action === "close" || action === "sync") && req.method === "POST") {
+      session.state = "working"; session.operation = action;
+      progress(session, action === "close" ? "Saving your work…" : "Checking GitHub for changes…");
+      try {
+        if (session.previewStarting) await session.previewStarting;
+        if (isolated) await remoteWorkspace(session).wake();
+        const identity = gitCommitIdentity();
+        if (action === "close" && (await command("git", ["status", "--porcelain"], session.cwd)).trim()) {
+          await command("git", ["add", "--all"], session.cwd);
+          await command("git", ["-c", "core.hooksPath=/dev/null", "commit", "-m", "Save Build Studio work before closing"], session.cwd, identity);
+        }
+        progress(session, "Syncing with GitHub…");
+        await syncRepository(session);
+        if (action === "sync") {
+          session.state = "ready"; delete session.operation;
+          await emit(session, "status", "Workspace synced with GitHub.", { session: await updateStatus(session) });
+          void startPreview(session).catch(error => emit(session, "error", String(error), { session: publicSession(session) }));
+          return json(res, 200, { session: publicSession(session) });
+        }
+        progress(session, "Pushing your changes to GitHub…");
+        if (isolated) await remoteWorkspace(session).push(session.workingBranch, session.repositoryFullName, await githubInstallationToken(session.repositoryFullName));
+        else await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id, session.repositoryFullName));
+        const auth = isolated ? { GIT_ASKPASS: "/vercel/.n3xra/askpass.sh", GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: await githubInstallationToken(session.repositoryFullName) } : await gitEnvironment(session.id, session.repositoryFullName);
+        const head = await verifyRemoteHead(args => command("git", args, session.cwd, auth), session.workingBranch);
+        await updateStatus(session);
+        progress(session, "GitHub verified. Closing the workspace…");
+        if (isolated) await remoteWorkspace(session).stop(); else await stopPreview(session);
+        // Persist closed state only after push verification and successful shutdown.
+        await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "stopped", preview_state: "offline", changed_file_count: 0 }) });
+        session.state = "stopped"; session.previewState = "offline"; delete session.operation;
+        await emit(session, "push", "Workspace closed. All changes are saved on GitHub on this workspace’s branch.", { session: publicSession(session), commit: head, branch: session.workingBranch });
+        return json(res, 200, { session: publicSession(session) });
+      } catch (error) {
+        session.state = "ready"; delete session.operation; session.syncIssue = readableError(String(error));
+        await updateStatus(session).catch(() => null);
+        await emit(session, "error", String(error), { session: publicSession(session) });
+        return json(res, 409, { error: readableError(String(error)), session: publicSession(session) });
+      }
+    }
     if (action === "pause" && req.method === "POST") {
       if (session.previewStarting) return json(res, 409, { error: "Wait for preview preparation to finish before pausing." });
       session.state = "working";
@@ -680,19 +766,31 @@ const server = createServer(async (req, res) => {
       if (!text) return json(res, 400, { error: "A build instruction is required." });
       // Reserve the session before any awaits so two requests cannot start overlapping turns.
       if (session.state !== "ready") return json(res, 409, { error: "Codex is still working." });
-      session.state = "working";
+      if (session.syncIssue) return json(res, 409, { error: session.syncIssue });
+      session.state = "working"; session.operation = "request"; session.cancelRequested = false;
       progress(session, "Opening your workspace…");
       try {
         if (isolated) await remoteWorkspace(session).wake();
+        const models = await modelCatalog(session);
+        const requested = String(input.model || session.selectedModel || "");
+        const model = models.find(item => item.model === requested) || (!requested ? models.find(item => item.isDefault) || models[0] : undefined);
+        if (!model) throw new Error("The selected model is unavailable. Choose another model.");
+        const effort = String(input.effort || (session.selectedModel === model.model ? session.selectedEffort : "") || model.defaultReasoningEffort || "");
+        if (!model.supportedReasoningEfforts.some((item: Json) => item.reasoningEffort === effort)) throw new Error("The selected thinking effort is unavailable for this model.");
+        session.selectedModel = model.model; session.selectedEffort = effort;
         await ensureThread(session);
-        await emit(session, "user_message", text, { session: publicSession(session) });
+        await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort });
         const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes. Speak to the website owner in clear everyday language. Your final response must match the requested JSON schema: message is the short user-facing reply, and technicalNotes holds file paths, commands, test results, and diagnostic details. Keep meaningful limitations and actions the owner needs in message. Do not claim a check succeeded unless you ran it. Never include secrets in either field.\n\n";
         progress(session, "Working on your request…");
-        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`, conversationSchema);
-        if (session.state === "working") turnSessions.set(turn.turn.id, session.id);
+        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`, conversationSchema, { model: session.selectedModel!, effort: session.selectedEffort! });
+        if (session.state === "working" && session.operation === "request") {
+          turnSessions.set(turn.turn.id, session.id); session.activeTurnId = turn.turn.id;
+          if (session.cancelRequested) await codexRequest(session, "turn/interrupt", { threadId: session.codexThreadId, turnId: turn.turn.id });
+          else progress(session, "Working on your request…");
+        }
         return json(res, 202, { accepted: true });
       } catch (error) {
-        session.state = "ready";
+        session.state = "ready"; delete session.operation; session.cancelRequested = false;
         await emit(session, "error", String((error as Error).message), { session: await updateStatus(session) });
         return json(res, 500, { error: readableError(String(error)), recorded: true });
       }
@@ -737,7 +835,7 @@ const server = createServer(async (req, res) => {
 server.on("upgrade", (req, socket, head) => {
   const url = new URL(req.url || "/", "http://worker.local");
   const session = previewSession(req, url);
-  if (!session || !url.pathname.startsWith("/preview/")) { socket.destroy(); return; }
+  if (!session || session.state === "stopped" || !url.pathname.startsWith("/preview/")) { socket.destroy(); return; }
   const origin = req.headers.origin;
   const publicOrigin = new URL(process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).origin;
   if (origin && origin !== publicOrigin && !allowedOrigins.has(origin)) { socket.destroy(); return; }

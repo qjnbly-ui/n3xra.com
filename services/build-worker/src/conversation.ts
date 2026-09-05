@@ -1,4 +1,4 @@
-type Item = { id?: string; type?: string; phase?: string; text?: string; command?: string; aggregatedOutput?: string; exitCode?: number; changes?: unknown };
+type Item = { id?: string; type?: string; phase?: string; text?: string; command?: string; aggregatedOutput?: string; exitCode?: number; commandActions?: { type?: string; path?: string; name?: string }[]; changes?: { path?: string }[] };
 
 export const conversationSchema = {
   type: "object",
@@ -22,6 +22,9 @@ export function redactNotes(text: string): string {
 }
 
 export function readableError(detail: string): string {
+  if (/Sync needs attention:/.test(detail)) return detail.slice(detail.indexOf("Sync needs attention:")).split("Details:")[0]!.trim();
+  if (/Close (could not|found)/.test(detail)) return detail.replace(/^Error: /, "");
+  if (/selected (model|thinking effort)/i.test(detail)) return detail.replace(/^Error: /, "");
   if (/sign.in|authenticat|token.*expired/i.test(detail)) return "Your connection needs attention. Reconnect your account, then try again.";
   if (/Another astro dev server|preview/i.test(detail)) return "The live preview couldn’t start. Try restarting the preview. Technical notes contain the details.";
   if (/git.*author|commit.*identity|verified.*identity/i.test(detail)) return "Saving needs a connected GitHub identity. The administrator needs to check the builder’s GitHub settings.";
@@ -45,11 +48,26 @@ export class ConversationTurn {
       if (item.phase) entry.phase = item.phase;
       if (completed && typeof item.text === "string") entry.text = item.text.slice(-32_000);
       this.messages.set(String(item.id), entry);
+      if (completed && item.phase === "commentary" && entry.text.trim()) {
+        let text = entry.text;
+        try { text = JSON.parse(text).message || ""; } catch { if (text.startsWith("{")) text = ""; }
+        if (text) return redactNotes(text).slice(0, 600);
+      }
       return item.phase === "final_answer" ? "Preparing your reply…" : "Working through your request…";
     }
     if (completed && ["commandExecution", "fileChange"].includes(String(item.type))) {
       this.notes.push(redactNotes(JSON.stringify({ type: item.type, command: item.command, output: item.aggregatedOutput, exitCode: item.exitCode, changes: item.changes }).slice(-6000)));
       if (this.notes.length > 30) this.notes.shift();
+    }
+    if (item.type === "fileChange") {
+      const paths = (item.changes || []).map(change => change.path?.replace(/^\/vercel\/repository\//, "")).filter(Boolean).slice(0, 3);
+      return `${completed ? "Updated" : "Updating"} ${paths.length ? paths.join(", ") : "the website"}${completed ? "." : "…"}`;
+    }
+    if (item.type === "commandExecution") {
+      if (completed) return item.exitCode === 0 ? "Check finished. Reviewing the result…" : "A check needs attention. Reviewing the result…";
+      const action = item.commandActions?.find(action => action.type === "read" || action.type === "search");
+      if (action) return action.type === "read" ? `Reading ${(action.name || action.path || "the website files").slice(0,160)}…` : "Searching the website files…";
+      if (/npm (run build|test)|vitest|tsc|pytest/.test(item.command || "")) return "Running website checks…";
     }
     return ({ commandExecution: "Checking the website…", fileChange: "Updating the website…", webSearch: "Looking up information…", mcpToolCall: "Working with the connected tools…", contextCompaction: "Organizing the conversation so I can continue…" } as Record<string, string>)[String(item.type)];
   }

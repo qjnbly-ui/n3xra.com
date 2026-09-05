@@ -53,3 +53,10 @@
 .build-activity::before { content: ""; width: 10px; height: 10px; border: 2px solid #a4c7be; border-top-color: #0c4b42; border-radius: 50%; animation: build-working 1s linear infinite; }
 @keyframes build-working { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .build-activity::before { animation: none; } }
+
+.build-model-controls { display:flex; gap:10px; padding:10px 16px; background:#fff; }
+.build-model-controls label { display:grid; gap:4px; min-width:0; flex:1; font-size:.72rem; color:#536269; }
+.build-model-controls select { width:100%; min-height:34px; border:1px solid #d5dee0; border-radius:8px; background:#fff; color:#172027; }
+.build-activity-detail { max-height:130px; overflow:auto; margin:0; padding:10px 16px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.7rem; background:#eef2f4; }
+.build-cancel { align-self:flex-start; margin:8px 16px; }
+.build-toolbar-actions { flex-wrap:wrap; justify-content:flex-end; }

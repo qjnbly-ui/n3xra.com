@@ -36,11 +36,11 @@ test('idle previews clearly pause, unload the old page, and reload when resumed'
  assert.equal(get('build-preview-status').textContent,'Live preview');
 });
 test('each isolated workspace requires its own sign-in before editing',async()=>{
- const {api,get}=await frontend();api.renderSession(session({codexAuthenticated:false}));
+ const {api,get}=await frontend(async()=>({ok:true,json:async()=>({models:[{model:'fixture',displayName:'Fixture',isDefault:true,defaultReasoningEffort:'low',supportedReasoningEfforts:[{reasoningEffort:'low'}]}]})}));api.renderSession(session({codexAuthenticated:false}));
  assert.equal(get('build-setup').hidden,false);assert.equal(get('build-connect').hidden,false);
  assert.equal(get('build-workspace').hidden,false);assert.equal(get('build-prompt').disabled,true);
  api.handleWorkerEvent({id:3,eventType:'session',metadata:{session:session({codexAuthenticated:true})}});
- assert.equal(get('build-setup').hidden,true);assert.equal(get('build-prompt').disabled,false);
+ await new Promise(setImmediate);assert.equal(get('build-setup').hidden,true);assert.equal(get('build-prompt').disabled,false);
 });
 test('historical diagnostic output is hidden without rewriting saved messages',async()=>{
  const {api,get}=await frontend();api.renderSession(session());
@@ -77,4 +77,15 @@ test('sending immediately displays activity before the server accepts the reques
  assert.equal(get('build-activity').hidden,false);assert.equal(get('build-activity').textContent,'Sending your request…');
  assert.equal(get('send').disabled,true);
  resolveRequest({ok:true,json:async()=>({accepted:true})});await pending;
+});
+
+test('closed workspace offers explicit reopen and disables editing controls',async()=>{
+ const {api,get}=await frontend();api.renderSession(session({state:'stopped',previewState:'offline'}));
+ assert.equal(get('build-workspace').hidden,true);assert.equal(get('build-start').hidden,false);
+ assert.equal(get('build-setup-title').textContent,'Workspace closed');assert.equal(get('build-close').disabled,true);
+});
+test('cancel is available only for an active request and sync problems block editing',async()=>{
+ const {api,get}=await frontend();api.renderSession(session({state:'working',cancellable:true}));assert.equal(get('build-cancel').hidden,false);
+ api.renderSession(session({state:'working',cancellable:false}));assert.equal(get('build-cancel').hidden,true);
+ api.renderSession(session({syncIssue:'Save your unfinished changes first.'}));assert.equal(get('build-prompt').disabled,true);assert.equal(get('build-sync-issue').hidden,false);
 });

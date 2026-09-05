@@ -118,7 +118,7 @@ export class CodexAppServer {
     return result.thread.id;
   }
 
-  async startTurn(threadId: string, cwd: string, text: string, outputSchema?: Record<string, unknown>) {
+  async startTurn(threadId: string, cwd: string, text: string, outputSchema?: Record<string, unknown>, settings: { model?: string; effort?: string } = {}) {
     await this.start();
     return this.request<{ turn: { id: string } }>("turn/start", {
       threadId,
@@ -128,6 +128,7 @@ export class CodexAppServer {
         ? { type: "externalSandbox", networkAccess: "restricted" }
         : { type: "workspaceWrite", writableRoots: [cwd], networkAccess: false },
       outputSchema,
+      ...settings,
       input: [{ type: "text", text }],
     });
   }
