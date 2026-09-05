@@ -10,6 +10,7 @@ import { pipeline } from "node:stream/promises";
 import { CodexAppServer } from "./codex-app-server.js";
 import { signalProcessGroup as killProcessGroup, stopProcessGroup } from "./process-lifecycle.js";
 import { VercelWorkspace } from "./vercel-workspace.js";
+import { gitCommitIdentity } from "./git-identity.js";
 
 type Json = Record<string, any>;
 type Identity = { id: string; email?: string };
@@ -673,8 +674,9 @@ const server = createServer(async (req, res) => {
         if (isolated) await remoteWorkspace(session).wake();
         if (action === "checkpoint") {
           const input = await body(req);
+          const identity = gitCommitIdentity();
           await command("git", ["add", "--all"], session.cwd);
-          await command("git", ["commit", "-m", String(input.message || "Build Studio checkpoint").slice(0, 120)], session.cwd);
+          await command("git", ["commit", "-m", String(input.message || "Build Studio checkpoint").slice(0, 120)], session.cwd, identity);
         } else if (isolated) await remoteWorkspace(session).push(session.workingBranch, session.repositoryFullName, await githubInstallationToken(session.repositoryFullName));
         else await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id, session.repositoryFullName));
         session.state = "ready";

@@ -158,8 +158,6 @@ export class VercelWorkspace {
     if (remote) await this.command("git", ["fetch", "origin", `${workingBranch}:refs/remotes/origin/${workingBranch}`], env);
     const local = await this.command("git", ["branch", "--list", workingBranch]);
     await this.command("git", local ? ["checkout", workingBranch] : ["checkout", "-b", workingBranch, `origin/${remote ? workingBranch : baseBranch}`]);
-    await this.command("git", ["config", "user.name", "N3XRA Build Studio"]);
-    await this.command("git", ["config", "user.email", "build-studio@n3xra.com"]);
   }
   private async importExisting() {
     // Stream bounded chunks: never load a customer's entire repository into Render RAM.
