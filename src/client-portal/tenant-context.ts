@@ -130,6 +130,10 @@ export function applyPortalTenantBranding(resolution: PortalTenantResolution): P
   const identity = portalBrandIdentity(resolution);
   if (!identity) return null;
 
+  // KCFDB uses a full wordmark in its header and a text-only sign-in screen.
+  const isKcfdb = resolution.website_slug === "klamath-county-fire-defense-board";
+  const isLogin = window.location.pathname.replace(/\/$/, "") === "/client-portal/login";
+  if (isKcfdb && isLogin) identity.logoUrl = "";
   const root = document.documentElement;
   root.classList.add("portal-white-label-host", "portal-white-label-ready");
   root.style.setProperty("--portal-deep", identity.primaryColor);
@@ -145,10 +149,18 @@ export function applyPortalTenantBranding(resolution: PortalTenantResolution): P
     brand.setAttribute("aria-label", `${identity.websiteName} management portal`);
     const label = brand.querySelector<HTMLElement>("span");
     if (label) label.textContent = identity.websiteName;
+    const wordmark = isKcfdb && Boolean(identity.logoUrl);
+    brand.classList.toggle("portal-brand-wordmark", wordmark);
+    if (label) label.hidden = wordmark;
     const image = brand.querySelector<HTMLImageElement>("img");
     if (image) {
       image.hidden = !identity.logoUrl;
       image.alt = identity.logoUrl ? `${identity.websiteName} logo` : "";
+      image.onerror = () => {
+        image.hidden = true;
+        brand.classList.remove("portal-brand-wordmark");
+        if (label) label.hidden = false;
+      };
       if (identity.logoUrl) image.src = identity.logoUrl;
       else image.removeAttribute("src");
     }

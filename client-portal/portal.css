@@ -3093,3 +3093,7 @@ html.portal-white-label-host .site-nav-actions > a[href^="/account"] {
     text-align: left;
   }
 }
+
+/* Hidden logos must not retain a visible image box. */
+.site-brand img[hidden], .site-brand span[hidden]{display:none!important}
+.site-brand.portal-brand-wordmark img{width:min(420px,65vw);height:auto;max-height:76px;max-width:100%;object-fit:contain}
