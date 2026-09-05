@@ -22,7 +22,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; operation?: "request" | "sync" | "close" | "publish"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
+  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; savedHead?: string; savedBranch?: string; operation?: "request" | "sync" | "close" | "publish" | "save"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -212,7 +212,7 @@ async function emit(session: Session, eventType: string, message = "", metadata:
 
 function publicSession(session: Session) {
   const publicUrl = process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-  return { id: session.id, state: session.state, cancellable: session.operation === "request" && !session.cancelRequested, syncIssue: session.syncIssue || "", selectedModel: session.selectedModel || "", selectedEffort: session.selectedEffort || "", progressDetail: session.state === "working" ? session.progressDetail || "" : "", progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
+  return { id: session.id, state: session.state, canClose: Boolean(session.savedHead && session.state === "ready" && !session.changedFileCount && !session.hasUnpushedCommits), cancellable: session.operation === "request" && !session.cancelRequested, syncIssue: session.syncIssue || "", selectedModel: session.selectedModel || "", selectedEffort: session.selectedEffort || "", progressDetail: session.state === "working" ? session.progressDetail || "" : "", progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
 }
 
 async function sessionEvents(sessionId: string) {
@@ -229,6 +229,7 @@ async function updateStatus(session: Session) {
   const upstream = remote ? `origin/${session.workingBranch}` : `origin/${session.baseBranch}`;
   session.hasUnpushedCommits = Number(await command("git", ["rev-list", "--count", `${upstream}..HEAD`], session.cwd)) > 0;
   session.changedFileCount = value ? value.split("\n").length : 0;
+  if (session.savedHead && (session.changedFileCount || session.hasUnpushedCommits || (await command("git", ["rev-parse", "HEAD"], session.cwd)).trim() !== session.savedHead)) { delete session.savedHead; delete session.savedBranch; }
   await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: session.state, changed_file_count: session.changedFileCount, preview_state: session.previewState, last_activity_at: new Date().toISOString() }) });
   return publicSession(session);
 }
@@ -688,7 +689,7 @@ const server = createServer(async (req, res) => {
     const activeProjectMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/active$/);
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|publish|sync|cancel|models|preview\/restart))?$/);
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
@@ -720,7 +721,8 @@ const server = createServer(async (req, res) => {
     if (!action && req.method === "GET") return json(res, 200, { session: publicSession(session) });
     session.lastPreviewActivity = Date.now();
     if (session.state !== "ready") return json(res, 409, { error: session.state === "working" ? "Codex is still working. Wait for its reply." : "The workspace is not ready. Reopen Build Studio to retry." });
-    if ((action === "close" || action === "sync" || action === "publish") && req.method === "POST") {
+    if ((action === "save" || action === "sync" || action === "publish") && req.method === "POST") {
+      delete session.savedHead; delete session.savedBranch;
       session.state = "working"; session.operation = action;
       progress(session, action !== "sync" ? "Saving your work…" : "Checking GitHub for changes…");
       try {
@@ -729,7 +731,7 @@ const server = createServer(async (req, res) => {
         const identity = gitCommitIdentity();
         if (action !== "sync" && (await command("git", ["status", "--porcelain"], session.cwd)).trim()) {
           await command("git", ["add", "--all"], session.cwd);
-          await command("git", ["-c", "core.hooksPath=/dev/null", "commit", "-m", action === "publish" ? "Save Build Studio work for publishing" : "Save Build Studio work before closing"], session.cwd, identity);
+          await command("git", ["-c", "core.hooksPath=/dev/null", "commit", "-m", action === "publish" ? "Save Build Studio work for publishing" : "Save Build Studio work"], session.cwd, identity);
         }
         progress(session, "Syncing with GitHub…");
         await syncRepository(session);
@@ -757,19 +759,41 @@ const server = createServer(async (req, res) => {
           // A normal push rejects concurrent main changes and respects branch protection.
           await command("git", ["push", "origin", "HEAD:refs/heads/main"], session.cwd, publishAuth);
           const publishedHead = await verifyRemoteHead(args => command("git", args, session.cwd, publishAuth), "main");
+          session.savedHead = publishedHead; session.savedBranch = "main";
           session.state = "ready"; delete session.operation; delete session.syncIssue;
           await emit(session, "push", "Published to main on GitHub. Your connected hosting service handles deployment next.", { session: await updateStatus(session), commit: publishedHead, branch: "main" });
           return json(res, 200, { session: publicSession(session) });
         }
-        progress(session, "GitHub verified. Closing the workspace…");
-        if (isolated) await remoteWorkspace(session).stop(); else await stopPreview(session);
-        // Persist closed state only after push verification and successful shutdown.
-        await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "stopped", preview_state: "offline", changed_file_count: 0 }) });
-        session.state = "stopped"; session.previewState = "offline"; delete session.operation;
-        await emit(session, "push", "Workspace closed. All changes are saved on GitHub on this workspace’s branch.", { session: publicSession(session), commit: head, branch: session.workingBranch });
+        session.savedHead = head; session.savedBranch = session.workingBranch;
+        session.state = "ready"; delete session.operation; delete session.syncIssue;
+        await emit(session, "push", "Saved to your working branch on GitHub. You can now close the project.", { session: await updateStatus(session), commit: head, branch: session.workingBranch });
         return json(res, 200, { session: publicSession(session) });
       } catch (error) {
         session.state = "ready"; delete session.operation; session.syncIssue = readableError(String(error));
+        await updateStatus(session).catch(() => null);
+        await emit(session, "error", String(error), { session: publicSession(session) });
+        return json(res, 409, { error: readableError(String(error)), session: publicSession(session) });
+      }
+    }
+    if (action === "close" && req.method === "POST") {
+      if (!session.savedHead || !session.savedBranch) return json(res, 409, { error: "Save your work before closing the project." });
+      session.state = "working"; session.operation = "close";
+      progress(session, "Verifying your saved work…");
+      try {
+        if (session.previewStarting) await session.previewStarting;
+        if (isolated) await remoteWorkspace(session).wake();
+        const auth = isolated ? { GIT_ASKPASS: "/vercel/.n3xra/askpass.sh", GIT_TERMINAL_PROMPT: "0", N3XRA_GITHUB_TOKEN: await githubInstallationToken(session.repositoryFullName) } : await gitEnvironment(session.id, session.repositoryFullName);
+        const head = await verifyRemoteHead(args => command("git", args, session.cwd, auth), session.savedBranch);
+        if (head !== session.savedHead) throw new Error("Close found changes since your last save. Save again before closing.");
+        progress(session, "Closing your workspace…");
+        if (isolated) await remoteWorkspace(session).stop(); else await stopPreview(session);
+        await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "stopped", preview_state: "offline", changed_file_count: 0 }) });
+        session.state = "stopped"; session.previewState = "offline"; delete session.operation;
+        delete session.savedHead; delete session.savedBranch;
+        await emit(session, "status", "Project closed. Your work is saved on GitHub.", { session: publicSession(session) });
+        return json(res, 200, { session: publicSession(session) });
+      } catch (error) {
+        session.state = "ready"; delete session.operation; delete session.savedHead; delete session.savedBranch;
         await updateStatus(session).catch(() => null);
         await emit(session, "error", String(error), { session: publicSession(session) });
         return json(res, 409, { error: readableError(String(error)), session: publicSession(session) });
@@ -792,6 +816,7 @@ const server = createServer(async (req, res) => {
       // Reserve the session before any awaits so two requests cannot start overlapping turns.
       if (session.state !== "ready") return json(res, 409, { error: "Codex is still working." });
       if (session.syncIssue) return json(res, 409, { error: session.syncIssue });
+      delete session.savedHead; delete session.savedBranch;
       session.state = "working"; session.operation = "request"; session.cancelRequested = false;
       progress(session, "Opening your workspace…");
       try {

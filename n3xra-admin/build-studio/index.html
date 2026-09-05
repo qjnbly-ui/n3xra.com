@@ -36,14 +36,19 @@
             </div>
             <div class="build-toolbar-actions">
               <span class="build-branch" id="build-branch">No session</span>
-              <button class="build-button build-button-secondary" id="build-checkpoint" type="button" disabled>Checkpoint</button>
               <button class="build-button build-button-secondary" id="build-sync" type="button" disabled>Sync GitHub</button>
-              <button class="build-button" id="build-close" type="button" disabled>Save, push &amp; close</button>
-              <button class="build-button" id="build-publish" type="button" title="Save all changes and publish to GitHub main. This may deploy your live website." disabled>Publish to main</button>
-              <button class="build-button" id="build-push" type="button" disabled>Push branch</button>
+              <button class="build-button" id="build-checkpoint" type="button" aria-expanded="false" aria-controls="build-save-options" disabled>Save</button>
+              <button class="build-button" id="build-close" type="button" hidden disabled>Close Project</button>
             </div>
           </header>
 
+          <section id="build-save-options" class="build-notice" aria-label="Save options" hidden>
+            <p><strong>Where would you like to save?</strong> Both options save your work to GitHub.</p>
+            <p>Choose Working branch to keep changes separate, or Main to update the version your website deploys from.</p>
+            <button class="build-button" id="build-push" type="button" disabled>Working branch</button>
+            <button class="build-button" id="build-publish" type="button" disabled>Main</button>
+            <button class="build-button build-button-secondary" id="build-save-cancel" type="button">Cancel</button>
+          </section>
           <div class="build-setup" id="build-setup">
             <div class="build-setup-mark" aria-hidden="true">N</div>
             <p class="portal-kicker">N3XRA Build Studio</p>
@@ -96,6 +101,6 @@
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=8"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=9"></script>
 </body>
 </html>

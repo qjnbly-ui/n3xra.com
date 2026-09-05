@@ -18,8 +18,8 @@ test("Build Studio is available from every website administration workspace", as
 
 test("Build Studio UI keeps repository mutations behind explicit controls", async () => {
   const [source, markup] = await Promise.all([read("src/build-studio/build-studio.ts"), read("n3xra-admin/build-studio/index.html")]);
-  assert.match(source, /\/checkpoint/);
-  assert.match(source, /\/push/);
+  assert.match(markup, /Where would you like to save/);
+  assert.match(markup, /Close Project/);
   assert.match(source, /session\.previewState === "ready"/);
   assert.match(source, /searchParams\.set\("refresh"/);
   assert.match(source, /\/active/);

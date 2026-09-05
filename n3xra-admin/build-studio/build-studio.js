@@ -133,6 +133,11 @@ async function loadModels(session) {
 }
 function renderSession(session) {
     activeSession = session;
+    byId("build-close").hidden = !session.canClose || session.state !== "ready";
+    if (session.state !== "ready") {
+        byId("build-save-options").hidden = true;
+        checkpointButton.setAttribute("aria-expanded", "false");
+    }
     renderActivity(session.state === "working" ? session.progress || "Working on your request…" : sending ? "Sending your request…" : "");
     if (session.state === "stopped") {
         workspace.hidden = true;
@@ -157,8 +162,8 @@ function renderSession(session) {
     workspace.hidden = false;
     byId("build-branch").textContent = session.workingBranch;
     byId("build-change-count").textContent = session.changedFileCount ? `${session.changedFileCount} changed file${session.changedFileCount === 1 ? "" : "s"}` : "No changes";
-    checkpointButton.disabled = session.state !== "ready" || session.changedFileCount === 0;
-    pushButton.disabled = session.state !== "ready" || !session.hasUnpushedCommits;
+    checkpointButton.disabled = session.state !== "ready" || session.previewState === "starting";
+    pushButton.disabled = session.state !== "ready" || session.previewState === "starting";
     const pauseButton = document.getElementById("build-pause");
     if (pauseButton)
         pauseButton.disabled = session.state !== "ready" || session.previewState === "offline" || session.previewState === "starting";
@@ -342,6 +347,8 @@ async function inspectWorker() {
             return;
         if (active.session) {
             messages.replaceChildren();
+            byId("build-save-options").hidden = true;
+            checkpointButton.setAttribute("aria-expanded", "false");
             byId("build-history-messages").replaceChildren();
             byId("build-history").hidden = true;
             byId("build-history").open = false;
@@ -376,6 +383,8 @@ async function startSession() {
         if (currentWebsite?.id !== selectedWebsiteId)
             return;
         messages.replaceChildren();
+        byId("build-save-options").hidden = true;
+        checkpointButton.setAttribute("aria-expanded", "false");
         byId("build-history-messages").replaceChildren();
         byId("build-history").hidden = true;
         byId("build-history").open = false;
@@ -423,6 +432,8 @@ async function initialize() {
         renderActivity();
         eventAbort?.abort();
         messages.replaceChildren();
+        byId("build-save-options").hidden = true;
+        checkpointButton.setAttribute("aria-expanded", "false");
         byId("build-history-messages").replaceChildren();
         byId("build-history").hidden = true;
         byId("build-history").open = false;
@@ -481,15 +492,19 @@ composer.addEventListener("submit", async (event) => {
             renderSession(activeSession);
     }
 });
-for (const action of ["close", "sync", "cancel", "publish"]) {
+for (const action of ["close", "sync", "cancel", "publish", "push"]) {
     byId(`build-${action}`).addEventListener("click", async () => {
         if (!activeSession)
             return;
         const id = activeSession.id;
+        if (action === "publish" || action === "push") {
+            byId("build-save-options").hidden = true;
+            checkpointButton.setAttribute("aria-expanded", "false");
+        }
         byId(`build-${action}`).disabled = true;
-        renderActivity(action === "publish" ? "Preparing to publish to main…" : action === "close" ? "Saving and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
+        renderActivity(action === "publish" ? "Preparing to publish to main…" : action === "push" ? "Saving to your working branch…" : action === "close" ? "Verifying and closing your workspace…" : action === "sync" ? "Syncing with GitHub…" : "Canceling your request…");
         try {
-            const result = await workerRequest(`/v1/sessions/${id}/${action}`, { method: "POST", body: "{}" });
+            const result = await workerRequest(`/v1/sessions/${id}/${action === "push" ? "save" : action}`, { method: "POST", body: "{}" });
             if (activeSession?.id === id) {
                 renderSession(result.session);
                 if (action === "close") {
@@ -505,15 +520,16 @@ for (const action of ["close", "sync", "cancel", "publish"]) {
         }
     });
 }
-checkpointButton.addEventListener("click", async () => {
-    if (!activeSession)
+checkpointButton.addEventListener("click", () => {
+    if (!activeSession || checkpointButton.disabled)
         return;
-    await workerRequest(`/v1/sessions/${activeSession.id}/checkpoint`, { method: "POST", body: JSON.stringify({ message: "Build Studio checkpoint" }) }).catch((error) => setNotice(error.message, true));
+    const panel = byId("build-save-options");
+    panel.hidden = !panel.hidden;
+    checkpointButton.setAttribute("aria-expanded", String(!panel.hidden));
 });
-pushButton.addEventListener("click", async () => {
-    if (!activeSession)
-        return;
-    await workerRequest(`/v1/sessions/${activeSession.id}/push`, { method: "POST", body: "{}" }).catch((error) => setNotice(error.message, true));
+byId("build-save-cancel").addEventListener("click", () => {
+    byId("build-save-options").hidden = true;
+    checkpointButton.setAttribute("aria-expanded", "false");
 });
 byId("build-refresh-preview").addEventListener("click", async () => {
     if (!activeSession)

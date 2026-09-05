@@ -143,7 +143,12 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     assert.equal(state.session.selectedModel,'fixture-model');assert.equal(state.session.selectedEffort,'high');
     const previousThread=rows[0].codex_thread_id;
     const oldPreview=state.session.previewUrl;
+    assert.equal((await request(`/v1/sessions/${id}/close`,{})).status,409,'must save before close');
+    assert.equal((await request(`/v1/sessions/${id}/save`,{},'other')).status,404);
+    const saved=await request(`/v1/sessions/${id}/save`,{});assert.equal(saved.status,200,JSON.stringify(saved));assert.equal(saved.session.canClose,true);
+    const savedHead=execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim();
     const closed=await request(`/v1/sessions/${id}/close`,{});assert.equal(closed.status,200,JSON.stringify(closed));
+    assert.equal(execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim(),savedHead,'close creates no extra commit');
     assert.equal(rows[0].state,'stopped');assert.equal((await active()).closed,true);
     assert.equal((await fetch(oldPreview)).status,404,'old previews cannot reopen closed workspaces');
     await stop();await start();assert.equal((await active()).closed,true,'closed state survives worker restart');
@@ -170,15 +175,18 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     await rm(join(bare,'hooks','pre-receive'));
     const published=await request(`/v1/sessions/${id}/publish`,{});
     assert.equal(published.status,200,JSON.stringify(published));
-    assert.equal(published.session.state,'ready','publishing does not close the workspace');
+    assert.equal(published.session.state,'ready','publishing does not close the workspace');assert.equal(published.session.canClose,true);
     assert.equal(execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim(),execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim());
     assert.equal(execFileSync(git,['show','main:publish-test.txt'],{cwd:bare,encoding:'utf8'}),'Publish only when explicitly requested');
     // Remote rejection must leave the workspace open and its commits intact.
     await writeFile(join(bare,'hooks','pre-receive'),'#!/bin/sh\nexit 1\n',{mode:0o755});
     await writeFile(join(repository,'close-test.txt'),'Saved before close');
-    const refused=await request(`/v1/sessions/${id}/close`,{});assert.equal(refused.status,409);assert.ok(events.some(e=>e.technical_notes?.includes('pre-receive hook declined')),'push really reached the rejecting remote');
+    assert.equal((await request(`/v1/sessions/${id}/close`,{})).status,409,'close cannot silently save new edits');
+    assert.equal((await active()).session.canClose,false);
+    const refused=await request(`/v1/sessions/${id}/save`,{});assert.equal(refused.status,409);assert.ok(events.some(e=>e.technical_notes?.includes('pre-receive hook declined')),'push really reached the rejecting remote');
     assert.equal((await active()).session.state,'ready');assert.equal(await readFile(join(repository,'close-test.txt'),'utf8'),'Saved before close');
     await rm(join(bare,'hooks','pre-receive'));
+    const savedAgain=await request(`/v1/sessions/${id}/save`,{});assert.equal(savedAgain.status,200,JSON.stringify(savedAgain));
     const retriedClose=await request(`/v1/sessions/${id}/close`,{});assert.equal(retriedClose.status,200,JSON.stringify(retriedClose)+' '+JSON.stringify(events.slice(-2)));
     assert.equal(execFileSync(git,['rev-parse',state.session.workingBranch],{cwd:bare,encoding:'utf8'}).trim(),execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim());
   } catch(error) { error.message+=`\nWorker logs:\n${logs}`;throw error; }

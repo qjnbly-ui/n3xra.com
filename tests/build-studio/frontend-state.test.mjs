@@ -15,9 +15,9 @@ async function frontend(fetch = () => Promise.reject(new Error("Unexpected reque
   return {api:ctx.api,get};
 }
 const session=(extra={})=>({id:'demo',state:'ready',workingBranch:'demo',previewState:'ready',previewUrl:'https://worker.test/preview/demo/?token=test',changedFileCount:1,hasUnpushedCommits:false,...extra});
-test('checkpoint and push reflect separate Git states; active turns disable editing',async()=>{
- const {api,get}=await frontend();api.renderSession(session());assert.equal(get('build-checkpoint').disabled,false);assert.equal(get('build-push').disabled,true);
- api.renderSession(session({changedFileCount:0,hasUnpushedCommits:true}));assert.equal(get('build-checkpoint').disabled,true);assert.equal(get('build-push').disabled,false);
+test('save is available even without changes; active turns disable saving',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());assert.equal(get('build-checkpoint').disabled,false);assert.equal(get('build-push').disabled,false);
+ api.renderSession(session({changedFileCount:0,hasUnpushedCommits:true}));assert.equal(get('build-checkpoint').disabled,false);assert.equal(get('build-push').disabled,false);
  api.renderSession(session({state:'working'}));assert.equal(get('build-prompt').disabled,true);assert.equal(get('build-push').disabled,true);
 });
 test('replayed events cannot restore stale state or duplicate messages; successful edits refresh preview',async()=>{
@@ -100,4 +100,16 @@ test('previous conversations render separately without old notes or stale sessio
  assert.equal(get('build-workspace').hidden,false);
  api.handleWorkerEvent({id:45,eventType:'agent_message',message:'New reply',metadata:{conversationVersion:2}});
  assert.equal(get('build-messages').children.length,1);
+});
+
+test('Save opens destination choices and Close Project appears only after verified save',async()=>{
+ const calls=[];
+ const {api,get}=await frontend(async(url)=>{calls.push(url);return {ok:true,json:async()=>({session:session({canClose:true,changedFileCount:0})})};});
+ api.renderSession(session());assert.equal(get('build-close').hidden,true);
+ get('build-save-options').hidden=true;get('build-checkpoint').handlers.click();
+ assert.equal(get('build-save-options').hidden,false);assert.equal(calls.length,0,'opening options does not save');
+ await get('build-push').handlers.click();assert.match(calls[0],/\/save$/);
+ assert.equal(get('build-save-options').hidden,true);assert.equal(get('build-close').hidden,false);
+ api.renderSession(session({state:'working',canClose:false}));assert.equal(get('build-close').hidden,true);
+ api.renderSession(session({canClose:false}));assert.equal(get('build-close').hidden,true);
 });
