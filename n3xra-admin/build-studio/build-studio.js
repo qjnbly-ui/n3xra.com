@@ -65,13 +65,23 @@ function addMessage(role, text) {
 }
 function renderSession(session) {
     activeSession = session;
-    setup.hidden = true;
+    const needsConnection = session.codexAuthenticated === false && session.state === "ready";
+    setup.hidden = !needsConnection;
+    if (needsConnection) {
+        setSetup("Connect Codex to this website", "Sign in once for this isolated workspace. Its files and conversation stay separate from your other websites.");
+        showOnly("connect");
+    }
+    else
+        byId("build-device-code").hidden = true;
     workspace.hidden = false;
     byId("build-branch").textContent = session.workingBranch;
     byId("build-change-count").textContent = session.changedFileCount ? `${session.changedFileCount} changed file${session.changedFileCount === 1 ? "" : "s"}` : "No changes";
     checkpointButton.disabled = session.state !== "ready" || session.changedFileCount === 0;
     pushButton.disabled = session.state !== "ready" || !session.hasUnpushedCommits;
-    prompt.disabled = sending || session.state !== "ready";
+    const pauseButton = document.getElementById("build-pause");
+    if (pauseButton)
+        pauseButton.disabled = session.state !== "ready" || session.previewState === "offline" || session.previewState === "starting";
+    prompt.disabled = sending || session.state !== "ready" || session.codexAuthenticated === false;
     composer.querySelector('button[type="submit"]').disabled = prompt.disabled;
     renderPreview(session);
 }
@@ -175,6 +185,7 @@ function connectEvents(sessionId) {
     })();
 }
 async function inspectWorker() {
+    const selectedWebsiteId = currentWebsite?.id;
     const repository = currentWebsite ? repositories.find((item) => item.website_id === currentWebsite?.id) : null;
     byId("build-project-name").textContent = currentWebsite?.name || "No website selected";
     byId("build-repository-name").textContent = repository?.full_name || "No repository connected";
@@ -196,13 +207,17 @@ async function inspectWorker() {
     }
     try {
         const health = await workerRequest("/v1/account");
+        if (currentWebsite?.id !== selectedWebsiteId)
+            return;
         byId("build-worker-dot").classList.toggle("is-ready", health.ready);
-        if (!health.codexAuthenticated) {
+        if (!health.codexAuthenticated && !health.requiresWorkspace) {
             setSetup("Connect the N3XRA Codex account", "This one-time connection lets Build Studio use the same ChatGPT-managed Codex access on the private worker.");
             showOnly("connect");
             return;
         }
         const active = await workerRequest(`/v1/projects/${encodeURIComponent(currentWebsite.id)}/active`);
+        if (currentWebsite?.id !== selectedWebsiteId)
+            return;
         if (active.session) {
             messages.replaceChildren();
             seenEvents.clear();
@@ -224,6 +239,7 @@ async function inspectWorker() {
 async function startSession() {
     if (!currentWebsite)
         return;
+    const selectedWebsiteId = currentWebsite.id;
     startButton.disabled = true;
     setSetup("Opening the repository", "Preparing the branch, installing the site, and starting its preview.");
     try {
@@ -231,6 +247,8 @@ async function startSession() {
             method: "POST",
             body: JSON.stringify({ websiteId: currentWebsite.id }),
         });
+        if (currentWebsite?.id !== selectedWebsiteId)
+            return;
         messages.replaceChildren();
         seenEvents.clear();
         (result.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
@@ -263,7 +281,7 @@ async function initialize() {
     repositories = (repositoryResult.data || []);
     const saved = readWorkspaceContext("admin", context.session.user.id);
     currentWebsite = websites.find((item) => item.id === saved.websiteId) || websites[0] || null;
-    websiteSelect.innerHTML = websites.map((item) => `<option value="${item.id}">${item.name}</option>`).join("");
+    websiteSelect.replaceChildren(...websites.map(item => { const option = document.createElement("option"); option.value = item.id; option.textContent = item.name; return option; }));
     websiteSelect.value = currentWebsite?.id || "";
     websiteSelect.addEventListener("change", () => {
         currentWebsite = websites.find((item) => item.id === websiteSelect.value) || null;
@@ -290,7 +308,7 @@ startButton.addEventListener("click", startSession);
 connectButton.addEventListener("click", async () => {
     connectButton.disabled = true;
     try {
-        const result = await workerRequest("/v1/account/connect", { method: "POST", body: "{}" });
+        const result = await workerRequest("/v1/account/connect", { method: "POST", body: JSON.stringify({ sessionId: activeSession?.id }) });
         const code = byId("build-device-code");
         code.hidden = false;
         code.textContent = `Open ${result.verificationUrl}\nEnter code: ${result.userCode}`;
@@ -345,6 +363,18 @@ byId("build-refresh-preview").addEventListener("click", async () => {
     }
     catch (error) {
         setNotice(error instanceof Error ? error.message : "The preview could not restart.", true);
+    }
+});
+document.getElementById("build-pause")?.addEventListener("click", async () => {
+    if (!activeSession)
+        return;
+    try {
+        const result = await workerRequest(`/v1/sessions/${activeSession.id}/pause`, { method: "POST", body: "{}" });
+        renderSession(result.session);
+        setNotice("Workspace paused. Your work is saved.");
+    }
+    catch (error) {
+        setNotice(error instanceof Error ? error.message : "Could not pause the workspace.", true);
     }
 });
 document.querySelectorAll("[data-preview-width]").forEach((button) => button.addEventListener("click", () => {

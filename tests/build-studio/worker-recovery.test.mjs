@@ -60,7 +60,7 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
   const request=async(path,body,token='owner')=>{const r=await fetch(base+path,{method:body?'POST':'GET',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});return {status:r.status,...await r.json()};};
   try {
     await start();
-    const opened=await request('/v1/projects/open',{websiteId}); assert.equal(opened.status,202);const id=opened.session.id;
+    const [opened,duplicate]=await Promise.all([request('/v1/projects/open',{websiteId}),request('/v1/projects/open',{websiteId})]); assert.equal(opened.status,202);const id=opened.session.id;assert.equal(duplicate.session.id,id);
     const active=()=>request(`/v1/projects/${websiteId}/active`);
     let state=await waitFor(async()=>{const s=await active();return s.session?.previewState==='ready'?s:null;});
     const firstThread=rows[0].codex_thread_id;

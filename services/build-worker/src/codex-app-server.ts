@@ -7,6 +7,7 @@ type Pending = { resolve: (value: any) => void; reject: (reason: Error) => void 
 export type CodexEventHandler = (method: string, params: JsonObject) => void;
 
 export class CodexAppServer {
+  constructor(private readonly externallyIsolated = false) {}
   private process: ChildProcessWithoutNullStreams | null = null;
   private nextId = 1;
   private pending = new Map<number, Pending>();
@@ -123,7 +124,9 @@ export class CodexAppServer {
       threadId,
       cwd,
       approvalPolicy: "never",
-      sandboxPolicy: { type: "workspaceWrite", writableRoots: [cwd], networkAccess: false },
+      sandboxPolicy: this.externallyIsolated
+        ? { type: "externalSandbox", networkAccess: "restricted" }
+        : { type: "workspaceWrite", writableRoots: [cwd], networkAccess: false },
       input: [{ type: "text", text }],
     });
   }

@@ -1,6 +1,33 @@
 # N3XRA Build Worker
 
-This private, persistent worker powers Build Studio. It keeps ChatGPT-managed Codex authentication and checked-out repositories off the public N3XRA web app. The browser talks to this worker through authenticated N3XRA requests; the worker talks to `codex app-server` over local stdio.
+This trusted coordinator powers the shared Build Studio for connected N3XRA websites. With `N3XRA_BUILD_EXECUTION_PROVIDER=vercel`, each website/user/session has its own persistent Vercel Sandbox. Git commands, dependency installation, Codex and preview processes run in that machine. Render retains administrator authentication, session/event persistence, GitHub App credentials and authenticated preview routing.
+
+The separate machine enforces isolation. Codex uses its documented `externalSandbox` policy there; this mode is never enabled for the shared Render process. Platform database keys, the GitHub App private key and Vercel credentials are not passed into the machine. A short-lived token scoped to the selected repository is used only for trusted Git operations. Each workspace has its own fresh Codex device sign-in; no existing Render or local Codex login is copied into it.
+
+The local provider remains available for regression tests and compatible local hosts. It does not resolve Render's observed native-sandbox restriction.
+
+## Activate the Vercel execution provider
+
+Set these **server-only** environment variables on the Render worker:
+
+- `N3XRA_BUILD_EXECUTION_PROVIDER=vercel`
+- `N3XRA_VERCEL_PROJECT_ID` — the main **n3xra.com** project, not an individual client/demo project
+- `N3XRA_VERCEL_TEAM_ID` — its Vercel team
+- `N3XRA_VERCEL_TOKEN` — a dedicated credential with Sandbox access; do not use a temporary test-login token for production
+- `N3XRA_BUILD_SANDBOX_SECRET` — a stable secret containing at least 32 random bytes, used to authenticate the coordinator to each workspace
+- Optional `N3XRA_BUILD_SANDBOX_ALLOWED_DOMAINS` — additional comma-separated package/development endpoints required by a site's dependencies
+
+Deploy the worker and matching browser bundle together. The existing `buildWorkerUrl` and Supabase schema remain unchanged. Never put these credentials in browser code, Git, or a client repository. The provider defaults to `local` until configured, allowing reviewed activation without changing an existing service merely by checking out this code.
+
+Open a connected website, recover or start its workspace, and connect Codex using the displayed device sign-in. Previews support static HTML, Astro and Vite sites. Other development servers report that a preview adapter is needed instead of claiming their preview is ready. Checkpoints remain on the work branch; pushes never force-overwrite remote work. A remote conflict is rejected for review.
+
+Existing Render repository files transfer in bounded chunks when first opening an existing session on Vercel; dependency caches are reinstalled. The original copy remains intact. Reopening failed or unfinished sessions reuses them instead of archiving unsaved work. A changed repository association requires resolving the old workspace first.
+
+## Isolated compute and persistence
+
+Each machine starts with 1 vCPU / 2 GB RAM and a 15-minute session limit, renewed by explicit workspace actions. Idle workspaces stop. **Pause workspace** stops one immediately when no turn/preparation is active. Stopping snapshots files and the Codex conversation; resuming restores them. SSE heartbeats do not keep machines running. The bridge endpoint requires a per-workspace credential; browser preview requests still pass through the authenticated worker.
+
+The latest two snapshots are retained without an expiry; older superseded snapshots are removed to bound storage growth. Saved snapshot storage can still incur charges. Stopping Vercel machines does not suspend Render or remove its hosting charge. The current unfinished workspace is never automatically deleted.
 
 ## Required environment
 
@@ -25,9 +52,9 @@ Run the worker behind authenticated HTTPS. Do not expose the Codex App Server it
 
 The repository includes `render.yaml` and a pinned Docker image definition. Create a Render Blueprint from this repository, enter the Supabase and N3XRA GitHub App secret environment values requested by Render, and use the attached `/var/data` disk. After the service is live, set its HTTPS address as `buildWorkerUrl` in `shared/config.js`.
 
-The persistent disk retains checked-out workspaces and the ChatGPT-managed Codex sign-in across restarts. The worker is intentionally separate from the Vercel website because it runs long-lived repository and preview processes.
+In Vercel mode, the Render disk preserves legacy workspaces for migration; active repository and preview processes run in Vercel Sandbox. In local mode, the disk retains repositories and the local Codex sign-in.
 
-## Recovery and preview behavior
+## Local-provider recovery and preview behavior
 
 Authenticated session requests reload the caller's saved workspace after a worker restart. Repository files stay on the persistent disk. Codex conversations are explicitly resumed before editing; a missing saved conversation is replaced with a visible notice, while existing repository files remain intact. Concurrent turns are rejected, and failed/interrupted turns are reported as errors.
 
@@ -51,7 +78,7 @@ The recovery integration test runs the real HTTP worker, Git commands against a 
 
 For an installed Astro runtime, additionally set `N3XRA_TEST_ASTRO_MODULES` to its absolute `node_modules` directory when running `worker-recovery.test.mjs`. This uses actual Astro for the page, assets, and HMR WebSocket; model inference remains simulated. Use a disposable installation because the test writes its install marker there.
 
-## Capacity and release verification
+## Historical local-provider capacity tests
 
 Render recorded a 512 MB out-of-memory restart during the September 4, 2026 demo test. A local Linux ARM64 container test with 512 MiB RAM, no swap, and 0.5 CPU completed dependency installation and served the actual Astro 7.2.4 starter with Codex 0.143.0 initialized but unauthenticated. The starter lockfile failed `npm ci` (missing `@emnapi` entries); the existing `npm install --package-lock=false` fallback succeeded. At idle after the first page, cgroup usage was about 501 MiB: 341 MiB anonymous memory and 116 MiB file cache, with the remainder including kernel accounting. Peak usage reached 512 MiB, but `oom` and `oom_kill` counters remained zero. File cache is reclaimable; reaching that total alone does not establish an out-of-memory failure.
 

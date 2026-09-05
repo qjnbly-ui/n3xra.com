@@ -35,3 +35,10 @@ test('idle previews clearly pause, unload the old page, and reload when resumed'
  assert.match(get('build-preview-frame').src,/https:\/\/worker.test\/preview\/demo/);
  assert.equal(get('build-preview-status').textContent,'Live preview');
 });
+test('each isolated workspace requires its own sign-in before editing',async()=>{
+ const {api,get}=await frontend();api.renderSession(session({codexAuthenticated:false}));
+ assert.equal(get('build-setup').hidden,false);assert.equal(get('build-connect').hidden,false);
+ assert.equal(get('build-workspace').hidden,false);assert.equal(get('build-prompt').disabled,true);
+ api.handleWorkerEvent({id:3,eventType:'session',metadata:{session:session({codexAuthenticated:true})}});
+ assert.equal(get('build-setup').hidden,true);assert.equal(get('build-prompt').disabled,false);
+});
