@@ -1,10 +1,18 @@
 import { privateProductPath } from "./private-products.js";
 const html = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+export function organizationProductLink(path, organizationId) {
+    if (!/^\/(?!\/)/.test(path) || /[\s\\]/.test(path))
+        return "";
+    const url = new URL(path, "https://n3xra.com");
+    url.searchParams.set("organization", organizationId);
+    return `${url.pathname}${url.search}${url.hash}`;
+}
 export async function startOrganizations({ supabase }) {
     const root = document.querySelector("#organizations-workspace");
     if (!root)
         return;
-    const { data, error } = await supabase.from("organizations").select("id,name,account_status").order("name");
+    const { data, error } = await supabase.from("organizations").select("id,name,account_status,owner_user_id")
+        .eq("workspace_kind", "organization").order("name");
     if (error)
         throw error;
     const organizations = data || [];
@@ -16,72 +24,82 @@ export async function startOrganizations({ supabase }) {
     function renderList(search = "") {
         list.innerHTML = organizations.filter(o => o.name.toLowerCase().includes(search.toLowerCase())).map(o => `<button type="button" data-org="${html(o.id)}" aria-pressed="${o.id === selected}"><strong>${html(o.name)}</strong><small>${html(o.account_status)}</small></button>`).join("") || "<p>No organizations found.</p>";
     }
+    const card = (name, workspace, status, preview, admin = "", adminLabel = "Open admin workspace") => `<article class="account-access-card"><div><span>${html(name)}</span><h4>${html(workspace)}</h4><p>${html(status)}</p></div><div class="account-admin-head-actions">${preview ? `<a class="portal-button portal-button-secondary" href="${html(preview)}">Preview client view</a>` : ""}${admin ? `<a class="portal-button portal-button-secondary" href="${html(admin)}">${html(adminLabel)}</a>` : ""}</div></article>`;
     async function show(id) {
         const org = organizations.find(o => o.id === id);
         if (!org) {
-            detail.textContent = "Choose an organization to view its products.";
+            detail.textContent = "Choose an organization to view its products and members.";
             return;
         }
         selected = id;
         const request = ++revision;
-        renderList((root.querySelector("#org-search")).value);
+        renderList(root.querySelector("#org-search").value);
         detail.textContent = "Loading organization…";
         const url = new URL(location.href);
         url.searchParams.set("organization", id);
         history.replaceState(history.state, "", url);
-        const results = await Promise.all([
+        const [websitesResult, productsResult, enrollmentResult, teamPage] = await Promise.all([
             supabase.from("client_websites").select("id,name,portal_slug,status").eq("organization_id", id).order("name"),
             supabase.from("organization_private_products").select("id,organization_id,name,description,app_path,status").eq("organization_id", id).order("name"),
-            supabase.rpc("client_portal_organization_access_snapshot", { input_organization_id: id }),
+            supabase.from("organization_product_entitlements").select("product_key,status,portal_enabled,product:n3xra_product_catalog(product_key,name,portal_path)").eq("organization_id", id),
+            fetch("/client-portal/team/").then(response => { if (!response.ok)
+                throw new Error("Organization Admin could not be loaded."); return response.text(); }),
         ]);
         if (request !== revision || !root.isConnected)
             return;
-        const failed = results.find(r => r.error);
+        const failed = [websitesResult, productsResult, enrollmentResult].find(r => r.error);
         if (failed)
             throw failed.error;
-        const websites = results[0].data || [];
-        const products = results[1].data || [];
-        const shared = (results[2].data?.products || []).filter((p) => p.product_key !== "website");
-        const preview = `/client-portal/organization/?organization=${encodeURIComponent(id)}`;
-        detail.innerHTML = `<header><p class="org-eyebrow">Organization</p><h1>${html(org.name)}</h1><p>${html(org.account_status)} · ${websites.length} websites · ${products.length + shared.length} products</p><a class="org-button" href="${preview}">Open organization portal</a><a class="org-button secondary" href="/client-portal/team/?organization=${encodeURIComponent(id)}">Manage members</a></header>
-      <section><h2>Private products</h2><p>Built for this organization. Active products are available to its members after sign-in.</p><div class="org-cards">${products.map(p => `<article><span class="org-eyebrow">Private · ${html(p.status)}</span><h3>${html(p.name)}</h3><p>${html(p.description)}</p><small>${html(p.app_path)}</small><div class="org-actions">${p.status === "active" ? `<a href="${html(privateProductPath(p.app_path, id, p.id))}">Open product</a>` : ""}<button type="button" data-edit="${html(p.id)}">Edit</button></div></article>`).join("") || "<p>No private products yet. Add the application when it is ready.</p>"}</div>
-      <form id="private-product-form"><h3 id="product-form-title">Add private product</h3><input name="id" type="hidden"><label>Name<input name="name" required maxlength="120"></label><label>Description<textarea name="description" maxlength="2000"></textarea></label><label>Application path<input name="app_path" required placeholder="/client-portal/your-product/"><small>The application must enforce organization access in its data and APIs.</small></label><label>Status<select name="status"><option value="draft">Draft — hidden from members</option><option value="active">Active — visible to members</option><option value="paused">Paused — access disabled</option></select></label><div class="org-actions"><button class="org-button" type="submit">Save product</button><button type="reset">Clear</button></div><p id="product-save-status" role="status"></p></form></section>
-      <section><h2>Shared products</h2><div class="org-cards">${shared.map(p => `<article><h3>${html(p.name)}</h3><p>${html(p.status)}</p><a href="${preview}">Open in organization portal</a></article>`).join("") || "<p>No shared products enabled.</p>"}</div></section>
-      <section><h2>Websites &amp; sign-in</h2><div class="org-cards">${websites.map(w => `<article><h3>${html(w.name)}</h3><p>${html(w.status)}</p>${/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(w.portal_slug) ? `<a href="https://${html(w.portal_slug)}.portal.n3xra.com/client-portal/login/">Open website sign-in</a>` : "<p>Portal address is not configured.</p>"}</article>`).join("") || "<p>No website is linked to this organization yet.</p>"}</div></section>`;
-        const form = detail.querySelector("form");
-        detail.querySelectorAll("[data-edit]").forEach(button => button.addEventListener("click", () => {
-            const product = products.find(p => p.id === button.dataset.edit);
-            for (const key of ["id", "name", "description", "app_path", "status"])
-                form.elements.namedItem(key).value = product[key];
-            detail.querySelector("#product-form-title").textContent = "Edit private product";
-            form.scrollIntoView({ block: "nearest" });
-        }));
-        form.addEventListener("reset", () => { detail.querySelector("#product-form-title").textContent = "Add private product"; });
-        form.addEventListener("submit", async (event) => {
-            event.preventDefault();
-            const button = form.querySelector('[type="submit"]');
-            const status = form.querySelector("#product-save-status");
-            button.disabled = true;
-            try {
-                const values = new FormData(form);
-                const productId = String(values.get("id") || "");
-                const appPath = String(values.get("app_path") || "").trim();
-                if (!privateProductPath(appPath, id, productId))
-                    throw new Error("Use a local application path without a domain, query string, or parent directory.");
-                const row = { organization_id: id, name: String(values.get("name") || "").trim(), description: String(values.get("description") || "").trim(), app_path: appPath, status: String(values.get("status")) };
-                const query = supabase.from("organization_private_products");
-                const saved = productId ? await query.update(row).eq("id", productId).eq("organization_id", id).select("id").single() : await query.insert(row).select("id").single();
-                if (saved.error)
-                    throw saved.error;
-                await show(id);
+        const websites = websitesResult.data || [];
+        const products = productsResult.data || [];
+        const enrollments = enrollmentResult.data || [];
+        const cards = websites.map(w => card("Website Management", w.name, w.status, `/project-workspace/?website=${encodeURIComponent(w.id)}`, `/n3xra-admin/websites/?website=${encodeURIComponent(w.id)}`, "Open Website admin"));
+        for (const enrollment of enrollments) {
+            if (enrollment.product_key === "website")
+                continue;
+            const product = Array.isArray(enrollment.product) ? enrollment.product[0] : enrollment.product;
+            if (!product)
+                continue;
+            let preview = organizationProductLink(product.portal_path, id);
+            let admin = "";
+            if (product.product_key === "records") {
+                preview = `/n3xra-records/library/?support_org=${encodeURIComponent(id)}`;
+                admin = `/n3xra-admin/records/organizations/?organization=${encodeURIComponent(id)}`;
             }
-            catch (error) {
-                status.textContent = error.message || "Unable to save product.";
+            if (product.product_key === "project_cards")
+                admin = `/n3xra-admin/project-cards/?user=${encodeURIComponent(org.owner_user_id)}&organization=${encodeURIComponent(id)}`;
+            if (product.product_key === "communications") {
+                const result = await supabase.from("communications_workspaces").select("id,slug").eq("organization_id", id);
+                if (result.error)
+                    throw result.error;
+                const workspace = result.data?.[0];
+                if (workspace && result.data.length === 1) {
+                    preview = `/client-portal/communications/?workspace=${encodeURIComponent(workspace.slug)}`;
+                    admin = `/n3xra-admin/communications/?workspace=${encodeURIComponent(workspace.id)}`;
+                }
             }
-            finally {
-                button.disabled = false;
+            if (product.product_key === "loan_tracker") {
+                const result = await supabase.from("loan_accounts").select("user_id").eq("organization_id", id).eq("status", "active");
+                if (result.error)
+                    throw result.error;
+                preview = result.data?.length === 1 ? `${organizationProductLink(product.portal_path, id)}&user=${encodeURIComponent(result.data[0].user_id)}` : "";
             }
-        });
+            cards.push(card(product.name, org.name, `${enrollment.status}${enrollment.portal_enabled ? "" : " · Portal disabled"}`, preview, admin));
+        }
+        for (const product of products)
+            cards.push(card(product.name, org.name, `Private · ${product.status}`, product.status === "active" ? privateProductPath(product.app_path, id, product.id) : ""));
+        if (request !== revision || !root.isConnected)
+            return;
+        detail.innerHTML = `<header><p class="org-eyebrow">Selected organization</p><h1>${html(org.name)}</h1><p>${html(org.account_status)}</p><a class="portal-button portal-button-secondary" href="/client-portal/organization/?organization=${encodeURIComponent(id)}">Preview organization portal</a></header><section class="org-enrollments"><div class="account-oversight-heading"><div><p class="portal-kicker">Product enrollment</p><h2>Products and workspaces</h2><p>Open this organization’s client experience or its matching admin workspace.</p></div><span class="account-admin-count">${cards.length} enrollment${cards.length === 1 ? "" : "s"}</span></div><div class="account-access-grid">${cards.join("") || '<p>No products or workspaces are connected.</p>'}</div></section><section class="org-team-section"><p class="portal-kicker">People &amp; permissions</p><h2>Organization Admin</h2><p>Manage the same team, roles, invitations, and product access used in this organization’s portal.</p><div id="org-team-host"></div></section>`;
+        const teamElement = new DOMParser().parseFromString(teamPage, "text/html").querySelector("#client-team");
+        if (!teamElement)
+            throw new Error("Organization Admin layout is unavailable.");
+        const host = detail.querySelector("#org-team-host");
+        host.append(document.importNode(teamElement, true));
+        const { startOrganizationTeam } = await import("./team.js");
+        if (request !== revision || !root.isConnected)
+            return;
+        await startOrganizationTeam({ root: host, organizationId: id, supabase });
     }
     const showError = (error) => { detail.textContent = error.message || "Unable to load organization."; };
     root.querySelector("#org-search").addEventListener("input", e => renderList(e.target.value));

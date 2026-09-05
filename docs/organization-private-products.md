@@ -1,6 +1,6 @@
 # Organization-owned private products
 
-`/account/admin/organizations/` is the platform-admin directory. It groups existing organizations, linked websites, entitled shared products, and private applications. Organization administration is deliberately separate from individual account enrollments and the global Products navigation.
+`/account/admin/organizations/` is the platform-admin directory. It lists only workspaces classified as organizations, with an Accounts-style Products and workspaces section and the shared Organization Admin team interface embedded below it. Organization administration is deliberately separate from individual account enrollments and the global Products navigation.
 
 `/client-portal/organization/` is an explicit application landing page. On a branded portal it resolves the organization from that hostname's authorized website, ignoring an `organization` query parameter. On the master hostname an explicit organization parameter is accepted only for platform administrators. The administrator preview retains administrator privileges; it does not impersonate a member.
 
@@ -9,7 +9,7 @@ The existing branded portal root also displays active private products. Private 
 ## Adding a new private application
 
 1. Build the application with Supabase Auth and organization-scoped tables/API authorization. Keep client-specific configuration separate from shared code.
-2. Add a Draft private product from the organization's admin page. Supply its local application path. No public catalog entry, account enrollment, or global Products-menu entry is needed.
+2. Register the private product through a reviewed code/database change in `organization_private_products`, initially Draft. Supply its organization ID and local application path. There is no product-entry form in the admin UI. No public catalog entry, account enrollment, or global Products-menu entry is needed.
 3. The launch link carries both `organization` and `organization_product`. Treat these as requested context, never as proof of authorization.
 4. For every application data read/write, enforce `organization_id` and the authenticated caller's permissions in RLS or trusted server code. The security-invoker helper `public.can_access_organization_private_product(product_id, organization_id)` checks the active product and uses registry RLS to enforce membership. Associate application tables with the registered product ID as well as the organization; never accept an arbitrary unrelated product ID as an authorization substitute. Use `WITH CHECK` on writes.
 5. Keep sensitive content out of static HTML/JavaScript. Restrict storage access and signed URLs with the same organization/product checks. A hidden card or frontend guard cannot protect application data.
@@ -26,3 +26,9 @@ Validation performed:
 - Transactional SQL assertions: anonymous access denied; unrelated authenticated user sees zero private rows; organization owner sees only the active product; mismatched organization rejected; member insert/update denied. All temporary schema and rows were rolled back.
 
 Visual browser validation remains pending because local preview navigation was blocked by the browser URL security policy.
+
+## Organization directory classification
+
+`organizations.workspace_kind` distinguishes `organization`, `personal`, and `product` workspaces. The directory selects only `organization`; it does not depend on having a website, the number of members, or runtime name matching. Personal, Lindsey Mauldin Personal, and Project Cards retain their existing memberships and data under their accounts. New personal/product-only provisioning code should explicitly set the appropriate kind. This classification is presentation metadata, not an authorization boundary.
+
+The embedded Organization Admin reuses the customer team markup and `startOrganizationTeam` controller. The admin entry point requires platform-administrator access and takes the exact selected organization ID, including organizations without a linked website. Membership, product access, team limits, and invitations continue to use the existing authorized RPCs.

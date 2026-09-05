@@ -224,7 +224,7 @@ window.addEventListener("hashchange", selectInvestmentSection);
 
 async function loadAdminView(adminContext) {
   if (view === "organizations") {
-    const organizations = await import("/client-portal/organizations-admin.js?v=1");
+    const organizations = await import("/client-portal/organizations-admin.js?v=2");
     await organizations.startOrganizations({ supabase });
   } else if (view === "accounts") {
     const accountsController = await import("/account/admin/controllers/accounts.js?v=5");
