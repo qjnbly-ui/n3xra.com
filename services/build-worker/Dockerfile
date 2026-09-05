@@ -9,7 +9,7 @@ RUN ./node_modules/.bin/tsc -p tsconfig.build-worker.json
 FROM node:24-bookworm-slim AS runtime
 
 RUN apt-get update \
-  && apt-get install -y --no-install-recommends ca-certificates git \
+  && apt-get install -y --no-install-recommends ca-certificates git bubblewrap tini \
   && rm -rf /var/lib/apt/lists/* \
   && npm install -g @openai/codex@0.143.0
 
@@ -21,4 +21,7 @@ ENV PORT=4317
 ENV N3XRA_BUILD_HOST=0.0.0.0
 EXPOSE 4317
 
+# Reap orphaned dev-server children so Astro cannot mistake a zombie PID for a
+# running server after preview restart or idle shutdown.
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "server.js"]

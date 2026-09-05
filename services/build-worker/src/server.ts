@@ -7,6 +7,7 @@ import { dirname, join, resolve, sep } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pipeline } from "node:stream/promises";
 import { CodexAppServer } from "./codex-app-server.js";
+import { signalProcessGroup as killProcessGroup, stopProcessGroup } from "./process-lifecycle.js";
 
 type Json = Record<string, any>;
 type Identity = { id: string; email?: string };
@@ -34,6 +35,7 @@ const sessions = new Map<string, Session>();
 const listeners = new Map<string, Set<ServerResponse>>();
 const turnSessions = new Map<string, string>();
 const partialMessages = new Map<string, string>();
+const lastMessageItems = new Map<string, string>();
 const recovering = new Map<string, Promise<Session | null>>();
 const commandChildren = new Set<ChildProcess>();
 let shuttingDown = false;
@@ -47,11 +49,6 @@ async function logResources(stage: string, session: Session) {
   const limit = await readFile("/sys/fs/cgroup/memory.max", "utf8").catch(() => "");
   const stat = Object.fromEntries((await readFile("/sys/fs/cgroup/memory.stat", "utf8").catch(() => "")).trim().split("\n").map(line => line.split(" ")));
   console.info(JSON.stringify({ event: "build-worker-resources", stage, sessionId: session.id, workerRssBytes: process.memoryUsage().rss, ...(memory.trim() ? { containerMemoryBytes: Number(memory), anonymousBytes: Number(stat.anon || 0), fileCacheBytes: Number(stat.file || 0) } : {}), ...(limit.trim() && limit.trim() !== "max" ? { containerLimitBytes: Number(limit) } : {}), previewProcesses: [...sessions.values()].filter(item => item.previewProcess).length }));
-}
-
-function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals) {
-  try { if (process.platform !== "win32" && child.pid) process.kill(-child.pid, signal); else child.kill(signal); }
-  catch { child.kill(signal); }
 }
 
 function headers(res: ServerResponse, status = 200, contentType = "application/json") {
@@ -188,13 +185,8 @@ async function stopPreview(session: Session) {
   const child = session.previewProcess;
   if (!child) return;
   child.removeAllListeners("exit");
+  await stopProcessGroup(child);
   delete session.previewProcess;
-  const kill = (signal: NodeJS.Signals) => killProcessGroup(child, signal);
-  await new Promise<void>((resolveStop) => {
-    const timer = setTimeout(() => { kill("SIGKILL"); resolveStop(); }, 1000);
-    child.once("close", () => { clearTimeout(timer); resolveStop(); });
-    kill("SIGTERM");
-  });
 }
 
 async function launchPreview(session: Session) {
@@ -389,7 +381,7 @@ codex.onEvent((method, params) => {
       session.state = "ready";
       void updateStatus(session).then((state) => emit(session, "error", "Codex disconnected. Your files are preserved; check changes before sending another request.", { session: state })).catch(() => null);
     }
-    turnSessions.clear(); partialMessages.clear();
+    turnSessions.clear(); partialMessages.clear(); lastMessageItems.clear();
     return;
   }
   const turn = params.turn as Json | undefined;
@@ -397,11 +389,17 @@ codex.onEvent((method, params) => {
   const sessionId = turnSessions.get(turnId);
   const session = (sessionId ? sessions.get(sessionId) : null) || [...sessions.values()].find((item) => item.codexThreadId === params.threadId && item.state === "working");
   if (!session) return;
-  if (method === "item/agentMessage/delta") partialMessages.set(turnId, `${partialMessages.get(turnId) || ""}${String(params.delta || "")}`);
+  if (method === "item/agentMessage/delta") {
+    const itemId = String(params.itemId || "");
+    const previous = partialMessages.get(turnId) || "";
+    const separator = previous && itemId && lastMessageItems.get(turnId) !== itemId ? "\n\n" : "";
+    partialMessages.set(turnId, `${previous}${separator}${String(params.delta || "")}`);
+    lastMessageItems.set(turnId, itemId);
+  }
   if (method === "turn/completed") {
     const failed = turn?.status !== "completed";
-    const message = failed ? String(turn?.error?.message || "The Codex turn was interrupted. Check the changes before retrying.") : partialMessages.get(turnId) || "The requested work is complete.";
-    partialMessages.delete(turnId); turnSessions.delete(turnId);
+    const message = failed ? String(turn?.error?.message || "The Codex turn was interrupted. Check the changes before retrying.") : partialMessages.get(turnId) || "Codex returned no message. Check the changes before continuing.";
+    partialMessages.delete(turnId); turnSessions.delete(turnId); lastMessageItems.delete(turnId);
     session.state = "ready";
     void updateStatus(session).then((state) => emit(session, failed ? "error" : "agent_message", message, { session: state })).catch(() => null);
   }
@@ -537,10 +535,14 @@ async function shutdown() {
   if (shuttingDown) return;
   shuttingDown = true;
   clearInterval(previewIdleTimer);
-  for (const child of commandChildren) killProcessGroup(child, "SIGKILL");
+  for (const child of commandChildren) {
+    try { killProcessGroup(child, "SIGKILL"); }
+    catch (error) { console.error("Could not stop workspace command:", String(error)); }
+  }
   for (const connections of listeners.values()) for (const response of connections) response.end();
   server.close();
-  await Promise.all([...sessions.values()].map(stopPreview));
+  const stops = await Promise.allSettled([...sessions.values()].map(stopPreview));
+  for (const result of stops) if (result.status === "rejected") console.error("Could not stop preview:", String(result.reason));
   codex.stop();
   process.exit(0);
 }
