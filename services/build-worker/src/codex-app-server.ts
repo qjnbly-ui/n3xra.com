@@ -12,20 +12,39 @@ export class CodexAppServer {
   private pending = new Map<number, Pending>();
   private handlers = new Set<CodexEventHandler>();
 
+  private starting: Promise<void> | null = null;
+
   async start() {
-    if (this.process && !this.process.killed) return;
-    this.process = spawn("codex", ["app-server"], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
-    this.process.stderr.on("data", (chunk) => process.stderr.write(`[codex] ${chunk}`));
-    this.process.once("exit", (code) => {
-      const error = new Error(`Codex App Server stopped with code ${code ?? "unknown"}.`);
+    if (this.starting) return this.starting;
+    if (this.process && this.process.exitCode === null && !this.process.killed) return;
+    this.starting = this.initialize().finally(() => { this.starting = null; });
+    return this.starting;
+  }
+
+  private async initialize() {
+    const child = spawn("codex", ["app-server"], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
+    this.process = child;
+    child.stderr.on("data", (chunk) => process.stderr.write(`[codex] ${chunk}`));
+    const stopped = (error: Error) => {
+      if (this.process !== child) return;
+      this.process = null;
       this.pending.forEach(({ reject }) => reject(error));
       this.pending.clear();
-      this.process = null;
-    });
-    createInterface({ input: this.process.stdout }).on("line", (line) => this.receive(line));
-    await this.request("initialize", { clientInfo: { name: "n3xra-build-worker", title: "N3XRA Build Studio", version: "1.0.0" } });
-    this.notify("initialized", {});
+      this.handlers.forEach((handler) => handler("worker/disconnected", { message: error.message }));
+    };
+    child.once("error", stopped);
+    child.once("exit", (code) => stopped(new Error(`Codex App Server stopped with code ${code ?? "unknown"}.`)));
+    createInterface({ input: child.stdout }).on("line", (line) => this.receive(line));
+    try {
+      await this.request("initialize", { clientInfo: { name: "n3xra-build-worker", title: "N3XRA Build Studio", version: "1.0.0" } });
+      this.notify("initialized", {});
+    } catch (error) {
+      child.kill();
+      throw error;
+    }
   }
+
+  stop() { this.process?.kill(); }
 
   private receive(line: string) {
     let message: JsonObject;
@@ -47,8 +66,19 @@ export class CodexAppServer {
   request<T = any>(method: string, params: JsonObject): Promise<T> {
     if (!this.process) return Promise.reject(new Error("Codex App Server is not running."));
     const id = this.nextId++;
-    this.process.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`);
-    return new Promise<T>((resolve, reject) => this.pending.set(id, { resolve, reject }));
+    return new Promise<T>((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`Codex ${method} timed out. Check the workspace before retrying.`));
+      }, 120_000);
+      this.pending.set(id, {
+        resolve: (value) => { clearTimeout(timer); resolve(value); },
+        reject: (error) => { clearTimeout(timer); reject(error); },
+      });
+      this.process!.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id, method, params })}\n`, (error) => {
+        if (error) { this.pending.get(id)?.reject(error); this.pending.delete(id); }
+      });
+    });
   }
 
   notify(method: string, params: JsonObject) {
@@ -79,7 +109,16 @@ export class CodexAppServer {
     return result.thread.id;
   }
 
+  async resumeThread(threadId: string, cwd: string) {
+    await this.start();
+    const result = await this.request<{ thread: { id: string } }>("thread/resume", {
+      threadId, cwd, approvalPolicy: "never", sandbox: "workspace-write",
+    });
+    return result.thread.id;
+  }
+
   async startTurn(threadId: string, cwd: string, text: string) {
+    await this.start();
     return this.request<{ turn: { id: string } }>("turn/start", {
       threadId,
       cwd,

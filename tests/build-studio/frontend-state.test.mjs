@@ -1,0 +1,37 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
+
+async function frontend() {
+  let source=await readFile(new URL('../../n3xra-admin/build-studio/build-studio.js',import.meta.url),'utf8');
+  source=source.replace(/^import .*;\n/gm,'');
+  source=source.slice(0,source.indexOf('initialize().catch'));
+  const elements=new Map();
+  const element=()=>({hidden:false,disabled:false,textContent:'',value:'',dataset:{},style:{},children:[],classList:{toggle(){},add(){},remove(){}},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},addEventListener(){},setAttribute(){},querySelector(){return get('send');}});
+  const get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
+  const ctx={window:{RECORDS_APP_CONFIG:{buildWorkerUrl:'https://worker.test'}},document:{getElementById:get,createElement:element,querySelectorAll:()=>[]},URL,AbortController,TextDecoder,setTimeout,clearTimeout,console};
+  vm.createContext(ctx);vm.runInContext(source+'\nglobalThis.api={renderSession,handleWorkerEvent};',ctx);
+  return {api:ctx.api,get};
+}
+const session=(extra={})=>({id:'demo',state:'ready',workingBranch:'demo',previewState:'ready',previewUrl:'https://worker.test/preview/demo/?token=test',changedFileCount:1,hasUnpushedCommits:false,...extra});
+test('checkpoint and push reflect separate Git states; active turns disable editing',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());assert.equal(get('build-checkpoint').disabled,false);assert.equal(get('build-push').disabled,true);
+ api.renderSession(session({changedFileCount:0,hasUnpushedCommits:true}));assert.equal(get('build-checkpoint').disabled,true);assert.equal(get('build-push').disabled,false);
+ api.renderSession(session({state:'working'}));assert.equal(get('build-prompt').disabled,true);assert.equal(get('build-push').disabled,true);
+});
+test('replayed events cannot restore stale state or duplicate messages; successful edits refresh preview',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());
+ const event={id:1,eventType:'agent_message',message:'Added rocket',metadata:{session:session({state:'failed'})},replay:true};
+ api.handleWorkerEvent(event);api.handleWorkerEvent(event);assert.equal(get('build-messages').children.length,1);assert.equal(get('build-workspace').hidden,false);
+ api.handleWorkerEvent({id:2,eventType:'agent_message',message:'Done',metadata:{session:session()}});assert.match(get('build-preview-frame').src,/refresh=/);
+});
+test('idle previews clearly pause, unload the old page, and reload when resumed',async()=>{
+ const {api,get}=await frontend();api.renderSession(session());
+ api.renderSession(session({previewState:'offline'}));
+ assert.match(get('build-preview-status').textContent,/paused.*refresh to resume/);
+ assert.equal(get('build-preview-frame').src,'about:blank');
+ api.renderSession(session());
+ assert.match(get('build-preview-frame').src,/https:\/\/worker.test\/preview\/demo/);
+ assert.equal(get('build-preview-status').textContent,'Live preview');
+});

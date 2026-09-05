@@ -22,6 +22,8 @@ let currentWebsite = null;
 let repositories = [];
 let activeSession = null;
 let eventAbort = null;
+const seenEvents = new Set();
+let sending = false;
 function setNotice(value = "", error = false) {
     notice.textContent = value;
     notice.style.color = error ? "#9f453e" : "#28766c";
@@ -67,9 +69,9 @@ function renderSession(session) {
     workspace.hidden = false;
     byId("build-branch").textContent = session.workingBranch;
     byId("build-change-count").textContent = session.changedFileCount ? `${session.changedFileCount} changed file${session.changedFileCount === 1 ? "" : "s"}` : "No changes";
-    checkpointButton.disabled = session.changedFileCount === 0;
-    pushButton.disabled = session.changedFileCount === 0;
-    prompt.disabled = session.state === "preparing" || session.state === "failed";
+    checkpointButton.disabled = session.state !== "ready" || session.changedFileCount === 0;
+    pushButton.disabled = session.state !== "ready" || !session.hasUnpushedCommits;
+    prompt.disabled = sending || session.state !== "ready";
     composer.querySelector('button[type="submit"]').disabled = prompt.disabled;
     renderPreview(session);
 }
@@ -78,7 +80,7 @@ function renderPreview(session) {
     const label = byId("build-preview-status");
     dot.classList.toggle("is-ready", session.previewState === "ready");
     dot.classList.toggle("is-error", session.previewState === "failed");
-    label.textContent = session.previewState === "ready" ? "Live preview" : session.previewState === "failed" ? "Preview needs attention" : "Preview starting";
+    label.textContent = session.previewState === "ready" ? "Live preview" : session.previewState === "failed" ? "Preview needs attention" : session.previewState === "offline" ? "Preview paused — refresh to resume" : "Preview starting";
     const previousState = previewFrame.dataset.previewState || "offline";
     const previousUrl = previewFrame.dataset.previewUrl || "";
     openPreviewLink.hidden = session.previewState !== "ready" || !session.previewUrl;
@@ -90,16 +92,23 @@ function renderPreview(session) {
         previewFrame.src = previewUrl.toString();
         previewFrame.dataset.previewUrl = session.previewUrl;
     }
-    else if (session.previewState === "starting" && previousState === "ready") {
+    else if ((session.previewState === "starting" || session.previewState === "offline") && previousState === "ready") {
         previewFrame.src = "about:blank";
     }
     previewFrame.dataset.previewState = session.previewState;
 }
 function handleWorkerEvent(event) {
+    if (event.id !== undefined) {
+        if (seenEvents.has(event.id))
+            return;
+        seenEvents.add(event.id);
+    }
     if (["user_message", "agent_message"].includes(event.eventType) && event.message)
         addMessage(event.eventType === "user_message" ? "user" : "agent", event.message);
     if (["status", "error", "checkpoint", "push"].includes(event.eventType) && event.message)
         addMessage("status", event.message);
+    if (event.replay)
+        return;
     const session = event.metadata?.session;
     if (session?.state === "failed") {
         activeSession = null;
@@ -112,37 +121,56 @@ function handleWorkerEvent(event) {
         showOnly("start");
         return;
     }
-    if (session)
+    if (session && (!activeSession || session.id === activeSession.id))
         renderSession(session);
+    if (event.eventType === "agent_message" && activeSession?.previewState === "ready" && activeSession.previewUrl) {
+        const url = new URL(activeSession.previewUrl);
+        url.searchParams.set("refresh", Date.now().toString());
+        previewFrame.src = url.toString();
+    }
 }
 function connectEvents(sessionId) {
     eventAbort?.abort();
-    eventAbort = new AbortController();
+    const controller = new AbortController();
+    eventAbort = controller;
     void (async () => {
-        try {
-            const response = await fetch(`${workerBase}/v1/sessions/${encodeURIComponent(sessionId)}/events`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: eventAbort?.signal });
-            if (!response.ok || !response.body)
-                throw new Error("The build event stream could not open.");
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let buffer = "";
-            while (true) {
-                const { value, done } = await reader.read();
-                if (done)
-                    break;
-                buffer += decoder.decode(value, { stream: true });
-                const blocks = buffer.split("\n\n");
-                buffer = blocks.pop() || "";
-                blocks.forEach((block) => {
-                    const data = block.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
-                    if (data)
-                        handleWorkerEvent(JSON.parse(data));
-                });
+        let failures = 0;
+        while (!controller.signal.aborted && activeSession?.id === sessionId) {
+            try {
+                const response = await fetch(`${workerBase}/v1/sessions/${encodeURIComponent(sessionId)}/events`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: controller.signal });
+                if (!response.ok || !response.body)
+                    throw new Error("The build event stream could not open.");
+                setNotice("");
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let buffer = "";
+                while (!controller.signal.aborted) {
+                    const { value, done } = await reader.read();
+                    if (done)
+                        break;
+                    failures = 0;
+                    buffer += decoder.decode(value, { stream: true });
+                    const blocks = buffer.split("\n\n");
+                    buffer = blocks.pop() || "";
+                    blocks.forEach((block) => {
+                        const data = block.split("\n").find((line) => line.startsWith("data: "))?.slice(6);
+                        if (data)
+                            handleWorkerEvent(JSON.parse(data));
+                    });
+                }
             }
-        }
-        catch (error) {
-            if (!eventAbort?.signal.aborted)
-                setNotice(error instanceof Error ? error.message : "The build event stream was interrupted.", true);
+            catch (error) {
+                if (!controller.signal.aborted)
+                    setNotice(error instanceof Error ? error.message : "Connection interrupted.", true);
+            }
+            if (controller.signal.aborted)
+                return;
+            setNotice("Reconnecting to Build Studio…", true);
+            await new Promise((resolve) => {
+                const finish = () => { clearTimeout(timer); controller.signal.removeEventListener("abort", finish); resolve(); };
+                const timer = setTimeout(finish, Math.min(1000 * 2 ** failures++, 15_000));
+                controller.signal.addEventListener("abort", finish, { once: true });
+            });
         }
     })();
 }
@@ -177,7 +205,8 @@ async function inspectWorker() {
         const active = await workerRequest(`/v1/projects/${encodeURIComponent(currentWebsite.id)}/active`);
         if (active.session) {
             messages.replaceChildren();
-            (active.events || []).forEach(handleWorkerEvent);
+            seenEvents.clear();
+            (active.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
             renderSession(active.session);
             connectEvents(active.session.id);
             setNotice(active.session.state === "preparing" ? "Restored the workspace. Preparation is still running." : "Workspace restored.");
@@ -203,7 +232,8 @@ async function startSession() {
             body: JSON.stringify({ websiteId: currentWebsite.id }),
         });
         messages.replaceChildren();
-        (result.events || []).forEach(handleWorkerEvent);
+        seenEvents.clear();
+        (result.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
         renderSession(result.session);
         addMessage("status", "Build Studio reserved the branch. Repository and preview preparation will continue here.");
         connectEvents(result.session.id);
@@ -242,6 +272,7 @@ async function initialize() {
         activeSession = null;
         eventAbort?.abort();
         messages.replaceChildren();
+        seenEvents.clear();
         previewFrame.src = "about:blank";
         previewFrame.dataset.previewState = "offline";
         previewFrame.dataset.previewUrl = "";
@@ -274,15 +305,24 @@ connectButton.addEventListener("click", async () => {
 });
 composer.addEventListener("submit", async (event) => {
     event.preventDefault();
-    if (!activeSession || !prompt.value.trim())
+    if (!activeSession || activeSession.state !== "ready" || sending || !prompt.value.trim())
         return;
+    const sessionId = activeSession.id;
     const text = prompt.value.trim();
-    prompt.value = "";
+    sending = true;
+    renderSession(activeSession);
     try {
-        await workerRequest(`/v1/sessions/${activeSession.id}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+        await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text }) });
+        if (activeSession?.id === sessionId)
+            prompt.value = "";
     }
     catch (error) {
         addMessage("status", error instanceof Error ? error.message : "The message could not be sent.");
+    }
+    finally {
+        sending = false;
+        if (activeSession?.id === sessionId)
+            renderSession(activeSession);
     }
 });
 checkpointButton.addEventListener("click", async () => {

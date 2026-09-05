@@ -1,9 +1,10 @@
-import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
+import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { spawn, type ChildProcess } from "node:child_process";
 import { createHash, createSign, randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, writeFile, chmod } from "node:fs/promises";
 import { dirname, join, resolve, sep } from "node:path";
+import { setTimeout as delay } from "node:timers/promises";
 import { pipeline } from "node:stream/promises";
 import { CodexAppServer } from "./codex-app-server.js";
 
@@ -13,7 +14,7 @@ type Session = {
   id: string; websiteId: string; userId: string; cwd: string; repositoryFullName: string;
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
-  previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess;
+  previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -33,6 +34,25 @@ const sessions = new Map<string, Session>();
 const listeners = new Map<string, Set<ServerResponse>>();
 const turnSessions = new Map<string, string>();
 const partialMessages = new Map<string, string>();
+const recovering = new Map<string, Promise<Session | null>>();
+const commandChildren = new Set<ChildProcess>();
+let shuttingDown = false;
+// Serialize dependency installation/startup across projects on the shared worker.
+let previewQueue: Promise<void> = Promise.resolve();
+const idleSeconds = Number(process.env.N3XRA_BUILD_PREVIEW_IDLE_SECONDS || 900);
+if (!Number.isFinite(idleSeconds) || idleSeconds < 1) throw new Error("N3XRA_BUILD_PREVIEW_IDLE_SECONDS must be a positive number.");
+
+async function logResources(stage: string, session: Session) {
+  const memory = await readFile("/sys/fs/cgroup/memory.current", "utf8").catch(() => "");
+  const limit = await readFile("/sys/fs/cgroup/memory.max", "utf8").catch(() => "");
+  const stat = Object.fromEntries((await readFile("/sys/fs/cgroup/memory.stat", "utf8").catch(() => "")).trim().split("\n").map(line => line.split(" ")));
+  console.info(JSON.stringify({ event: "build-worker-resources", stage, sessionId: session.id, workerRssBytes: process.memoryUsage().rss, ...(memory.trim() ? { containerMemoryBytes: Number(memory), anonymousBytes: Number(stat.anon || 0), fileCacheBytes: Number(stat.file || 0) } : {}), ...(limit.trim() && limit.trim() !== "max" ? { containerLimitBytes: Number(limit) } : {}), previewProcesses: [...sessions.values()].filter(item => item.previewProcess).length }));
+}
+
+function killProcessGroup(child: ChildProcess, signal: NodeJS.Signals) {
+  try { if (process.platform !== "win32" && child.pid) process.kill(-child.pid, signal); else child.kill(signal); }
+  catch { child.kill(signal); }
+}
 
 function headers(res: ServerResponse, status = 200, contentType = "application/json") {
   const requestOrigin = String((res as ServerResponse & { req?: IncomingMessage }).req?.headers.origin || "").replace(/\/$/, "");
@@ -64,11 +84,18 @@ async function authenticate(req: IncomingMessage): Promise<Identity> {
 }
 
 async function command(commandName: string, args: string[], cwd: string, extraEnv: NodeJS.ProcessEnv = {}) {
+  if (shuttingDown) throw new Error("Build worker is shutting down.");
   return new Promise<string>((resolveCommand, reject) => {
-    const child = spawn(commandName, args, { cwd: safePath(cwd), env: { ...process.env, ...extraEnv }, stdio: ["ignore", "pipe", "pipe"] });
+    const child = spawn(commandName, args, { cwd: safePath(cwd), env: { ...process.env, ...extraEnv }, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+    const timer = setTimeout(() => {
+      killProcessGroup(child, "SIGKILL");
+      reject(new Error(`${commandName} timed out after five minutes.`));
+    }, 300_000);
+    commandChildren.add(child);
+    child.once("close", () => commandChildren.delete(child));
     let stdout = "", stderr = "";
-    child.stdout.on("data", (chunk) => { stdout += chunk; }); child.stderr.on("data", (chunk) => { stderr += chunk; });
-    child.once("error", reject); child.once("close", (code) => code === 0 ? resolveCommand(stdout.trim()) : reject(new Error((stderr || stdout || `${commandName} failed`).trim().slice(-2000))));
+    child.stdout.on("data", (chunk) => { stdout = (stdout + chunk).slice(-100_000); }); child.stderr.on("data", (chunk) => { stderr = (stderr + chunk).slice(-100_000); });
+    child.once("error", (error) => { clearTimeout(timer); reject(error); }); child.once("close", (code) => { clearTimeout(timer); code === 0 ? resolveCommand(stdout.trim()) : reject(new Error((stderr || stdout || `${commandName} failed`).trim().slice(-2000))); });
   });
 }
 
@@ -115,7 +142,7 @@ async function emit(session: Session, eventType: string, message = "", metadata:
 
 function publicSession(session: Session) {
   const publicUrl = process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`;
-  return { id: session.id, state: session.state, workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount };
+  return { id: session.id, state: session.state, workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits) };
 }
 
 async function sessionEvents(sessionId: string) {
@@ -125,8 +152,11 @@ async function sessionEvents(sessionId: string) {
 
 async function updateStatus(session: Session) {
   const value = await command("git", ["status", "--short"], session.cwd);
+  const remote = await command("git", ["branch", "-r", "--list", `origin/${session.workingBranch}`], session.cwd);
+  const upstream = remote ? `origin/${session.workingBranch}` : `origin/${session.baseBranch}`;
+  session.hasUnpushedCommits = Number(await command("git", ["rev-list", "--count", `${upstream}..HEAD`], session.cwd)) > 0;
   session.changedFileCount = value ? value.split("\n").length : 0;
-  await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ changed_file_count: session.changedFileCount, preview_state: session.previewState, last_activity_at: new Date().toISOString() }) });
+  await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: session.state, changed_file_count: session.changedFileCount, preview_state: session.previewState, last_activity_at: new Date().toISOString() }) });
   return publicSession(session);
 }
 
@@ -144,60 +174,149 @@ async function prepareRepository(session: Session) {
 }
 
 async function startPreview(session: Session) {
-  if (session.previewProcess) {
-    session.previewProcess.removeAllListeners("exit");
-    session.previewProcess.kill("SIGTERM");
-  }
-  session.previewState = "starting";
-  const packageJson = JSON.parse(await readFile(join(session.cwd, "package.json"), "utf8")) as Json;
-  const packageManager = existsSync(join(session.cwd, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(session.cwd, "yarn.lock")) ? "yarn" : "npm";
-  if (!existsSync(join(session.cwd, "node_modules"))) {
-    await emit(session, "status", "Installing the website dependencies. The first preview can take a minute.", { session: publicSession(session) });
-    if (packageManager === "npm") {
-      const installArgs = existsSync(join(session.cwd, "package-lock.json")) ? ["ci", "--no-audit", "--no-fund"] : ["install", "--no-audit", "--no-fund"];
-      try {
-        await command("npm", installArgs, session.cwd);
-      } catch (error) {
-        if (installArgs[0] !== "ci") throw error;
-        await command("npm", ["install", "--package-lock=false", "--no-audit", "--no-fund"], session.cwd);
-      }
-    } else {
-      await command(packageManager, ["install", "--frozen-lockfile"], session.cwd);
-    }
-  }
-  await emit(session, "status", "Starting the private live preview.", { session: publicSession(session) });
-  const script = packageJson.scripts?.dev ? "dev" : packageJson.scripts?.start ? "start" : "preview";
-  const args = packageManager === "npm" ? ["run", script, "--", "--host", "127.0.0.1", "--port", String(session.previewPort)] : [script, "--host", "127.0.0.1", "--port", String(session.previewPort)];
-  const previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, BROWSER: "none" }, stdio: ["ignore", "pipe", "pipe"] });
-  session.previewProcess = previewProcess;
-  let previewReady = false;
-  const ready = (chunk: Buffer) => {
-    if (!previewReady && /localhost|127\.0\.0\.1|ready|started/i.test(chunk.toString())) {
-      previewReady = true;
-      session.previewState = "ready";
-      void updateStatus(session).then((state) => emit(session, "preview", "Live preview is ready.", { session: state }));
-    }
-  };
-  previewProcess.stdout?.on("data", ready); previewProcess.stderr?.on("data", ready);
-  previewProcess.once("exit", () => {
-    if (session.previewProcess !== previewProcess) return;
-    session.previewState = "failed";
-    void emit(session, "error", "The preview process stopped.", { session: publicSession(session) });
+  if (session.previewStarting) return session.previewStarting;
+  const running = previewQueue.then(async () => {
+    if (shuttingDown || sessions.get(session.id) !== session) return;
+    await launchPreview(session);
+  }).finally(() => { delete session.previewStarting; });
+  previewQueue = running.catch(() => undefined);
+  session.previewStarting = running;
+  return running;
+}
+
+async function stopPreview(session: Session) {
+  const child = session.previewProcess;
+  if (!child) return;
+  child.removeAllListeners("exit");
+  delete session.previewProcess;
+  const kill = (signal: NodeJS.Signals) => killProcessGroup(child, signal);
+  await new Promise<void>((resolveStop) => {
+    const timer = setTimeout(() => { kill("SIGKILL"); resolveStop(); }, 1000);
+    child.once("close", () => { clearTimeout(timer); resolveStop(); });
+    kill("SIGTERM");
   });
 }
 
-async function prepareProject(session: Session) {
+async function launchPreview(session: Session) {
+  await stopPreview(session);
+  session.previewState = "starting";
+  const packageJson = JSON.parse(await readFile(join(session.cwd, "package.json"), "utf8")) as Json;
+  const packageManager = existsSync(join(session.cwd, "pnpm-lock.yaml")) ? "pnpm" : existsSync(join(session.cwd, "yarn.lock")) ? "yarn" : "npm";
+  const installMarker = join(session.cwd, "node_modules", ".n3xra-installed");
+  const fingerprint = createHash("sha256");
+  for (const file of ["package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock"]) {
+    fingerprint.update(file).update(await readFile(join(session.cwd, file)).catch(() => Buffer.alloc(0)));
+  }
+  const installFingerprint = fingerprint.digest("hex");
+  if ((await readFile(installMarker, "utf8").catch(() => "")) !== installFingerprint) {
+    await emit(session, "status", "Installing the website dependencies. The first preview can take a minute.", { session: publicSession(session) });
+    await logResources("install-start", session);
+    if (packageManager === "npm") {
+      const installArgs = existsSync(join(session.cwd, "package-lock.json")) ? ["ci", "--include=dev", "--no-audit", "--no-fund"] : ["install", "--include=dev", "--no-audit", "--no-fund"];
+      try {
+        await command("npm", installArgs, session.cwd, { NODE_ENV: "development" });
+      } catch (error) {
+        if (installArgs[0] !== "ci") throw error;
+        await command("npm", ["install", "--package-lock=false", "--include=dev", "--no-audit", "--no-fund"], session.cwd, { NODE_ENV: "development" });
+      }
+    } else {
+      await command(packageManager, ["install", "--frozen-lockfile"], session.cwd, { NODE_ENV: "development" });
+    }
+    await logResources("install-complete", session);
+  }
+  await mkdir(join(session.cwd, "node_modules"), { recursive: true });
+  await writeFile(installMarker, installFingerprint);
+  if (!sessions.has(session.id)) return;
+  await emit(session, "status", "Starting the private live preview.", { session: publicSession(session) });
+  const script = packageJson.scripts?.dev ? "dev" : packageJson.scripts?.start ? "start" : "preview";
+  const args = packageManager === "npm" ? ["run", script, "--", "--host", "127.0.0.1", "--port", String(session.previewPort)] : [script, "--host", "127.0.0.1", "--port", String(session.previewPort)];
+  // Astro/Vite need a session base so module requests and HMR stay on this preview.
+  session.previewUsesAstro = /astro/.test(String(packageJson.scripts?.[script] || ""));
+  session.previewBasePath = /astro|vite/.test(String(packageJson.scripts?.[script] || "")) ? `/preview/${session.id}/` : "/";
+  if (session.previewBasePath !== "/") args.push("--base", session.previewBasePath);
+  const previewProcess = spawn(packageManager, args, { cwd: session.cwd, env: { ...process.env, NODE_ENV: "development", ASTRO_DEV_BACKGROUND: "1", ASTRO_TELEMETRY_DISABLED: "1", BROWSER: "none" }, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"] });
+  session.previewProcess = previewProcess;
+  let output = "";
+  let failure = "";
+  const log = (chunk: Buffer) => { output = (output + chunk.toString()).slice(-2000); };
+  previewProcess.stdout?.on("data", log); previewProcess.stderr?.on("data", log);
+  previewProcess.once("error", (error) => { failure = error.message; });
+  previewProcess.once("exit", () => {
+    if (session.previewProcess !== previewProcess) return;
+    failure = output || "The preview process stopped.";
+    session.previewState = "failed";
+    void updateStatus(session).then((state) => emit(session, "error", failure, { session: state })).catch(() => null);
+  });
+  for (let attempt = 0; attempt < 90; attempt++) {
+    if (failure) throw new Error(failure);
+    if (!sessions.has(session.id)) return;
+    try {
+      const response = await fetch(`http://127.0.0.1:${session.previewPort}${session.previewBasePath}`, { signal: AbortSignal.timeout(1000) });
+      await response.body?.cancel();
+      if (response.ok) {
+        session.previewState = "ready";
+        session.lastPreviewActivity = Date.now();
+        await logResources("preview-ready", session);
+        await emit(session, "preview", "Live preview is ready.", { session: await updateStatus(session) });
+        return;
+      }
+    } catch { /* The dev server has not bound its port yet. */ }
+    await delay(1000);
+  }
+  await stopPreview(session);
+  throw new Error(`The preview did not become ready. ${output}`);
+}
+
+// SSE heartbeats do not count as activity. Files and the conversation stay saved.
+const previewIdleTimer = setInterval(() => {
+  for (const session of sessions.values()) {
+    if (session.state !== "ready" || session.previewStarting || !session.previewProcess || session.previewState !== "ready") continue;
+    if (Date.now() - (session.lastPreviewActivity || Date.now()) < idleSeconds * 1000) continue;
+    session.previewState = "offline";
+    void stopPreview(session).then(async () => {
+      await emit(session, "preview", "Live preview paused after inactivity. Your work is saved. Refresh the preview to resume.", { session: await updateStatus(session) });
+      await logResources("preview-idle-paused", session);
+    }).catch(error => console.error("Could not pause idle preview:", String(error)));
+  }
+}, Math.min(30_000, idleSeconds * 1000));
+previewIdleTimer.unref();
+
+async function ensureThread(session: Session) {
+  if (session.codexThreadId) {
+    try { session.codexThreadId = await codex.resumeThread(session.codexThreadId, session.cwd); return; }
+    catch (error) {
+      if (!/thread not found|no rollout found|unable to find.*thread/i.test(String((error as Error).message))) throw error;
+      await emit(session, "status", "The saved Codex conversation is unavailable. Starting a new conversation with your existing files.");
+    }
+  }
+  session.codexThreadId = await codex.startThread(session.cwd);
+  await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: session.codexThreadId }) });
+}
+
+function prepareProject(session: Session): Promise<void> {
+  if (session.preparation) return session.preparation;
+  session.state = "preparing";
+  session.previewState = "starting";
+  const running = prepareProjectOnce(session).finally(() => { delete session.preparation; });
+  session.preparation = running;
+  return running;
+}
+
+async function prepareProjectOnce(session: Session) {
   try {
     await emit(session, "status", "Opening the connected GitHub repository.", { session: publicSession(session) });
     await prepareRepository(session);
     if (!sessions.has(session.id)) return;
     await emit(session, "status", "Starting the secure Codex workspace.", { session: publicSession(session) });
-    if (!session.codexThreadId) session.codexThreadId = await codex.startThread(session.cwd);
+    await ensureThread(session);
     if (!sessions.has(session.id)) return;
     session.state = "ready";
     await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: session.codexThreadId, state: session.state, preview_state: "starting", error_message: null, last_activity_at: new Date().toISOString() }) });
     await emit(session, "session", `Build workspace opened on ${session.workingBranch}.`, { session: publicSession(session) });
-    await startPreview(session);
+    void startPreview(session).then(() => updateStatus(session)).catch(async (error) => {
+      session.previewState = "failed";
+      await emit(session, "error", String(error.message || error), { session: await updateStatus(session) });
+    }).catch(() => null);
     await updateStatus(session);
   } catch (error) {
     const message = error instanceof Error ? error.message : "The build workspace could not be prepared.";
@@ -217,7 +336,7 @@ async function openProject(user: Identity, websiteId: string) {
   for (const [sessionId, existing] of sessions) {
     if (existing.websiteId !== websiteId || existing.userId !== user.id) continue;
     existing.state = "archived";
-    existing.previewProcess?.kill("SIGTERM");
+    await stopPreview(existing);
     sessions.delete(sessionId);
   }
   const id = randomUUID(); const slug = String(website.name).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 45) || "website";
@@ -233,38 +352,93 @@ async function activeProject(user: Identity, websiteId: string) {
   const row = Array.isArray(rows) ? rows[0] : null;
   if (!row) return { session: null, events: [] };
   if (["failed", "stopped"].includes(String(row.state))) return { session: null, events: [] };
-  let session = sessions.get(String(row.id));
-  if (!session) {
-    session = {
+  const session = await recoverSession(user, String(row.id));
+  return { session: session ? publicSession(session) : null, events: session ? await sessionEvents(session.id) : [] };
+}
+
+async function recoverSession(user: Identity, id: string): Promise<Session | null> {
+  const existing = sessions.get(id);
+  if (existing) return existing.userId === user.id ? existing : null;
+  const key = `${user.id}:${id}`;
+  if (recovering.has(key)) return recovering.get(key)!;
+  const load = (async () => {
+    const rows = await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(id)}&created_by_user_id=eq.${encodeURIComponent(user.id)}&archived_at=is.null&select=*`);
+    const row = rows?.[0];
+    if (!row || ["archived", "stopped", "failed"].includes(String(row.state))) return null;
+    const session: Session = {
       id: String(row.id), websiteId: String(row.website_id), userId: String(row.created_by_user_id),
       cwd: safePath(join(workspaceRoot, String(row.website_id), String(row.id), "repository")),
       repositoryFullName: String(row.repository_full_name), baseBranch: String(row.base_branch || "main"),
       workingBranch: String(row.working_branch), codexThreadId: String(row.codex_thread_id || ""),
       previewPort: 5000 + (Number.parseInt(createHash("sha1").update(String(row.id)).digest("hex").slice(0, 4), 16) % 1000),
-      state: row.state || "preparing", previewState: row.preview_state || "offline", changedFileCount: Number(row.changed_file_count || 0),
+      state: "preparing", previewState: "starting", changedFileCount: Number(row.changed_file_count || 0),
       previewToken: createHash("sha256").update(randomUUID()).digest("hex"),
     };
     sessions.set(session.id, session);
-    if (session.state !== "failed" && session.state !== "stopped") void prepareProject(session);
-  }
-  return { session: publicSession(session), events: await sessionEvents(session.id) };
+    void prepareProject(session);
+    return session;
+  })().finally(() => recovering.delete(key));
+  recovering.set(key, load);
+  return load;
 }
 
 codex.onEvent((method, params) => {
-  const turn = params.turn as Json | undefined; const turnId = String(params.turnId || turn?.id || ""); const sessionId = turnSessions.get(turnId); const session = sessionId ? sessions.get(sessionId) : null; if (!session) return;
+  if (method === "worker/disconnected") {
+    for (const session of sessions.values()) {
+      if (session.state !== "working") continue;
+      session.state = "ready";
+      void updateStatus(session).then((state) => emit(session, "error", "Codex disconnected. Your files are preserved; check changes before sending another request.", { session: state })).catch(() => null);
+    }
+    turnSessions.clear(); partialMessages.clear();
+    return;
+  }
+  const turn = params.turn as Json | undefined;
+  const turnId = String(params.turnId || turn?.id || "");
+  const sessionId = turnSessions.get(turnId);
+  const session = (sessionId ? sessions.get(sessionId) : null) || [...sessions.values()].find((item) => item.codexThreadId === params.threadId && item.state === "working");
+  if (!session) return;
   if (method === "item/agentMessage/delta") partialMessages.set(turnId, `${partialMessages.get(turnId) || ""}${String(params.delta || "")}`);
-  if (method === "turn/completed") { const message = partialMessages.get(turnId) || "The requested work is complete."; partialMessages.delete(turnId); void updateStatus(session).then((state) => emit(session, "agent_message", message, { session: state })); }
+  if (method === "turn/completed") {
+    const failed = turn?.status !== "completed";
+    const message = failed ? String(turn?.error?.message || "The Codex turn was interrupted. Check the changes before retrying.") : partialMessages.get(turnId) || "The requested work is complete.";
+    partialMessages.delete(turnId); turnSessions.delete(turnId);
+    session.state = "ready";
+    void updateStatus(session).then((state) => emit(session, failed ? "error" : "agent_message", message, { session: state })).catch(() => null);
+  }
 });
 
 async function proxyPreview(req: IncomingMessage, res: ServerResponse, session: Session, pathname: string) {
-  const upstream = await fetch(`http://127.0.0.1:${session.previewPort}${pathname}${new URL(req.url || "/", "http://local").search}`, { method: req.method || "GET", headers: { accept: String(req.headers.accept || "*/*") } });
+  const query = new URL(req.url || "/", "http://local").searchParams;
+  query.delete("token"); query.delete("refresh");
+  const search = query.size ? `?${query}` : "";
+  const upstream = await fetch(`http://127.0.0.1:${session.previewPort}${pathname}${search}`, { method: req.method || "GET", headers: { accept: String(req.headers.accept || "*/*") }, signal: AbortSignal.timeout(30_000) });
   const excludedHeaders = new Set(["content-encoding", "content-length", "content-security-policy", "content-security-policy-report-only", "cross-origin-resource-policy", "x-frame-options"]);
   const responseHeaders = Object.fromEntries([...upstream.headers].filter(([key]) => !excludedHeaders.has(key.toLowerCase())));
   responseHeaders["Cache-Control"] = "no-store";
   responseHeaders["Content-Security-Policy"] = `frame-ancestors ${[...allowedOrigins].join(" ")}`;
   responseHeaders["Cross-Origin-Resource-Policy"] = "cross-origin";
+  responseHeaders["Referrer-Policy"] = "no-referrer";
+  responseHeaders["Set-Cookie"] = `n3xra_preview_${session.id}=${session.previewToken}; Path=/preview/${session.id}/; HttpOnly; SameSite=None; Secure`;
+  const contentType = upstream.headers.get("content-type") || "";
+  if (/text\/html|javascript|text\/css/.test(contentType)) {
+    const prefix = `/preview/${session.id}/`;
+    const content = (await upstream.text())
+      .replace(/(["'`])\/(?!\/)([^"'`\s<>]*)/g, (match, quote: string, path: string) => path.startsWith(`preview/${session.id}/`) ? match : `${quote}${prefix}${path}`)
+      .replace(/url\(\/(?!\/)([^)]+)\)/g, (match, path: string) => path.startsWith(`preview/${session.id}/`) ? match : `url(${prefix}${path})`);
+    res.writeHead(upstream.status, responseHeaders);
+    res.end(content);
+    return;
+  }
   res.writeHead(upstream.status, responseHeaders);
   if (upstream.body) await pipeline(upstream.body as any, res); else res.end();
+}
+
+function previewSession(req: IncomingMessage, url: URL) {
+  const id = url.pathname.split("/")[2] || "";
+  const session = sessions.get(id);
+  if (!session) return null;
+  const cookie = String(req.headers.cookie || "").split(";").map((item) => item.trim()).find((item) => item.startsWith(`n3xra_preview_${id}=`))?.split("=")[1];
+  return url.searchParams.get("token") === session.previewToken || cookie === session.previewToken ? session : null;
 }
 
 const server = createServer(async (req, res) => {
@@ -273,7 +447,12 @@ const server = createServer(async (req, res) => {
     if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
     if (req.headers.origin && !allowedOrigins.has(req.headers.origin.replace(/\/$/, ""))) return json(res, 403, { error: "Origin not allowed." });
     if (url.pathname === "/healthz") return json(res, 200, { ok: true });
-    if (url.pathname.startsWith("/preview/")) { const [, , sessionId, ...parts] = url.pathname.split("/"); const session = sessions.get(sessionId || ""); if (!session || url.searchParams.get("token") !== session.previewToken) return json(res, 404, { error: "Preview not found." }); return await proxyPreview(req, res, session, `/${parts.join("/")}`); }
+    if (url.pathname.startsWith("/preview/")) {
+      const session = previewSession(req, url);
+      if (!session) return json(res, 404, { error: "Preview not found." });
+      session.lastPreviewActivity = Date.now();
+      return await proxyPreview(req, res, session, session.previewBasePath === "/" ? `/${url.pathname.split("/").slice(3).join("/")}` : url.pathname);
+    }
     const user = await authenticate(req);
     if (url.pathname === "/v1/account" && req.method === "GET") { const account = await codex.account(); return json(res, 200, { ready: true, codexAuthenticated: Boolean(account.account), account: account.account ? { type: (account.account as Json).type } : null }); }
     if (url.pathname === "/v1/account/connect" && req.method === "POST") { const result = await codex.connectChatGpt(); return json(res, 200, { verificationUrl: result.verificationUrl || result.authUrl, userCode: result.userCode || result.code }); }
@@ -282,13 +461,44 @@ const server = createServer(async (req, res) => {
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 202, { session: publicSession(session) }); }
     const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
-    const session = sessions.get(match[1] || ""); if (!session || session.userId !== user.id) return json(res, 404, { error: "Build session not found." });
+    const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     const action = match[2] || "";
-    if (action === "events" && req.method === "GET") { headers(res, 200, "text/event-stream"); res.write(": connected\n\n"); const set = listeners.get(session.id) || new Set(); set.add(res); listeners.set(session.id, set); req.once("close", () => set.delete(res)); return; }
-    if (action === "messages" && req.method === "POST") { const input = await body(req); const text = String(input.text || "").trim(); if (!text) return json(res, 400, { error: "A build instruction is required." }); await emit(session, "user_message", text); const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes.\n\n"; const turn = await codex.startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`); turnSessions.set(turn.turn.id, session.id); return json(res, 202, { accepted: true }); }
+    if (action === "events" && req.method === "GET") {
+      headers(res, 200, "text/event-stream"); res.write(": connected\n\n");
+      const set = listeners.get(session.id) || new Set(); set.add(res); listeners.set(session.id, set);
+      const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15_000);
+      res.once("close", () => { clearInterval(heartbeat); set.delete(res); if (!set.size) listeners.delete(session.id); });
+      for (const event of await sessionEvents(session.id)) res.write(`data: ${JSON.stringify({ ...event, replay: true })}\n\n`);
+      res.write(`data: ${JSON.stringify({ eventType: "session", metadata: { session: publicSession(session) } })}\n\n`);
+      return;
+    }
+    if (session.preparation) await session.preparation;
+    session.lastPreviewActivity = Date.now();
+    if (session.state !== "ready") return json(res, 409, { error: session.state === "working" ? "Codex is still working. Wait for its reply." : "The workspace is not ready. Reopen Build Studio to retry." });
+    if (action === "messages" && req.method === "POST") {
+      const input = await body(req); const text = String(input.text || "").trim();
+      if (!text) return json(res, 400, { error: "A build instruction is required." });
+      // Reserve the session before any awaits so two requests cannot start overlapping turns.
+      if (session.state !== "ready") return json(res, 409, { error: "Codex is still working." });
+      session.state = "working";
+      try {
+        await ensureThread(session);
+        await emit(session, "user_message", text, { session: publicSession(session) });
+        const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes.\n\n";
+        const turn = await codex.startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`);
+        if (session.state === "working") turnSessions.set(turn.turn.id, session.id);
+        return json(res, 202, { accepted: true });
+      } catch (error) {
+        session.state = "ready";
+        await emit(session, "error", String((error as Error).message), { session: await updateStatus(session) });
+        throw error;
+      }
+    }
     if (action === "checkpoint" && req.method === "POST") { const input = await body(req); await command("git", ["add", "--all"], session.cwd); await command("git", ["commit", "-m", String(input.message || "Build Studio checkpoint").slice(0, 120)], session.cwd); const state = await updateStatus(session); await emit(session, "checkpoint", "Checkpoint saved to the branch.", { session: state }); return json(res, 200, { session: state }); }
     if (action === "push" && req.method === "POST") { await command("git", ["push", "-u", "origin", session.workingBranch], session.cwd, await gitEnvironment(session.id, session.repositoryFullName)); const state = await updateStatus(session); await emit(session, "push", "Branch pushed to GitHub.", { session: state }); return json(res, 200, { session: state }); }
     if (action === "preview/restart" && req.method === "POST") {
+      if (session.previewStarting && session.previewState === "starting") return json(res, 202, { session: publicSession(session) });
+      await session.previewStarting;
       session.previewState = "starting";
       void startPreview(session).catch(async (error) => {
         session.previewState = "failed";
@@ -299,6 +509,43 @@ const server = createServer(async (req, res) => {
     return json(res, 405, { error: "Method not allowed." });
   } catch (error) { json(res, /Authentication|required|expired|access/.test(String((error as Error).message)) ? 401 : 500, { error: error instanceof Error ? error.message : "Build worker error." }); }
 });
+
+// Vite/Astro hot reload uses a WebSocket on the same authenticated preview path.
+server.on("upgrade", (req, socket, head) => {
+  const url = new URL(req.url || "/", "http://worker.local");
+  const session = previewSession(req, url);
+  if (!session || !url.pathname.startsWith("/preview/")) { socket.destroy(); return; }
+  const origin = req.headers.origin;
+  const publicOrigin = new URL(process.env.N3XRA_BUILD_PUBLIC_URL || process.env.RENDER_EXTERNAL_URL || `http://localhost:${port}`).origin;
+  if (origin && origin !== publicOrigin && !allowedOrigins.has(origin)) { socket.destroy(); return; }
+  const upstream = httpRequest({ hostname: "127.0.0.1", port: session.previewPort, path: `${session.previewUsesAstro ? `/${url.pathname.split("/").slice(3).join("/")}` : url.pathname}${url.search}`, headers: { ...req.headers, host: `127.0.0.1:${session.previewPort}`, cookie: "", authorization: "" } });
+  upstream.once("upgrade", (response, peer, upstreamHead) => {
+    socket.write(`HTTP/1.1 101 Switching Protocols\r\n${Object.entries(response.headers).map(([key, value]) => `${key}: ${value}`).join("\r\n")}\r\n\r\n`);
+    if (head.length) peer.write(head);
+    if (upstreamHead.length) socket.write(upstreamHead);
+    peer.on("error", () => socket.destroy()); socket.on("error", () => peer.destroy());
+    socket.on("close", () => peer.destroy()); peer.on("close", () => socket.destroy());
+    peer.pipe(socket); socket.pipe(peer);
+  });
+  upstream.once("response", () => { upstream.destroy(); socket.destroy(); });
+  upstream.once("error", () => socket.destroy());
+  upstream.setTimeout(10_000, () => upstream.destroy());
+  upstream.end();
+});
+
+async function shutdown() {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  clearInterval(previewIdleTimer);
+  for (const child of commandChildren) killProcessGroup(child, "SIGKILL");
+  for (const connections of listeners.values()) for (const response of connections) response.end();
+  server.close();
+  await Promise.all([...sessions.values()].map(stopPreview));
+  codex.stop();
+  process.exit(0);
+}
+process.once("SIGTERM", () => { void shutdown(); });
+process.once("SIGINT", () => { void shutdown(); });
 
 void Promise.all([
   mkdir(workspaceRoot, { recursive: true }),

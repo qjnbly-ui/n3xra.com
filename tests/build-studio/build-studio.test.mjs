@@ -54,7 +54,7 @@ test("Build worker ships as a persistent Render service", async () => {
   assert.match(worker, /repositories: \[repository\]/);
   assert.match(worker, /permissions: \{ contents: "write" \}/);
   assert.match(worker, /return await proxyPreview/);
-  assert.match(worker, /\["install", "--package-lock=false", "--no-audit", "--no-fund"\]/);
+  assert.match(worker, /\["install", "--package-lock=false", "--include=dev", "--no-audit", "--no-fund"\]/);
   assert.match(worker, /"x-frame-options"/);
   assert.match(worker, /"content-security-policy"/);
   assert.match(worker, /Content-Security-Policy/);

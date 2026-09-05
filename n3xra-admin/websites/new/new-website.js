@@ -17,6 +17,7 @@ const liveUrlInput = document.getElementById("live-url");
 const repositoryInput = document.getElementById("repository");
 const githubButton = document.getElementById("provision-github");
 const vercelButton = document.getElementById("provision-vercel");
+const openPreviewLink = document.getElementById("open-preview");
 const openProjectLink = document.getElementById("open-project");
 const optionalClientWorkLink = document.getElementById("optional-client-work");
 const buildStatus = document.getElementById("build-status");
@@ -167,6 +168,12 @@ function renderBuildWorkflow() {
       : vercelReady
         ? "Vercel preview ready"
         : "Create Vercel preview";
+
+  const previewUrl = String(provisioningRun?.preview_url || "").trim();
+  const canOpenPreview = vercelReady && /^https:\/\//i.test(previewUrl);
+  openPreviewLink.hidden = !canOpenPreview;
+  if (canOpenPreview) openPreviewLink.href = previewUrl;
+  else openPreviewLink.removeAttribute("href");
 
   openProjectLink.hidden = !currentProject;
   optionalClientWorkLink.hidden = !editingWebsite;
