@@ -60,3 +60,10 @@ test('remote turn completion reaches the coordinator without affecting another w
   assert.equal(result.turn.status,'completed');assert.equal(wrong,0);
  }finally{await a.stop();await b.stop();await f.close();}
 });
+
+test('preview install recovers incomplete lockfiles without masking unrelated failures',async()=>{
+ const a=new VercelWorkspace(identity(),env);a.exists=async()=>true;
+ const calls=[];a.command=async(cmd,args)=>{calls.push(args);if(args[0]==='ci')throw Error('npm error Missing: @emnapi/runtime@1.11.3 from lock file');};
+ await a.installNpm();assert.equal(calls.length,2);assert.ok(calls[1].includes('--package-lock=false'));
+ a.command=async()=>{throw Error('network denied');};await assert.rejects(a.installNpm(),/network denied/);
+});

@@ -126,11 +126,22 @@ export class VercelWorkspace {
     const actualArgs = cmd === "git" ? ["-c", "core.hooksPath=/dev/null", "-c", "credential.helper=", ...args] : args;
     const result = await this.sandbox!.runCommand({ cmd, args: actualArgs, cwd, env: cleanEnv, timeoutMs: 300_000 });
     if (result.exitCode !== 0) {
-      let message = (await result.stderr() || await result.stdout() || `${cmd} failed`).slice(-2000);
+      const output = await result.stderr() || await result.stdout() || `${cmd} failed`;
+      let message = output.length > 4000 ? `${output.slice(0, 2000)}\n…\n${output.slice(-2000)}` : output;
       for (const value of Object.values(cleanEnv)) if (value.length > 15) message = message.replaceAll(value, "[redacted]");
       throw new Error(message);
     }
     return (await result.stdout()).trim();
+  }
+  async installNpm() {
+    const locked = await this.exists("package-lock.json");
+    const options = ["--include=dev", "--no-audit", "--no-fund"];
+    try { await this.command("npm", [locked ? "ci" : "install", ...options], { NODE_ENV: "development" }); }
+    catch (error) {
+      if (!locked || !/can only install packages when.*in sync|Missing: .* from lock file|Invalid: lock file/s.test(String(error))) throw error;
+      // Recover an incomplete cross-platform lockfile without rewriting customer source.
+      await this.command("npm", ["install", "--package-lock=false", ...options], { NODE_ENV: "development" });
+    }
   }
   async read(path: string) { await this.start(); return (await this.sandbox!.readFileToBuffer({ path: `/vercel/repository/${path}` }))?.toString("utf8") || ""; }
   async write(path: string, content: string) { await this.start(); await this.sandbox!.writeFiles([{ path: `/vercel/repository/${path}`, content: Buffer.from(content) }]); }

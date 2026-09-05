@@ -315,7 +315,7 @@ async function launchRemotePreview(session: Session) {
     const hash = fingerprint.digest("hex");
     if ((await remote.read("node_modules/.n3xra-installed").catch(() => "")) !== hash) {
       await emit(session, "status", "Installing this website’s dependencies in its isolated workspace.", { session: publicSession(session) });
-      if (manager === "npm") await remote.command("npm", [await remote.exists("package-lock.json") ? "ci" : "install", "--include=dev", "--no-audit", "--no-fund"], { NODE_ENV: "development" });
+      if (manager === "npm") await remote.installNpm();
       else await remote.command(manager, ["install", "--frozen-lockfile"], { NODE_ENV: "development" });
       await remote.command("mkdir", ["-p", "node_modules"]); await remote.write("node_modules/.n3xra-installed", hash);
     }
