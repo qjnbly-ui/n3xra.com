@@ -47,9 +47,12 @@ async function loadSavedTasks() {
             const item = document.createElement("details");
             item.className = "build-saved-task";
             const title = document.createElement("summary");
-            title.textContent = task.title;
+            title.textContent = task.title.length >= 80 ? task.title.replace(/\s+\S*$/, "") + "…" : task.title;
             const transcript = document.createElement("div");
             transcript.className = "build-task-transcript";
+            transcript.tabIndex = 0;
+            transcript.setAttribute("role", "region");
+            transcript.setAttribute("aria-label", task.title + " conversation");
             for (const message of task.messages) {
                 const entry = document.createElement("p");
                 const label = document.createElement("strong");
