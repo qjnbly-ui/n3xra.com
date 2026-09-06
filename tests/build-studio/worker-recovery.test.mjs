@@ -40,13 +40,13 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     const url = new URL(req.url, 'http://fixture'); const chunks=[];for await(const c of req)chunks.push(c);
     const body = chunks.length?JSON.parse(Buffer.concat(chunks)):null;
     res.setHeader('Content-Type','application/json'); let result=[];
-    const matches = row => [...url.searchParams].every(([key,value]) => ['select','order','limit'].includes(key) || (value==='is.null'? row[key]==null : String(row[key])===value.replace(/^eq\./,'')));
+    const matches = row => [...url.searchParams].every(([key,value]) => ['select','order','limit','offset'].includes(key) || (value==='is.null'? row[key]==null : String(row[key])===value.replace(/^eq\./,'')));
     if(url.pathname==='/auth/v1/user') result={id:req.headers.authorization==='Bearer other'?randomUUID():userId};
     else if(url.pathname.endsWith('/platform_admins'))result=[{role:'owner'}];
     else if(url.pathname.endsWith('/client_websites'))result=[{id:websiteId,name:'Test demo'}];
     else if(url.pathname.endsWith('/website_repositories'))result=[{full_name:'test/demo',default_branch:'main'}];
     else if(url.pathname.endsWith('/website_build_sessions')){if(req.method==='POST'){rows.push(body);result=[body];}else{result=rows.filter(matches);if(req.method==='PATCH')result.forEach(row=>Object.assign(row,body));}}
-    else if(url.pathname.endsWith('/website_build_events')){if(req.method==='POST'){const row={...body,id:events.length+1};events.push(row);result=[row];}else {result=events.filter(matches);if(url.searchParams.get("order")?.includes("desc"))result=result.slice().reverse();if(url.searchParams.has("limit"))result=result.slice(0,Number(url.searchParams.get("limit")));}}
+    else if(url.pathname.endsWith('/website_build_events')){if(req.method==='POST'){const row={...body,id:events.length+1};events.push(row);result=[row];}else {result=events.filter(matches);if(url.searchParams.get("order")?.includes("desc"))result=result.slice().reverse();if(url.searchParams.has("offset"))result=result.slice(Number(url.searchParams.get("offset")));if(url.searchParams.has("limit"))result=result.slice(0,Number(url.searchParams.get("limit")));}}
     res.end(JSON.stringify(result));
   }); await new Promise(r=>api.listen(0,'127.0.0.1',r));
   const apiUrl=`http://127.0.0.1:${api.address().port}`;
@@ -189,6 +189,18 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     const savedAgain=await request(`/v1/sessions/${id}/save`,{});assert.equal(savedAgain.status,200,JSON.stringify(savedAgain));
     const retriedClose=await request(`/v1/sessions/${id}/close`,{});assert.equal(retriedClose.status,200,JSON.stringify(retriedClose)+' '+JSON.stringify(events.slice(-2)));
     assert.equal(execFileSync(git,['rev-parse',state.session.workingBranch],{cwd:bare,encoding:'utf8'}).trim(),execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim());
+    const taskList=await request(`/v1/projects/${websiteId}/tasks`);
+    assert.ok(taskList.tasks.some(t=>t.title==='Draw a rocket'));
+    assert.equal(rows[0].state,'stopped','browsing tasks must not wake the workspace');
+    assert.deepEqual((await request(`/v1/projects/${websiteId}/tasks`,undefined,'other')).tasks,[]);
+    const chosen=taskList.tasks.find(t=>t.title==='Draw a rocket');
+    assert.equal((await request('/v1/projects/open',{websiteId,taskId:chosen.id})).status,202);
+    state=await waitFor(async()=>{const s=await active();return s.session?.state==='ready'&&s.session.previewState==='ready'?s:null;});
+    assert.equal(rows[0].codex_thread_id,previousThread,'reopening a task resumes its saved Codex thread');
+    assert.ok(state.events.some(e=>!e.history && e.message==='Draw a rocket'),'selected task conversation is restored');
+    assert.equal((await request('/v1/projects/open',{websiteId,taskId:chosen.id})).status,500,'must close current task before changing tasks');
+    assert.equal((await request(`/v1/sessions/${id}/save`,{})).status,200);
+    assert.equal((await request(`/v1/sessions/${id}/close`,{})).status,200);
   } catch(error) { error.message+=`\nWorker logs:\n${logs}`;throw error; }
   finally { await stop();await new Promise(r=>api.close(r));await rm(dir,{recursive:true,force:true}); }
 });

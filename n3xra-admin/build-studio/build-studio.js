@@ -32,6 +32,48 @@ let activeSession = null;
 let eventAbort = null;
 const seenEvents = new Set();
 let sending = false;
+async function loadSavedTasks() {
+    if (!currentWebsite)
+        return;
+    const websiteId = currentWebsite.id;
+    try {
+        const result = await workerRequest(`/v1/projects/${websiteId}/tasks`);
+        if (currentWebsite?.id !== websiteId)
+            return;
+        const list = byId("build-history-messages");
+        list.replaceChildren();
+        byId("build-history").hidden = !result.tasks.length;
+        for (const task of result.tasks) {
+            const item = document.createElement("details");
+            item.className = "build-saved-task";
+            const title = document.createElement("summary");
+            title.textContent = task.title;
+            const transcript = document.createElement("div");
+            transcript.className = "build-task-transcript";
+            for (const message of task.messages) {
+                const entry = document.createElement("p");
+                const label = document.createElement("strong");
+                label.textContent = message.role + ": ";
+                const text = document.createElement("span");
+                text.textContent = message.text;
+                entry.append(label, text);
+                transcript.append(entry);
+            }
+            const reopen = document.createElement("button");
+            reopen.type = "button";
+            reopen.className = "build-button build-task-reopen";
+            reopen.textContent = "Reopen task";
+            reopen.disabled = Boolean(activeSession && activeSession.state !== "stopped");
+            reopen.addEventListener("click", () => { if (currentWebsite?.id === websiteId)
+                void startSession(task.id); });
+            item.append(title, transcript, reopen);
+            list.append(item);
+        }
+    }
+    catch {
+        setNotice("Saved tasks could not load. Your history is still saved; try refreshing.", true);
+    }
+}
 function setNotice(value = "", error = false) {
     notice.textContent = value;
     notice.style.color = error ? "#9f453e" : "#28766c";
@@ -133,6 +175,7 @@ async function loadModels(session) {
 }
 function renderSession(session) {
     activeSession = session;
+    document.querySelectorAll(".build-task-reopen").forEach(button => { button.disabled = session.state !== "stopped"; });
     byId("build-close").hidden = !session.canClose || session.state !== "ready";
     if (session.state !== "ready") {
         byId("build-save-options").hidden = true;
@@ -149,6 +192,7 @@ function renderSession(session) {
         checkpointButton.disabled = pushButton.disabled = true;
         byId("build-publish").disabled = byId("build-close").disabled = byId("build-sync").disabled = true;
         renderActivity();
+        void loadSavedTasks();
         return;
     }
     const needsConnection = session.codexAuthenticated === false && session.state === "ready";
@@ -215,20 +259,8 @@ function handleWorkerEvent(event) {
             return;
         seenEvents.add(event.id);
     }
-    if (event.history) {
-        if (event.message && (event.eventType === "user_message" || (event.eventType === "agent_message" && event.metadata?.conversationVersion === 2))) {
-            const article = document.createElement("article");
-            article.className = `build-message${event.eventType === "user_message" ? " is-user" : ""}`;
-            const label = document.createElement("small");
-            label.textContent = event.eventType === "user_message" ? "You" : "Codex";
-            const content = document.createElement("div");
-            content.textContent = event.message;
-            article.append(label, content);
-            byId("build-history-messages").append(article);
-            byId("build-history").hidden = false;
-        }
+    if (event.history)
         return;
-    }
     // Older development output stays stored unchanged; the toggle controls its presentation.
     const legacyDiagnostic = event.replay && event.metadata?.conversationVersion !== 2 && ["agent_message", "status", "error"].includes(event.eventType);
     if (legacyDiagnostic && event.message)
@@ -313,6 +345,9 @@ function connectEvents(sessionId) {
 }
 async function inspectWorker() {
     const selectedWebsiteId = currentWebsite?.id;
+    byId("build-history-messages").replaceChildren();
+    byId("build-history").hidden = true;
+    byId("build-history").open = false;
     const repository = currentWebsite ? repositories.find((item) => item.website_id === currentWebsite?.id) : null;
     byId("build-project-name").textContent = currentWebsite?.name || "No website selected";
     byId("build-repository-name").textContent = repository?.full_name || "No repository connected";
@@ -345,13 +380,12 @@ async function inspectWorker() {
         const active = await workerRequest(`/v1/projects/${encodeURIComponent(currentWebsite.id)}/active`);
         if (currentWebsite?.id !== selectedWebsiteId)
             return;
+        activeSession = active.session;
+        void loadSavedTasks();
         if (active.session) {
             messages.replaceChildren();
             byId("build-save-options").hidden = true;
             checkpointButton.setAttribute("aria-expanded", "false");
-            byId("build-history-messages").replaceChildren();
-            byId("build-history").hidden = true;
-            byId("build-history").open = false;
             technicalEntries.length = 0;
             seenEvents.clear();
             (active.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
@@ -369,7 +403,7 @@ async function inspectWorker() {
         setNotice(error instanceof Error ? error.message : "Unable to reach the build worker.", true);
     }
 }
-async function startSession() {
+async function startSession(taskId = "") {
     if (!currentWebsite)
         return;
     const selectedWebsiteId = currentWebsite.id;
@@ -378,20 +412,18 @@ async function startSession() {
     try {
         const result = await workerRequest("/v1/projects/open", {
             method: "POST",
-            body: JSON.stringify({ websiteId: currentWebsite.id }),
+            body: JSON.stringify({ websiteId: currentWebsite.id, taskId }),
         });
         if (currentWebsite?.id !== selectedWebsiteId)
             return;
         messages.replaceChildren();
         byId("build-save-options").hidden = true;
         checkpointButton.setAttribute("aria-expanded", "false");
-        byId("build-history-messages").replaceChildren();
-        byId("build-history").hidden = true;
-        byId("build-history").open = false;
         technicalEntries.length = 0;
         seenEvents.clear();
         (result.events || []).forEach((event) => handleWorkerEvent({ ...event, replay: true }));
         renderSession(result.session);
+        void loadSavedTasks();
         addMessage("status", "Build Studio reserved the branch. Repository and preview preparation will continue here.");
         connectEvents(result.session.id);
     }
@@ -434,9 +466,6 @@ async function initialize() {
         messages.replaceChildren();
         byId("build-save-options").hidden = true;
         checkpointButton.setAttribute("aria-expanded", "false");
-        byId("build-history-messages").replaceChildren();
-        byId("build-history").hidden = true;
-        byId("build-history").open = false;
         technicalEntries.length = 0;
         seenEvents.clear();
         previewFrame.src = "about:blank";
@@ -452,7 +481,7 @@ async function initialize() {
     document.body.classList.remove("portal-loading");
     byId("portal-status").setAttribute("hidden", "");
 }
-startButton.addEventListener("click", startSession);
+startButton.addEventListener("click", () => startSession());
 connectButton.addEventListener("click", async () => {
     connectButton.disabled = true;
     try {

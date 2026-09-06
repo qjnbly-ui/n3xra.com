@@ -60,3 +60,59 @@
 .build-activity-detail { max-height:130px; overflow:auto; margin:0; padding:10px 16px; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.7rem; background:#eef2f4; }
 .build-cancel { align-self:flex-start; margin:8px 16px; }
 .build-toolbar-actions { flex-wrap:wrap; justify-content:flex-end; }
+
+/* Let the application region scroll when the available viewport is short. */
+.website-admin-view-build .website-admin-scroll-region { overflow-y:auto; overflow-x:hidden; }
+.build-studio { min-height:0; }
+.build-studio [hidden] { display:none !important; }
+.build-workspace { height:clamp(540px,calc(100dvh - 270px),820px); min-height:0; grid-template-columns:minmax(280px,.8fr) minmax(0,1.2fr); }
+.build-messages { min-height:0; flex:1 1 0; overscroll-behavior:contain; overflow-wrap:anywhere; }
+.build-chat > :not(.build-messages) { flex-shrink:0; }
+.build-message { flex-shrink:0; }
+.build-chat-head, .build-preview-head { flex-wrap:wrap; }
+.build-project { min-width:0; }
+.build-project strong, .build-project span { overflow-wrap:anywhere; }
+.build-composer { padding-bottom:max(12px,env(safe-area-inset-bottom)); }
+.build-task-history { background:#fff; border-bottom:1px solid #dce4e6; padding:12px 18px; }
+.build-task-history > summary { cursor:pointer; color:#0c4b42; font-weight:800; min-height:32px; }
+.build-task-history > p { font-size:.8rem; color:#536269; margin:6px 0 12px; }
+.build-task-list { max-height:330px; overflow-y:auto; overscroll-behavior:contain; }
+.build-saved-task { border:1px solid #dce4e6; border-radius:9px; margin:8px 0; padding:12px; }
+.build-saved-task > summary { cursor:pointer; font-weight:700; overflow-wrap:anywhere; }
+.build-task-transcript { max-height:220px; overflow:auto; overscroll-behavior:contain; white-space:pre-wrap; overflow-wrap:anywhere; font-size:.85rem; line-height:1.5; }
+.build-task-reopen { margin-top:10px; }
+#build-save-options { padding:12px 18px; color:#172027; }
+#build-save-options .build-button { margin:4px 4px 4px 0; }
+@media (max-width:1100px) {
+  .build-workspace { grid-template-columns:minmax(260px,1fr) minmax(0,1fr); }
+  .build-preview-head { padding:10px; gap:8px; }
+}
+@media (max-width:800px) {
+  .website-admin-view-build .website-admin-scroll-region { overflow:visible; }
+  .build-toolbar { flex-direction:column; align-items:stretch; gap:10px; padding:14px; }
+  .build-toolbar-actions { justify-content:flex-start; }
+  .build-toolbar-actions .build-button { flex:1; }
+  .build-button, .build-preview-link, .build-icon-button { min-height:44px; }
+  .build-workspace { display:flex; flex-direction:column; height:auto; }
+  .build-chat { height:clamp(520px,80dvh,720px); border-right:0; border-bottom:1px solid #dce4e6; }
+  .build-preview { height:65dvh; min-height:360px; }
+  .build-composer textarea, .build-model-controls select { font-size:16px; }
+  .build-model-controls { padding:10px 12px; }
+  .build-preview-head { gap:8px; }
+  .build-preview-head > div { flex-wrap:wrap; }
+  .build-devices button { font-size:.75rem; padding:10px; min-height:44px; }
+  .build-preview-stage { padding:8px; }
+  .build-task-list { max-height:45dvh; }
+  .build-task-transcript { max-height:30dvh; }
+  .build-setup { min-height:360px; padding:32px 16px; }
+  .build-composer > div { align-items:flex-start; }
+}
+/* A narrow content column also stacks cleanly when desktop navigation is visible. */
+.build-studio { container-type:inline-size; }
+@container (max-width:680px) {
+  .build-toolbar { flex-direction:column; align-items:stretch; }
+  .build-toolbar-actions { justify-content:flex-start; }
+  .build-workspace { display:flex; flex-direction:column; height:auto; }
+  .build-chat { height:580px; border-right:0; }
+  .build-preview { height:500px; }
+}

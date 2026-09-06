@@ -11,7 +11,7 @@ async function frontend(fetch = () => Promise.reject(new Error("Unexpected reque
   const element=()=>({hidden:false,disabled:false,textContent:'',value:'',dataset:{},style:{},children:[],classList:{toggle(){},add(){},remove(){}},append(...v){this.children.push(...v);},replaceChildren(){this.children=[];},handlers:{},addEventListener(name,fn){this.handlers[name]=fn;},setAttribute(){},querySelector(){return get('send');}});
   const get=id=>{if(!elements.has(id))elements.set(id,element());return elements.get(id);};
   const ctx={window:{RECORDS_APP_CONFIG:{buildWorkerUrl:'https://worker.test'}},document:{getElementById:get,createElement:element,querySelectorAll:()=>[]},URL,AbortController,TextDecoder,setTimeout,clearTimeout,console,fetch};
-  vm.createContext(ctx);vm.runInContext(source+'\nglobalThis.api={renderSession,handleWorkerEvent};',ctx);
+  vm.createContext(ctx);vm.runInContext(source+'\nglobalThis.api={renderSession,handleWorkerEvent,loadSavedTasks,setWebsite:(v)=>{currentWebsite=v;}};',ctx);
   return {api:ctx.api,get};
 }
 const session=(extra={})=>({id:'demo',state:'ready',workingBranch:'demo',previewState:'ready',previewUrl:'https://worker.test/preview/demo/?token=test',changedFileCount:1,hasUnpushedCommits:false,...extra});
@@ -95,8 +95,7 @@ test('previous conversations render separately without old notes or stale sessio
  const old={id:44,eventType:'agent_message',history:true,replay:true,message:'Previous reply',technicalNotes:'Old diagnostics',metadata:{conversationVersion:2,session:session({state:'failed'})}};
  api.handleWorkerEvent(old);api.handleWorkerEvent(old);
  assert.equal(get('build-messages').children.length,0);
- assert.equal(get('build-history-messages').children.length,1);
- assert.equal(get('build-history').hidden,false);
+ assert.equal(get('build-history-messages').children.length,0);
  assert.equal(get('build-workspace').hidden,false);
  api.handleWorkerEvent({id:45,eventType:'agent_message',message:'New reply',metadata:{conversationVersion:2}});
  assert.equal(get('build-messages').children.length,1);
@@ -112,4 +111,15 @@ test('Save opens destination choices and Close Project appears only after verifi
  assert.equal(get('build-save-options').hidden,true);assert.equal(get('build-close').hidden,false);
  api.renderSession(session({state:'working',canClose:false}));assert.equal(get('build-close').hidden,true);
  api.renderSession(session({canClose:false}));assert.equal(get('build-close').hidden,true);
+});
+
+test('saved tasks have names and browsable transcripts outside the active conversation',async()=>{
+ const {api,get}=await frontend(async()=>({ok:true,json:async()=>({tasks:[{id:'task-one',title:'Add the rocket',messages:[{role:'You',text:'Add a rocket'}]}]})}));
+ api.setWebsite({id:'demo'});await api.loadSavedTasks();
+ const item=get('build-history-messages').children[0];
+ assert.equal(item.children[0].textContent,'Add the rocket');
+ assert.equal(item.children[1].children.length,1);
+ assert.equal(item.children[2].textContent,'Reopen task');
+ assert.equal(item.children[2].disabled,false);
+ assert.equal(get('build-messages').children.length,0);
 });

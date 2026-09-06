@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=21">
-  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=4">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=5">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -42,6 +42,11 @@
             </div>
           </header>
 
+          <details id="build-history" class="build-task-history" hidden>
+            <summary>Saved tasks</summary>
+            <p>Browse saved conversations without opening a workspace. Close your current project before reopening a task. Reopening syncs the latest GitHub files.</p>
+            <div id="build-history-messages" class="build-task-list"></div>
+          </details>
           <section id="build-save-options" class="build-notice" aria-label="Save options" hidden>
             <p><strong>Where would you like to save?</strong> Both options save your work to GitHub.</p>
             <p>Choose Working branch to keep changes separate, or Main to update the version your website deploys from.</p>
@@ -67,7 +72,6 @@
               <div class="build-chat-head"><div><p class="portal-kicker">Codex</p><h3>Build conversation</h3></div><span id="build-change-count">No changes</span></div>
               <div class="build-model-controls"><label>Model<select id="build-model" disabled><option>Loading models…</option></select></label><label>Thinking effort<select id="build-effort" disabled><option>Default</option></select></label></div>
               <label class="build-notes-toggle"><input type="checkbox" id="build-show-notes"> Show technical notes</label>
-              <details id="build-history" hidden><summary>Previous conversations</summary><div class="build-messages" id="build-history-messages"></div></details>
               <div class="build-messages" id="build-messages" aria-live="polite"></div>
               <div class="build-activity" id="build-activity" role="status" aria-live="polite" hidden></div>
               <pre class="build-activity-detail" id="build-activity-detail" hidden></pre>
@@ -101,6 +105,6 @@
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=9"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=10"></script>
 </body>
 </html>

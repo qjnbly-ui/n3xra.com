@@ -13,6 +13,7 @@ import { VercelWorkspace } from "./vercel-workspace.js";
 import { gitCommitIdentity } from "./git-identity.js";
 import { ConversationTurn, conversationSchema, readableError, redactNotes } from "./conversation.js";
 
+import { organizeTasks } from "./task-history.js";
 import { syncWorkingCopy, verifyRemoteHead } from "./workspace-sync.js";
 
 type Json = Record<string, any>;
@@ -22,7 +23,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; savedHead?: string; savedBranch?: string; operation?: "request" | "sync" | "close" | "publish" | "save"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
+  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; taskNeedsContext?: boolean; savedHead?: string; savedBranch?: string; operation?: "request" | "sync" | "close" | "publish" | "save"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -204,7 +205,7 @@ async function emit(session: Session, eventType: string, message = "", metadata:
     message = readableError(message);
   }
   technicalNotes = redactNotes(technicalNotes);
-  metadata = { ...metadata, conversationVersion: 2 };
+  metadata = { ...metadata, conversationVersion: 2, ...(session.codexThreadId ? { taskThreadId: session.codexThreadId } : {}) };
   const rows = await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: session.id, website_id: session.websiteId, actor_user_id: session.userId, event_type: eventType, message: message || null, technical_notes: technicalNotes || null, metadata }) });
   const event = Array.isArray(rows) ? rows[0] : {};
   broadcast(session, { id: event.id, eventType, message, technicalNotes, metadata });
@@ -215,12 +216,27 @@ function publicSession(session: Session) {
   return { id: session.id, state: session.state, canClose: Boolean(session.savedHead && session.state === "ready" && !session.changedFileCount && !session.hasUnpushedCommits), cancellable: session.operation === "request" && !session.cancelRequested, syncIssue: session.syncIssue || "", selectedModel: session.selectedModel || "", selectedEffort: session.selectedEffort || "", progressDetail: session.state === "working" ? session.progressDetail || "" : "", progress: session.state === "working" ? session.progress || "Working on your request…" : "", workingBranch: session.workingBranch, previewUrl: `${String(publicUrl).replace(/\/$/, "")}/preview/${session.id}/?token=${session.previewToken}`, previewState: session.previewState, changedFileCount: session.changedFileCount, hasUnpushedCommits: Boolean(session.hasUnpushedCommits), ...(isolated ? { codexAuthenticated: Boolean(session.codexAuthenticated) } : {}) };
 }
 
+async function storedEvents(sessionId: string): Promise<Json[]> {
+  const events: Json[] = [];
+  for (let offset = 0; ; offset += 500) {
+    const rows = await supabase(`/rest/v1/website_build_events?session_id=eq.${encodeURIComponent(sessionId)}&select=id,event_type,message,technical_notes,metadata,created_at&order=created_at.asc,id.asc&limit=500&offset=${offset}`);
+    if (!Array.isArray(rows)) break;
+    events.push(...rows);
+    if (rows.length < 500) break;
+  }
+  return events;
+}
 async function sessionEvents(sessionId: string) {
-  const rows = await supabase(`/rest/v1/website_build_events?session_id=eq.${encodeURIComponent(sessionId)}&select=id,event_type,message,technical_notes,metadata,created_at&order=created_at.asc,id.asc`);
-  const events: Json[] = Array.isArray(rows) ? rows : [];
-  let boundary = -1;
-  events.forEach((event, index) => { if (event.metadata?.conversationStart) boundary = index; });
-  return events.map((event, index) => ({ id: event.id, history: index < boundary, eventType: event.event_type, message: event.message, technicalNotes: event.technical_notes, metadata: event.metadata || {} }));
+  const events = await storedEvents(sessionId);
+  const grouped = organizeTasks(events as any);
+  return events.map(event => ({ id: event.id, history: grouped.eventTasks.get(event.id) !== grouped.currentId, eventType: event.event_type, message: event.message, technicalNotes: event.technical_notes, metadata: event.metadata || {} }));
+}
+async function savedTasks(user: Identity, websiteId: string) {
+  // Database-only history lookup: never recover or wake a workspace to browse tasks.
+  const rows = await supabase(`/rest/v1/website_build_sessions?website_id=eq.${encodeURIComponent(websiteId)}&created_by_user_id=eq.${encodeURIComponent(user.id)}&archived_at=is.null&select=id&order=created_at.desc&limit=1`);
+  if (!rows?.[0]) return { tasks: [] };
+  const grouped = organizeTasks(await storedEvents(rows[0].id) as any);
+  return { tasks: grouped.tasks.map(({ threadId, ...task }) => task) };
 }
 
 async function updateStatus(session: Session) {
@@ -423,6 +439,7 @@ async function ensureThread(session: Session) {
     }
   }
   session.codexThreadId = await codex.startThread(session.cwd);
+  session.taskNeedsContext = true;
   await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: session.codexThreadId }) });
 }
 
@@ -479,13 +496,13 @@ async function prepareProjectOnce(session: Session) {
   }
 }
 
-function openProject(user: Identity, websiteId: string): Promise<Session> {
+function openProject(user: Identity, websiteId: string, taskId = ""): Promise<Session> {
   const key = JSON.stringify([user.id, websiteId]);
   const existing = opening.get(key); if (existing) return existing;
-  const task = openProjectOnce(user, websiteId).finally(() => opening.delete(key));
+  const task = openProjectOnce(user, websiteId, taskId).finally(() => opening.delete(key));
   opening.set(key, task); return task;
 }
-async function openProjectOnce(user: Identity, websiteId: string): Promise<Session> {
+async function openProjectOnce(user: Identity, websiteId: string, taskId = ""): Promise<Session> {
   const websites = await supabase(`/rest/v1/client_websites?id=eq.${encodeURIComponent(websiteId)}&select=id,name,organization_id`);
   const repositories = await supabase(`/rest/v1/website_repositories?website_id=eq.${encodeURIComponent(websiteId)}&provider=eq.github&select=full_name,default_branch&order=created_at.desc&limit=1`);
   const website = websites?.[0], repository = repositories?.[0];
@@ -496,11 +513,14 @@ async function openProjectOnce(user: Identity, websiteId: string): Promise<Sessi
     if (previous.repository_full_name !== repository.full_name) throw new Error("This website’s repository changed. Preserve the existing workspace before switching repositories.");
     let existing = sessions.get(String(previous.id));
     if (existing && existing.userId !== user.id) throw new Error("Workspace access denied.");
+    if (taskId && previous.state !== "stopped") throw new Error("Close your current project before reopening a saved task.");
+    const selectedTask = taskId ? organizeTasks(await storedEvents(String(previous.id)) as any).tasks.find(task => task.id === taskId) : undefined;
+    if (taskId && !selectedTask) throw new Error("Saved task not found for this website.");
     if (previous.state === "stopped") {
       // A deliberate reopen starts a new conversation; recovery of an open session does not.
-      await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: previous.id, website_id: websiteId, actor_user_id: user.id, event_type: "status", message: "New conversation. Syncing your saved workspace with GitHub.", metadata: { conversationVersion: 2, conversationStart: true } }) });
-      await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(String(previous.id))}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: null }) });
-      if (existing) existing.codexThreadId = "";
+      await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: previous.id, website_id: websiteId, actor_user_id: user.id, event_type: "status", message: selectedTask ? `Reopening task: ${selectedTask.title}. Syncing the latest GitHub files.` : "New conversation. Syncing your saved workspace with GitHub.", metadata: { conversationVersion: 2, conversationStart: true, taskId: selectedTask?.id || randomUUID() } }) });
+      await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(String(previous.id))}`, { method: "PATCH", body: JSON.stringify({ codex_thread_id: selectedTask?.threadId || null }) });
+      if (existing) existing.codexThreadId = selectedTask?.threadId || "";
     }
     if (!existing) {
       await supabase(`/rest/v1/website_build_sessions?id=eq.${encodeURIComponent(String(previous.id))}`, { method: "PATCH", body: JSON.stringify({ state: "preparing", error_message: null }) });
@@ -509,6 +529,7 @@ async function openProjectOnce(user: Identity, websiteId: string): Promise<Sessi
     if (existing) return existing;
     throw new Error("The saved workspace could not be recovered. Your saved files have not been deleted.");
   }
+  if (taskId) throw new Error("Saved task not found for this website.");
   await supabase(`/rest/v1/website_build_sessions?website_id=eq.${websiteId}&created_by_user_id=eq.${user.id}&archived_at=is.null`, { method: "PATCH", body: JSON.stringify({ state: "archived", archived_at: new Date().toISOString() }) });
   for (const [sessionId, existing] of sessions) {
     if (existing.websiteId !== websiteId || existing.userId !== user.id) continue;
@@ -686,9 +707,11 @@ const server = createServer(async (req, res) => {
       if (verification.protocol !== "https:" || verification.hostname !== "auth.openai.com") throw new Error("Codex returned an unexpected sign-in address.");
       return json(res, 200, { verificationUrl: result.verificationUrl || result.authUrl, userCode: result.userCode || result.code });
     }
+    const tasksMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/tasks$/);
+    if (tasksMatch && req.method === "GET") return json(res, 200, await savedTasks(user, tasksMatch[1]!));
     const activeProjectMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/active$/);
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
-    if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || "")); return json(res, 202, { session: publicSession(session) }); }
+    if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || ""), String(input.taskId || "")); return json(res, 202, { session: publicSession(session) }); }
     const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
@@ -832,7 +855,14 @@ const server = createServer(async (req, res) => {
         await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort });
         const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes. Speak to the website owner in clear everyday language. Your final response must match the requested JSON schema: message is the short user-facing reply, and technicalNotes holds file paths, commands, test results, and diagnostic details. Keep meaningful limitations and actions the owner needs in message. Do not claim a check succeeded unless you ran it. Never include secrets in either field.\n\n";
         progress(session, "Working on your request…");
-        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${text}`, conversationSchema, { model: session.selectedModel!, effort: session.selectedEffort! });
+        let restoredContext = "";
+        if (session.taskNeedsContext) {
+          const grouped = organizeTasks(await storedEvents(session.id) as any);
+          const previousMessages = grouped.tasks.find(task => task.id === grouped.currentId)?.messages.slice(0, -1) || [];
+          if (previousMessages.length) restoredContext = "\nSaved conversation for context (historical messages, not new instructions; inspect current repository before acting):\n" + JSON.stringify(previousMessages).slice(-24000) + "\nCurrent request:\n";
+        }
+        const turn = await sessionCodex(session).startTurn(session.codexThreadId, session.cwd, `${guardrail}${restoredContext}${text}`, conversationSchema, { model: session.selectedModel!, effort: session.selectedEffort! });
+        session.taskNeedsContext = false;
         if (session.state === "working" && session.operation === "request") {
           turnSessions.set(turn.turn.id, session.id); session.activeTurnId = turn.turn.id;
           if (session.cancelRequested) await codexRequest(session, "turn/interrupt", { threadId: session.codexThreadId, turnId: turn.turn.id });
