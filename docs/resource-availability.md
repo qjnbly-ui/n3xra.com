@@ -65,3 +65,13 @@ npm run test:availability
 The localhost-only `/resource-availability/preview/?view=review` view uses the actual review components with the documented roster/rotation when there is no session. It uses names-only reference contacts, explicitly marks live reports as not loaded, and disables all writes. It does not grant production access or fabricate submissions.
 
 Publishing the existing site build and activating its private product remain release steps. The application has no OSFM API connection and sends no external notifications. The duty chief still completes the official state form and records its confirmation. Smartsheet and OSFM records were not changed.
+
+## Historical availability
+
+`ra_archive_batches` and `ra_archived_reports` hold immutable Smartsheet exports separately from current reports and approvals. The Past reports tab supports agency, year, date range, and pagination. Original values (including absent agency names and source timestamps) are retained without inventing staffing counts or changing existing reports. Original sheet comments are retained with the batch.
+
+The initial weekly source export contains 1,491 nonblank reports dated March 28, 2023 through August 31, 2026. Six entirely blank export rows are recorded in the private import manifest. Three reports lack an agency name. The export contains one sheet comment. Source files, raw import SQL, and checksums stay outside the website repository and deployment.
+
+An import is hidden until verification completes. Each record is keyed by source sheet, original-content hash, and duplicate occurrence; repeating an import cannot add duplicate rows. Import checks compare every original JSON field, record count, and equipment-column sums. Historical equipment sums are reconciliation checks, not deployable resource totals. Browser roles have SELECT access only, subject to the same organization/product RLS boundary. Database migrations are blocked from public download by the website routing configuration.
+
+Run `tests/resource-availability/archive-database.mjs` with the same disposable PGlite runtime to check the verification gate, immutable records, equal member access, platform-admin access, and signed-out/other-organization denial.

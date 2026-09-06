@@ -2,7 +2,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isBrandedPortalHostname, resolvePortalTenant, portalLoginUrl } from '../../../src/client-portal/tenant-context';
 import { type Snapshot } from './model';
 
-export interface Store { load(): Promise<Snapshot>; command(action: string, args: Record<string,unknown>): Promise<unknown>; onSignedOut?:(callback:()=>void)=>()=>void }
+export type ArchiveFilters={year:string;agency:string;from:string;to:string;page:number};
+export type ArchivePage={total:number;rows:{id:string;source_created_at:string|null;agency_name:string|null;submitted_by:string|null;raw:Record<string,unknown>}[];batches:{metadata:{years?:string[];agencies?:string[];comments?:{text:string;author:string;date:string}[]}}[]};
+export interface Store { load(): Promise<Snapshot>; archive(filters:ArchiveFilters):Promise<ArchivePage>; command(action: string, args: Record<string,unknown>): Promise<unknown>; onSignedOut?:(callback:()=>void)=>()=>void }
 export { portalLoginUrl };
 export async function connect(): Promise<Store> {
   const config=(window as Window & { RECORDS_APP_CONFIG?: { supabaseUrl:string;supabaseAnonKey:string } }).RECORDS_APP_CONFIG;
@@ -29,6 +31,17 @@ export async function connect(): Promise<Store> {
 }
 class LiveStore implements Store {
   constructor(private db:SupabaseClient,private workspace:Snapshot['workspace']) {}
+  async archive(f:ArchiveFilters):Promise<ArchivePage>{
+    const session=await this.db.auth.getUser();if(session.error||!session.data.user)throw new Error('Sign in through the portal to continue.');
+    let query=this.db.from('ra_archived_reports').select('id,source_created_at,agency_name,submitted_by,raw',{count:'exact'}).eq('workspace_id',this.workspace.id);
+    if(f.year)query=query.gte('source_created_at',`${f.year}-01-01`).lt('source_created_at',`${Number(f.year)+1}-01-01`);
+    if(f.agency==='__missing')query=query.is('agency_name',null);else if(f.agency)query=query.eq('agency_name',f.agency);
+    if(f.from)query=query.gte('source_created_at',f.from);
+    if(f.to)query=query.lte('source_created_at',`${f.to}T23:59:59.999999`);
+    const [reports,batches]=await Promise.all([query.order('source_created_at',{ascending:false}).order('id').range(f.page*50,f.page*50+49),this.db.from('ra_archive_batches').select('metadata').eq('workspace_id',this.workspace.id)]);
+    if(reports.error||batches.error)throw reports.error||batches.error;
+    return {rows:reports.data||[],total:reports.count||0,batches:batches.data||[]};
+  }
   onSignedOut(callback:()=>void){const {data}=this.db.auth.onAuthStateChange(event=>{if(event==='SIGNED_OUT')callback();});return ()=>data.subscription.unsubscribe();}
   async load(): Promise<Snapshot> {
     const session=await this.db.auth.getUser();if(session.error||!session.data.user)throw new Error('Sign in through the portal to continue.');
@@ -42,4 +55,3 @@ class LiveStore implements Store {
     if(error) throw error; return data;
   }
 }
-
