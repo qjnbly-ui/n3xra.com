@@ -45,6 +45,16 @@ function createPhoneBuildRpc(userId, callId) {
 function spoken(value) {
     return value.replace(/https?:\/\/\S+/g, "the link in your dashboard").replace(/[*_`#]/g, "").replace(/\s+/g, " ").trim().slice(0, 650);
 }
+function claimsCompletedAction(value) {
+    const text = value.replace(/[’]/g, "'");
+    const completed = "accepted|added|canceled|cancelled|changed|closed|created|deployed|edited|opened|published|removed|replaced|restored|saved|sent|updated";
+    return new RegExp(`(?:^|[.!?]\\s+)(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
+        || new RegExp(`\\b(?:i|we)(?:'ve| have)?\\s+(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
+        || new RegExp(`\\b(?:the|this|that|your)\\s+[^.!?\\n]{0,80}?\\s+(?:is|are|was|were|has been|have been)\\s+(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
+        || /\b(?:is|are)\s+(?:already\s+|now\s+)?live\b/i.test(text)
+        || /\bthe builder\s+(?:accepted|completed|finished)\b/i.test(text)
+        || /^\s*(?:all set|done)[.!]?\s*$/i.test(text);
+}
 /** Phone UI only. All editing and repository operations stay in the existing worker. */
 class PhoneBuildConversation {
     rpc;
@@ -134,7 +144,11 @@ class PhoneBuildConversation {
                     return;
                 const calls = reply.tool_calls;
                 if (!calls?.length) {
-                    this.speak(spoken(String(reply.content || "Could you clarify what you want to change?")));
+                    const content = spoken(String(reply.content || "Could you clarify what you want to change?"));
+                    // Model prose can guide the conversation, but only server-side tool results are action receipts.
+                    this.speak(claimsCompletedAction(content)
+                        ? "I have not confirmed that action. I can only report completion after Build Studio returns a successful result."
+                        : content);
                     return;
                 }
                 if (calls.length !== 1)
