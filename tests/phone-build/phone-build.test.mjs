@@ -125,3 +125,14 @@ test('routine progress is coalesced and final replies are delivered once after p
  }finally{f.flow.dispose();}
 });
 test('natural phone entry requests are recognized',()=>{assert.equal(isPhoneBuildRequest('I want to access Build Studio'),true);});
+test('failed preview is inspected once then a clear edit still reaches the builder',async()=>{
+ const f=fixture();try{
+  await f.open();f.fail('/phone-page');
+  await f.handle('Remove the goldfish',tool('inspect_page',{path:'/'}),tool('inspect_page',{path:'/about'}),tool('execute_action',{action:'edit',instruction:'Remove the goldfish from the homepage.'}));
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/phone-page')).length,1);
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,1);
+  assert.equal(f.calls.find(c=>c.path.endsWith('/messages')).input.text,'Remove the goldfish from the homepage.');
+  assert.equal(f.contexts.at(-1).previewInspectionAvailable,false);
+  assert.equal(f.speech.filter(s=>/Let me check/.test(s)).length,1);
+ }finally{f.flow.dispose();}
+});

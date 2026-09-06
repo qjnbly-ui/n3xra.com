@@ -59,6 +59,8 @@ export class PhoneBuildConversation {
   private expiresAt: number;
   private state: Json = {};
   private uncertain = false;
+  private previewInspectionFailed = false;
+  private inspectedTurn = -1;
   private saveDestination: "main" | "draft" = "main";
   private queuedSave: "save" | "publish" | undefined;
   private hasUnsavedChanges = false;
@@ -115,6 +117,7 @@ export class PhoneBuildConversation {
     try {
       for (let round = 0; round < 4; round++) {
         const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
+          previewInspectionAvailable: !this.previewInspectionFailed && this.inspectedTurn !== turn,
           state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
           saveDestination: this.saveDestination, hasUnsavedChanges: this.hasUnsavedChanges,
           canClose: Boolean(this.state.canClose), queuedSave: this.queuedSave || null,
@@ -199,11 +202,13 @@ export class PhoneBuildConversation {
       return { data };
     }
     if (name === "inspect_page") {
+      if (this.previewInspectionFailed || this.inspectedTurn === turn) return { data: { error: "Preview inspection is unavailable for this request. Do not inspect again. For a clear edit, send the requested outcome to execute_action; the builder can inspect its source. For discussion, use respond without claiming to see the page." } };
+      this.inspectedTurn = turn;
       if (!this.sessionId) return { data: { error: "Open the selected demo first." } };
       if (typeof args.path !== "string" || !/^\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]*$/.test(args.path) || args.path.length > 200) throw new Error("Invalid page path.");
       this.speak(args.path === "/" ? "Let me check the homepage." : "Let me check that page.");
       try { return { data: await this.rpc(`/v1/sessions/${this.sessionId}/phone-page`, { path: args.path }) }; }
-      catch { return { data: { error: "I could not inspect that preview. No page content was retrieved." } }; }
+      catch { this.previewInspectionFailed = true; return { data: { error: "Preview unavailable. No page content was retrieved. Do not retry inspection. A clear edit can still be sent to execute_action so the builder can inspect and change its source. Otherwise respond honestly." } }; }
     }
     if (name === "cancel_request") {
       this.pending = undefined; this.queuedSave = undefined;
