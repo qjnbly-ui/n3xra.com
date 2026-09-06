@@ -37,7 +37,7 @@
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js",
     "build:availability": "astro build --root availability-app",
     "dev:availability": "astro dev --root availability-app",
-    "test:availability": "node --experimental-strip-types --test tests/resource-availability/model.test.mjs"
+    "test:availability": "node --experimental-strip-types --test tests/resource-availability/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "6.0.5",

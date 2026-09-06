@@ -1,6 +1,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { isBrandedPortalHostname, resolvePortalTenant, portalLoginUrl } from '../../../src/client-portal/tenant-context';
 import { type Snapshot } from './model';
+import type {ArchivedReport} from './weekly-history';
 
 export type ArchiveFilters={year:string;agency:string;from:string;to:string;page:number};
 export type ArchivePage={total:number;rows:{id:string;source_created_at:string|null;agency_name:string|null;submitted_by:string|null;raw:Record<string,unknown>}[];batches:{metadata:{years?:string[];agencies?:string[];comments?:{text:string;author:string;date:string}[]}}[]};
@@ -48,7 +49,14 @@ class LiveStore implements Store {
     const {data,error}=await this.db.rpc('ra_snapshot',{workspace:this.workspace.id});
     if(error) throw error;
     if(!data?.workspace) throw new Error('Resource Availability access is no longer available.');
-    return data as Snapshot;
+    const archivedReports:ArchivedReport[]=[];
+    // Explicit pagination avoids Supabase's default 1,000-row response limit.
+    for(let offset=0;;offset+=500){
+      const result=await this.db.from('ra_archived_reports').select('id,source_created_at,agency_name,submitted_by,raw').eq('workspace_id',this.workspace.id).order('id').range(offset,offset+499);
+      if(result.error)throw result.error;
+      archivedReports.push(...(result.data||[]));if((result.data||[]).length<500)break;
+    }
+    return {...data,archivedReports} as Snapshot;
   }
   async command(action:string,args:Record<string,unknown>) {
     const {data,error}=await this.db.rpc('ra_command',{workspace:this.workspace.id,action,args});

@@ -1,3 +1,4 @@
+import type {ArchivedReport} from './weekly-history.ts';
 export const equipment = ['type1', 'type3', 'type6', 'tender'] as const;
 export type Equipment = typeof equipment[number];
 export const labels: Record<Equipment, string> = { type1: 'Type 1 engines', type3: 'Type 3 engines', type6: 'Type 6 engines', tender: 'Water tenders' };
@@ -8,7 +9,7 @@ export type Payload = Record<Equipment, number> & {
   teams: number; reason: string; confirmed: boolean;
 };
 export interface Agency { id: string; name: string; county: string; active?: boolean; version?: number }
-export interface Cycle { id: string; start_date: string; end_date: string; due_at: string; duty_name: string; roster: Agency[]; revision: number; closed: boolean }
+export interface Cycle { historical?:boolean; id: string; start_date: string; end_date: string; due_at: string; duty_name: string; roster: Agency[]; revision: number; closed: boolean }
 export interface Response { id: string; cycle_id: string; agency_id: string; payload: Payload; version: number; submitted_at: string | null; updated_at: string }
 export interface Approval { id: string; cycle_id: string; revision: number; payload: Payload; approved_at: string; snapshot: { roster: Agency[]; responses: Response[]; startDate: string; endDate: string; missing: number } }
 export interface Delivery { id: string; approval_id: string; reference: string; recorded_at: string }
@@ -16,6 +17,7 @@ export interface History { id: string; cycle_id: string | null; agency_id: strin
 export interface ContactRecord {id:string;name:string;phone:string;email:string;user_id?:string|null;source:string;active:boolean;version:number}
 export interface DutyAssignment {id:string;start_date:string;end_date:string|null;contact_id:string;backup_contact_id:string|null;active:boolean;version:number}
 export interface Snapshot {
+  archivedReports?:ArchivedReport[];
   workspace: { id: string; organization_id: string; name: string };
   context: { admin: boolean; reviewer: boolean; members: { id: string; email: string }[] };
   contacts?: ContactRecord[]; rotation?: DutyAssignment[];

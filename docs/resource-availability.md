@@ -75,3 +75,10 @@ The initial weekly source export contains 1,491 nonblank reports dated March 28,
 An import is hidden until verification completes. Each record is keyed by source sheet, original-content hash, and duplicate occurrence; repeating an import cannot add duplicate rows. Import checks compare every original JSON field, record count, and equipment-column sums. Historical equipment sums are reconciliation checks, not deployable resource totals. Browser roles have SELECT access only, subject to the same organization/product RLS boundary. Database migrations are blocked from public download by the website routing configuration.
 
 Run `tests/resource-availability/archive-database.mjs` with the same disposable PGlite runtime to check the verification gate, immutable records, equal member access, platform-admin access, and signed-out/other-organization denial.
+
+
+## Reporting-week history
+
+The reporting-week selector includes every Monday–Sunday week represented by the imported data, including dates before the configured 2026 periods. No new operational periods or approvals are fabricated. Original exported wall-clock dates determine placement; they are not reparsed as UTC dates. All 1,491 reports occupy exactly one of 127 source weeks. Per-week summaries select 1,434 latest matched-agency submissions, retain 54 earlier submissions in details, and preserve three unnamed submissions separately. All named agencies match the agency registry by trimmed, case-insensitive exact name; no fuzzy assignment is used.
+
+Weekly equipment counts use the latest submission per agency. Missing staffing figures stay unknown. Original negative counts and values above the new form’s 999 maximum remain visible and flag affected totals for review. Harney remains excluded from the Klamath/Lake OSFM summary. Live submitted reports supersede an agency's archived submission, but drafts do not. Archived values are never sent into the approval command as invented staffed resources. The source archive remains immutable. Client reads paginate explicitly so records beyond the API's default page limit are included.
