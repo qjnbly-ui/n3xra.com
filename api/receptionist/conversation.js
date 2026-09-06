@@ -3,6 +3,7 @@ const express = require("express");
 const twilio = require("twilio");
 const { WebSocketServer, WebSocket } = require("ws");
 const askN3xra = require("../ask");
+const { PhoneBuildConversation, createPhoneBuildRpc, phoneBuildConfigured, isPhoneBuildRequest } = require("../_phone-build");
 const { toSpeechText } = require("../_receptionist");
 const {
   accountOverview,
@@ -451,6 +452,14 @@ function completeAccountActionState(ws) {
 
 async function performAccountAction(ws) {
   const { action, accountIntent } = completeAccountActionState(ws);
+  if (action === "build_studio") {
+    ws.phoneBuild?.dispose();
+    ws.phoneBuild = new PhoneBuildConversation(createPhoneBuildRpc(ws.caller.user_id, ws.callSid),
+      (text) => sendSpeech(ws, text), process.env.N3XRA_PHONE_BUILD_WEBSITE_ID,
+      "N3XRA Build Studio Demo");
+    ws.phoneBuild.begin();
+    return;
+  }
   if (action === "password_reset") return sendPasswordReset(ws);
   return sendAccountOverview(ws, accountIntent);
 }
@@ -553,6 +562,7 @@ wss.on("connection", (ws) => {
 
   ws.on("close", () => {
     if (ws.transferTimer) clearTimeout(ws.transferTimer);
+    ws.phoneBuild?.dispose();
   });
 
   ws.on("message", async (raw) => {
@@ -590,6 +600,10 @@ wss.on("connection", (ws) => {
       if (ws.pinDigits.length < 4 || ws.processing) return;
       ws.processing = true;
       try {
+        // Reload credentials so PIN changes and lockouts from earlier calls take effect.
+        const freshCaller = await getCallerAccount(ws.fromNumber);
+        if (!freshCaller || freshCaller.user_id !== ws.caller?.user_id) throw new Error("Caller access changed.");
+        ws.caller = freshCaller;
         const result = await verifyCallerPin(ws.caller, ws.pinDigits);
         ws.pinDigits = "";
         if (!result.ok) {
@@ -643,6 +657,24 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (ws.awaitingPin) {
+      sendSpeech(ws, "Please enter your PIN with the keypad; do not say it aloud.");
+      return;
+    }
+    if (ws.phoneBuild?.active) {
+      await ws.phoneBuild.handle(question);
+      return;
+    }
+    if (isPhoneBuildRequest(question)) {
+      if (!phoneBuildConfigured()) {
+        sendSpeech(ws, "Phone editing is not enabled yet. Please use Build Studio in the dashboard.");
+        return;
+      }
+      // Always verify a fresh PIN for elevated editing, even after an account overview.
+      ws.accountVerified = false;
+      await requestVerifiedAccountAction(ws, "build_studio");
+      return;
+    }
     if (isPasswordResetRequest(question)) {
       await requestVerifiedAccountAction(ws, "password_reset");
       return;
