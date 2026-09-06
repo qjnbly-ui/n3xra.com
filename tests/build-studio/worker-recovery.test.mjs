@@ -85,6 +85,10 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     assert.equal(phoneState.status,200);assert.equal(phoneState.session.id,id);
     assert.equal(phoneState.session.previewUrl,undefined,'phone status omits private preview bearer link');
     assert.equal(phoneState.session.progressDetail,undefined,'technical notes stay out of phone status');
+    const inspected=await phoneRequest(`/v1/sessions/${id}/phone-page`,{path:'/'});
+    assert.equal(inspected.status,200,JSON.stringify(inspected));assert.match(inspected.text,/Starter/);
+    assert.equal(inspected.session,undefined);assert.match(inspected.limitations,/not a screenshot/);
+    assert.notEqual((await phoneRequest(`/v1/sessions/${id}/phone-page`,{path:'https://other.test'})).status,200);
     const phoneResume=await phoneRequest('/v1/projects/open',{websiteId});
     assert.equal(phoneResume.session.id,id);assert.equal(rows[0].codex_thread_id,firstThread,'phone reconnect preserves current task');
 

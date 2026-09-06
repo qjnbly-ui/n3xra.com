@@ -1,3 +1,4 @@
+import { phonePagePath, inspectPhonePage } from "./phone-page";
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { request as httpsRequest } from "node:https";
 import { spawn, type ChildProcess } from "node:child_process";
@@ -738,7 +739,7 @@ const server = createServer(async (req, res) => {
     if (activeProjectMatch && user.phoneWebsiteId && activeProjectMatch[1] !== user.phoneWebsiteId) throw new Error("Phone website access denied.");
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); if (user.phoneWebsiteId && (input.websiteId !== user.phoneWebsiteId || input.taskId)) throw new Error("Phone website access denied."); const session = await openProject(user, String(input.websiteId || ""), String(input.taskId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|phone-status|preview\/restart))?$/);
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|phone-status|phone-page|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     if (user.phoneWebsiteId) {
       // Check tenancy before recovery can start a machine or touch another repository.
@@ -748,6 +749,13 @@ const server = createServer(async (req, res) => {
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
     const action = match[2] || "";
+    if (action === "phone-page" && req.method === "POST") {
+      const input = await body(req); const path = phonePagePath(input.path);
+      if (session.previewState !== "ready" || (isolated && !remoteWorkspaces.get(session.id)?.running)) return json(res, 409, { error: "Open the live preview before inspecting it." });
+      const target = isolated ? remoteWorkspace(session).target : { origin: `http://127.0.0.1:${session.previewPort}`, authorization: "" };
+      const pathname = session.previewBasePath === "/" ? path : `/preview/${session.id}${path}`;
+      return json(res, 200, await inspectPhonePage(target.origin, target.authorization, pathname, path));
+    }
     if (action === "phone-status" && req.method === "GET") {
       // Read progress before awaiting preparation; polling must not renew workspace lifetime.
       const recent = await supabase(`/rest/v1/website_build_events?session_id=eq.${session.id}&select=id,event_type,message,metadata&order=created_at.desc,id.desc&limit=50`);

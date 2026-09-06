@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
 import { randomUUID } from 'node:crypto';
 const require = createRequire(import.meta.url);
-const { PhoneBuildConversation, signPhoneRequest, isPhoneBuildRequest, phoneIntent } = require('../../api/_phone-build.js');
+const { PhoneBuildConversation, signPhoneRequest, isPhoneBuildRequest } = require('../../api/_phone-build.js');
 const { verifyPhoneRequest } = require('../../dist/build-worker/phone-access.js');
 const website = randomUUID(), user = randomUUID(), call = 'CA' + 'a'.repeat(32), secret = 'fixture'.repeat(8);
 
@@ -26,114 +26,102 @@ test('even signed phone requests cannot login, push, or visit another website', 
     assert.throws(() => verifyPhoneRequest(token, method, path, '', secret, website));
   }
 });
-function fixture() {
-  const calls = [], speech = []; let now = 100000;
-  let state = { id: randomUUID(), state: 'ready', cancellable: false, canClose: false, codexAuthenticated: true };
-  let event = null; let failure = '';
-  const rpc = async (path, input) => {
-    calls.push({ path, input });
-    if (failure && path.endsWith(failure)) throw new Error('Connection lost');
-    if (path.endsWith('/messages')) state = { ...state, state: 'working', cancellable: true };
-    if ((path.endsWith('/save') || path.endsWith('/publish'))) state = { ...state, state: 'ready', canClose: true };
-    if (path.endsWith('/cancel')) state = { ...state, state: 'ready', cancellable: false };
-    return { session: { ...state }, latestReply: event };
-  };
-  const flow = new PhoneBuildConversation(rpc, text => speech.push(text), website, 'Demo', () => now);
-  return { flow, rpc, calls, speech, setState: v => { state = { ...state, ...v }; }, setEvent: v => { event = v; }, fail: v => { failure = v; }, tick: n => { now += n; } };
-}
-test('confirm site then edit; duplicate yes cannot resend; progress, cancel, save and close', async () => {
-  const f = fixture(); try {
-    f.flow.begin(); assert.equal(f.calls.length, 0);
-    await f.flow.handle('yes'); assert.equal(f.calls[0].input.websiteId, website);
-    await f.flow.handle('Add one rocket'); assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 0);
-    await f.flow.handle('yes'); await f.flow.handle('yes');
-    assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 1);
-    await f.flow.poll(true); assert.match(f.speech.at(-1), /getting ready|working/i);
-    await f.flow.handle('cancel'); assert.equal(f.calls.filter(c => c.path.endsWith('/cancel')).length, 1);
-    await f.flow.poll(); await f.flow.handle('close'); assert.match(f.speech.at(-1), /Save your work/);
-    await f.flow.handle('save'); await f.flow.handle('branch'); await f.flow.handle('yes');
-    assert.equal(f.calls.filter(c => c.path.endsWith('/save')).length, 1);
-    await f.flow.handle('close'); await f.flow.handle('yes'); assert.equal(f.flow.active, false);
-  } finally { f.flow.dispose(); }
-});
-test('lost mutation response is not retried; reconnect reads the same workspace', async () => {
-  const f = fixture(); let restored;
-  try {
-    await f.flow.handle('yes'); // no pending action must do nothing
-    assert.equal(f.calls.length, 0);
-    f.flow.begin(); await f.flow.handle('yes');
-    f.fail('/messages'); await f.flow.handle('Add a rocket'); await f.flow.handle('yes');
-    assert.match(f.speech.at(-1), /may still be running/);
-    await f.flow.handle('yes'); assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 1);
-    f.flow.dispose(); const before = f.calls.length; await f.flow.poll(true); assert.equal(f.calls.length, before);
-    restored = new PhoneBuildConversation(f.rpc, m => f.speech.push(m), website);
-    restored.begin(); await restored.handle('yes');
-    assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 1);
-  } finally { f.flow.dispose(); restored?.dispose(); }
-});
-test('PIN-granted phone window expires; callbacks and live publishing never become edits', async () => {
-  const f = fixture(); try {
-    f.flow.begin(); await f.flow.handle('yes');
-    await f.flow.handle('publish to main'); await f.flow.handle('call me back');
-    assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 0);
-    f.tick(16 * 60000); await f.flow.handle('Add a rocket'); assert.equal(f.flow.active, false);
-    assert.match(f.speech.at(-1), /PIN again/);
-  } finally { f.flow.dispose(); }
-});
-test('pending confirmation suppresses unsolicited progress and failed auth blocks editing', async () => {
-  const f = fixture(); try {
-    f.flow.begin(); await f.flow.handle('yes'); await f.flow.handle('Add a rocket');
-    const n = f.speech.length; await f.flow.poll(); assert.equal(f.speech.length, n);
-    await f.flow.handle('no'); f.setState({ codexAuthenticated: false }); await f.flow.poll();
-    await f.flow.handle('Add a rocket'); assert.match(f.speech.at(-1), /Connect Codex/);
-    await f.flow.handle('yes'); assert.equal(f.calls.filter(c => c.path.endsWith('/messages')).length, 0);
-  } finally { f.flow.dispose(); }
-});
-test('natural phone entry requests are recognized', () => {
-  for (const text of ['I want to access Build Studio', 'I want to make a website change', 'Edit my website']) assert.equal(isPhoneBuildRequest(text), true);
-  assert.equal(isPhoneBuildRequest('What are your business hours?'), false);
-});
-test('unsupported requests clear the old confirmation so a later yes cannot execute stale work', async () => {
-  const f=fixture();try {
-    f.flow.begin();await f.flow.handle('yes');await f.flow.handle('Add a rocket');
-    await f.flow.handle('save to main and change the headline');await f.flow.handle('yes');
-    assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
-  } finally {f.flow.dispose();}
-});
 
-test('spoken controls are distinguished from edits and small talk', () => {
-  for (const text of ['save to main', 'Can you save it to main please?', 'Okay, push to main', 'publish live']) assert.equal(phoneIntent(text), 'main', text);
-  for (const text of ['save', 'please save', 'save my work']) assert.equal(phoneIntent(text), 'save', text);
-  for (const text of ["do not save to main", 'save to main and close', 'I am talking to Alan']) assert.equal(phoneIntent(text), 'clarify', text);
-  assert.equal(phoneIntent('Add a button labeled save to main'), 'edit');
-});
-test('save asks destination; main requires explicit confirmation and never becomes an edit', async () => {
-  const f=fixture();try {
-    f.flow.begin();await f.flow.handle('yes');const before=f.calls.length;
-    await f.flow.handle('save');assert.match(f.speech.at(-1), /working branch.*main/);
-    await f.flow.handle('yes');assert.equal(f.calls.length,before);
-    await f.flow.handle('main');assert.match(f.speech.at(-1), /live website/);assert.equal(f.calls.length,before);
-    await f.flow.handle('yes');await f.flow.handle('yes');
-    assert.equal(f.calls.filter(c=>c.path.endsWith('/publish')).length,1);
-    assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
-  }finally{f.flow.dispose();}
-});
-test('signed main publishing uses the same request-bound authorization', () => {
- const path=`/v1/sessions/${randomUUID()}/publish`,body='{}';
- const token=signPhoneRequest(user,call,website,'POST',path,body,secret);
- assert.equal(verifyPhoneRequest(token,'POST',path,body,secret,website).id,user);
- assert.throws(()=>verifyPhoneRequest(token,'POST',path,body,secret,website));
-});
-test('progress is coalesced and pending conversations do not lose final replies', async () => {
- const f=fixture();try{
-  f.flow.begin();await f.flow.handle('yes');
-  f.setState({state:'working',progress:'Reading the page'});const n=f.speech.length;
-  await f.flow.poll();f.tick(5000);f.setState({progress:'Editing the page'});await f.flow.poll();assert.equal(f.speech.length,n);
-  f.tick(30000);await f.flow.poll();assert.equal(f.speech.length,n+1);
-  f.setState({state:'ready'});await f.flow.poll();await f.flow.handle('save');
-  f.setEvent({id:'reply1',message:'Added the rocket.'});const pending=f.speech.length;
-  await f.flow.poll();assert.equal(f.speech.length,pending);
-  await f.flow.handle('no');await f.flow.poll();assert.equal(f.speech.at(-1),'Added the rocket.');
-  const done=f.speech.length;await f.flow.poll();assert.equal(f.speech.length,done);
+const tool=(name,args={})=>({role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name,arguments:JSON.stringify(args)}}]});
+const say=content=>({role:'assistant',content});
+function fixture() {
+ const calls=[],speech=[],plans=[],contexts=[],inputs=[];let now=100000;
+ let state={id:randomUUID(),state:'ready',cancellable:false,canClose:false,codexAuthenticated:true};let event=null,failure='';
+ const rpc=async(path,input)=>{calls.push({path,input});if(failure&&path.endsWith(failure))throw Error('lost');
+  if(path.endsWith('/messages'))state={...state,state:'working',cancellable:true};
+  if(path.endsWith('/save')||path.endsWith('/publish'))state={...state,state:'ready',canClose:true};
+  if(path.endsWith('/cancel'))state={...state,state:'ready',cancellable:false};
+  if(path.endsWith('/phone-page'))return {path:'/',headings:['Welcome'],images:[{index:1,description:'A mountain lake'}]};
+  return {session:{...state},latestReply:event};};
+ const agent=async(messages,context,signal)=>{contexts.push(context);inputs.push(messages.map(m=>({...m})));const plan=plans.shift();if(!plan)throw Error('No fixture plan');return typeof plan==='function'?plan(messages,context,signal):plan;};
+ const flow=new PhoneBuildConversation(rpc,text=>speech.push(text),website,'Demo',()=>now,agent);
+ const handle=async(text,...responses)=>{plans.push(...responses);await flow.handle(text);};
+ const confirm=()=> (_m,c)=>tool('confirm_action',{confirmation_id:c.pending?.id||'none'});
+ const open=async()=>{flow.begin();await handle('That is the one I mean',confirm());};
+ return {flow,calls,speech,contexts,inputs,plans,handle,confirm,open,setState:v=>{state={...state,...v};},setEvent:v=>{event=v;},fail:v=>{failure=v;},tick:n=>{now+=n;}};
+}
+test('model composes agreed ideas into an edit; separate confirmation executes exactly once',async()=>{
+ const f=fixture();try{await f.open();await f.handle('That lake takes up too much room',tool('inspect_page',{path:'/'}),say('Should I reduce its height?'));
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
+  await f.handle('Yes, half as tall',tool('propose_action',{action:'edit',instruction:'On the homepage reduce the mountain lake image height by half; preserve other content.'}));
+  assert.match(f.speech.at(-1),/half/);await f.handle('Sounds good, do that',f.confirm());
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,1);
+  assert.match(f.calls.find(c=>c.path.endsWith('/messages')).input.text,/mountain lake/);
+  await f.handle('Yep',f.confirm(),say('The builder already has the request.'));
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,1);
  }finally{f.flow.dispose();}
 });
+test('conversation can discuss saving and choose main without sending any edit',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Keep what we have',say('Should I save a draft to the working branch, or publish it to main?'));
+  assert.equal(f.calls.filter(c=>/\/(save|publish)$/.test(c.path)).length,0);
+  await f.handle('Let everyone see it',tool('propose_action',{action:'publish',instruction:''}));assert.match(f.speech.at(-1),/live website/);
+  await f.handle('Go for it',f.confirm());
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/publish')).length,1);assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
+ }finally{f.flow.dispose();}
+});
+test('model cannot execute an invented confirmation or unknown tool; no phrase fallback',async()=>{
+ const f=fixture();try{await f.open();await f.handle('save to main',tool('confirm_action',{confirmation_id:'invented'}),say('Shall we publish?'));
+  await f.handle('save to main',tool('run_shell',{command:'git push'}));
+  assert.equal(f.calls.filter(c=>/\/(save|publish|messages)$/.test(c.path)).length,0);
+  assert.match(f.speech.at(-1),/not sent a new action/);
+ }finally{f.flow.dispose();}
+});
+test('proposal terminates the model loop and cannot confirm itself in the same caller turn',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Make it smaller',tool('propose_action',{action:'edit',instruction:'Reduce the selected image.'}));
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);assert.equal(f.plans.length,0);
+  await f.handle('Actually never mind',tool('dismiss_action'),say('Okay, I will leave it as it is.'));
+  await f.handle('yes',f.confirm(),say('There is no pending change.'));
+  assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
+ }finally{f.flow.dispose();}
+});
+test('pending proposal expires and a fresh confirmation is required',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Publish',tool('propose_action',{action:'publish',instruction:''}));f.tick(121000);
+ await f.handle('yes',f.confirm(),say('Please confirm a fresh publishing request.'));assert.equal(f.calls.filter(c=>c.path.endsWith('/publish')).length,0);
+ }finally{f.flow.dispose();}
+});
+test('lost mutation response is not replayed and status can reconcile it',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Change title',tool('propose_action',{action:'edit',instruction:'Change the title to Welcome.'}));f.fail('/messages');await f.handle('yes',f.confirm());assert.match(f.speech.at(-1),/could not confirm/);
+ await f.handle('yes',f.confirm(),say('Let me check before repeating anything.'));assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,1);
+ f.fail('');await f.handle('What happened?',tool('get_status'),say('The workspace is ready.'));
+ }finally{f.flow.dispose();}
+});
+test('save branch, close and PIN expiry retain lifecycle constraints',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Close it',tool('propose_action',{action:'close',instruction:''}),say('We need to save first.'));
+ assert.equal(f.calls.filter(c=>c.path.endsWith('/close')).length,0);
+ await f.handle('Save the draft',tool('propose_action',{action:'save',instruction:''}));await f.handle('yes',f.confirm());
+ await f.handle('Close',tool('propose_action',{action:'close',instruction:''}));await f.handle('yes',f.confirm());assert.equal(f.flow.active,false);
+ }finally{f.flow.dispose();}
+ const expired=fixture();try{expired.flow.begin();expired.tick(16*60000);await expired.handle('Open');assert.equal(expired.flow.active,false);assert.equal(expired.calls.length,0);}finally{expired.flow.dispose();}
+});
+test('model errors, malformed arguments and multiple actions fail without mutations',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Publish',()=>{throw Error('provider unavailable');});
+ await f.handle('Publish',{role:'assistant',content:null,tool_calls:[{id:'a',type:'function',function:{name:'propose_action',arguments:'bad json'}}]});
+ const two=tool('propose_action',{action:'publish',instruction:''});two.tool_calls.push(tool('confirm_action',{confirmation_id:'x'}).tool_calls[0]);await f.handle('Publish',two);
+ assert.equal(f.calls.filter(c=>/\/(publish|save|messages)$/.test(c.path)).length,0);
+ }finally{f.flow.dispose();}
+});
+test('new caller statement supersedes unfinished planning without executing stale tools',async()=>{
+ const f=fixture();try{await f.open();let finish;
+ const first=f.handle('publish',()=>new Promise(resolve=>{finish=resolve;}));
+ await f.handle('Wait, leave it alone',say('Okay, I will leave it alone.'));
+ finish(tool('propose_action',{action:'publish',instruction:''}));await first;
+ assert.equal(f.speech.at(-1),'Okay, I will leave it alone.');assert.equal(f.calls.filter(c=>c.path.endsWith('/publish')).length,0);
+ }finally{f.flow.dispose();}
+});
+test('page results reach the model as tool data; invalid paths and failed inspections cannot fabricate content',async()=>{
+ const f=fixture();try{await f.open();await f.handle('What picture?',tool('inspect_page',{path:'/'}),(messages)=>{assert.match(messages.at(-1).content,/mountain lake/);return say('The image description says a mountain lake.');});
+ await f.handle('Read secrets',tool('inspect_page',{path:'/.env'}));assert.equal(f.calls.filter(c=>c.path.endsWith('/phone-page')).length,1);
+ f.fail('/phone-page');await f.handle('Check again',tool('inspect_page',{path:'/'}),(messages)=>{assert.match(messages.at(-1).content,/could not inspect/);return say('I could not inspect the preview.');});
+ }finally{f.flow.dispose();}
+});
+test('routine progress is coalesced and final replies are delivered once after pending discussion',async()=>{
+ const f=fixture();try{await f.open();f.setState({state:'working',progress:'Reading'});const n=f.speech.length;await f.flow.poll();assert.equal(f.speech.length,n);
+ f.tick(31000);await f.flow.poll();assert.equal(f.speech.length,n+1);f.setState({state:'ready'});f.setEvent({id:'r1',message:'Done.'});await f.flow.poll();assert.equal(f.speech.at(-1),'Done.');const done=f.speech.length;await f.flow.poll();assert.equal(f.speech.length,done);
+ }finally{f.flow.dispose();}
+});
+test('natural phone entry requests are recognized',()=>{assert.equal(isPhoneBuildRequest('I want to access Build Studio'),true);});

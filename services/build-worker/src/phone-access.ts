@@ -24,7 +24,7 @@ export function verifyPhoneRequest(token: string, method: string, path: string, 
   const permitted = (method === "POST" && path === "/v1/projects/open")
     || (method === "GET" && path === `/v1/projects/${websiteId}/active`)
     || (method === "GET" && /^\/v1\/sessions\/[0-9a-f-]+\/phone-status$/.test(path))
-    || (method === "POST" && /^\/v1\/sessions\/[0-9a-f-]+\/(messages|cancel|save|publish|close)$/.test(path));
+    || (method === "POST" && /^\/v1\/sessions\/[0-9a-f-]+\/(messages|cancel|save|publish|close|phone-page)$/.test(path));
   if (!permitted) throw new Error("Phone access does not permit this action. Use the dashboard.");
   // A repeated signed mutation must not execute twice after a lost response.
   for (const [key, expiry] of used) if (expiry <= seconds) used.delete(key);

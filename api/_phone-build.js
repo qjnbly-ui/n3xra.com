@@ -1,47 +1,12 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.PhoneBuildConversation = void 0;
-exports.phoneIntent = phoneIntent;
 exports.isPhoneBuildRequest = isPhoneBuildRequest;
 exports.phoneBuildConfigured = phoneBuildConfigured;
 exports.signPhoneRequest = signPhoneRequest;
 exports.createPhoneBuildRpc = createPhoneBuildRpc;
+const _phone_build_agent_1 = require("./_phone-build-agent");
 const node_crypto_1 = require("node:crypto");
-const YES = /^(yes|yeah|yep|okay|ok|correct|confirm|go ahead|do it|please do)[.!\s]*$/i;
-const NO = /^(no|nope|never mind|nevermind|cancel that)[.!\s]*$/i;
-function phoneIntent(text) {
-    const raw = text.toLowerCase().replace(/[’]/g, "'").replace(/[.,!?]/g, " ").replace(/\s+/g, " ").trim();
-    if (/\b(don't|do not|not yet|never mind)\b/.test(raw))
-        return "clarify";
-    const value = raw.replace(/^(?:(?:okay|ok|yeah|so|well|hey nex|nex|please) +)+/, "")
-        .replace(/^(?:can you|could you|would you|will you|i want you to|i'd like you to|i want to|let's|lets) +/, "")
-        .replace(/ +(?:please|now|for me)$/, "").trim();
-    if (/^(?:save|push|publish|deploy)\b/.test(value)) {
-        if (/\b(?:and|then|but|or)\b/.test(value))
-            return "clarify";
-        if (/\bmain\b/.test(value) || /\b(?:live|production)\b/.test(value))
-            return "main";
-        if (/\bbranch\b/.test(value))
-            return "branch";
-        if (/^(?:save|push)(?: (?:it|this|that|everything|my work|the work|these changes|the changes|to github))?$/.test(value))
-            return "save";
-        return "clarify";
-    }
-    if (/^(?:main|to main|the main branch|main branch)$/.test(value))
-        return "main";
-    if (/^(?:branch|the branch|working branch|the working branch|to the branch)$/.test(value))
-        return "branch";
-    if (/^(?:close|close (?:it|the project|the workspace|project|workspace))$/.test(value))
-        return "close";
-    if (/^(?:stop|cancel)(?: (?:the |my )?(?:request|edit|change|current request))?$/.test(value))
-        return "cancel";
-    if (/^(?:status|progress|what.*(?:doing|happening)|are you done|is it done|how is it going|what is the status)$/.test(value))
-        return "status";
-    if (/^(?:help|thanks|thank you|what can you do|how.*save|what.*(?:branch|main)|what do you mean)/.test(value))
-        return "help";
-    // Only an actual edit instruction enters the builder; other conversation asks for clarification.
-    return /^(?:add|remove|change|update|make|move|replace|draw|create|fix|put|adjust|increase|decrease|use|set|build|redesign|hide|show|resize|delete|edit)\b/.test(value) ? "edit" : "clarify";
-}
 function isPhoneBuildRequest(text) {
     return /\b(build studio|website (?:edit|change)|(?:edit|change|update|build) (?:my |the |a |our )?website)\b/i.test(text);
 }
@@ -87,9 +52,13 @@ class PhoneBuildConversation {
     websiteId;
     name;
     now;
+    agent;
     sessionId = "";
     pending;
-    choosingSave = false;
+    history = [];
+    turn = 0;
+    thinking = false;
+    planning;
     lastState = "";
     disposed = false;
     busy = false;
@@ -101,23 +70,25 @@ class PhoneBuildConversation {
     expiresAt;
     state = {};
     uncertain = false;
-    constructor(rpc, say, websiteId, name = "N3XRA Build Studio Demo", now = () => Date.now()) {
+    constructor(rpc, say, websiteId, name = "N3XRA Build Studio Demo", now = () => Date.now(), agent = _phone_build_agent_1.requestBuildAgent) {
         this.rpc = rpc;
         this.say = say;
         this.websiteId = websiteId;
         this.name = name;
         this.now = now;
+        this.agent = agent;
         this.expiresAt = now() + 15 * 60_000;
     }
     begin() {
-        this.pending = { action: "open" };
+        this.pending = { action: "open", id: (0, node_crypto_1.randomUUID)(), turn: this.turn, expires: this.now() + 120_000 };
         this.speak(`Phone editing is available for ${this.name}. Is that the website you want to work on?`);
     }
     get active() { return !this.disposed; }
-    dispose() { this.disposed = true; if (this.timer)
+    dispose() { this.disposed = true; this.planning?.abort(); if (this.timer)
         clearInterval(this.timer); }
     speak(text) { if (!this.disposed) {
         this.lastSpokenAt = this.now();
+        this.history.push({ role: "assistant", content: text });
         this.say(text);
     } }
     valid() {
@@ -131,157 +102,183 @@ class PhoneBuildConversation {
         return true;
     }
     async handle(text) {
-        if (!this.valid())
+        if (!this.valid() || !text.trim())
             return;
-        const clean = text.trim();
-        if (!clean)
-            return;
-        const intent = phoneIntent(clean);
-        if (/\b(call me back|callback)\b/i.test(clean)) {
-            this.choosingSave = false;
+        const turn = ++this.turn;
+        this.planning?.abort();
+        const abort = new AbortController();
+        this.planning = abort;
+        this.thinking = true;
+        if (this.pending && this.pending.expires <= this.now())
             this.pending = undefined;
-            this.speak("Automatic callbacks are not enabled in this first test. You can call back, enter your PIN, and reconnect to your workspace.");
-            return;
-        }
-        if (intent === "cancel") {
-            this.choosingSave = false;
-            this.pending = undefined;
-            if (this.state.cancellable && this.sessionId) {
-                try {
-                    await this.rpc(`/v1/sessions/${this.sessionId}/cancel`, {});
-                    this.speak("I requested cancellation. Changes already made will remain for you to review.");
+        // Retain whole caller turns so tool requests are never separated from their results.
+        const starts = this.history.flatMap((m, i) => m.role === "user" ? [i] : []);
+        if (starts.length > 8)
+            this.history = this.history.slice(starts[starts.length - 8]);
+        this.history.push({ role: "user", content: text.trim().slice(0, 2000) });
+        const messages = [...this.history];
+        const started = this.now();
+        const waiting = setTimeout(() => {
+            if (turn === this.turn && !abort.signal.aborted && this.lastSpokenAt <= started)
+                this.speak("I am thinking through that with the current workspace.");
+        }, 4000);
+        waiting.unref?.();
+        try {
+            for (let round = 0; round < 4; round++) {
+                const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
+                    state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
+                    pending: this.pending || null }, abort.signal);
+                if (turn !== this.turn || abort.signal.aborted || !this.valid())
+                    return;
+                const calls = reply.tool_calls;
+                if (!calls?.length) {
+                    this.speak(spoken(String(reply.content || "Could you clarify what you want to change?")));
+                    return;
                 }
-                catch {
-                    this.speak("I could not confirm cancellation. Check Build Studio before sending another edit.");
-                }
+                if (calls.length !== 1)
+                    throw new Error("Only one action at a time.");
+                const call = calls[0];
+                if (typeof call.id !== "string" || call.type !== "function" || typeof call.function?.arguments !== "string")
+                    throw new Error("Invalid tool response.");
+                const args = JSON.parse(call.function.arguments);
+                if (!args || typeof args !== "object" || Array.isArray(args))
+                    throw new Error("Invalid arguments.");
+                const result = await this.useTool(call.function.name, args, turn);
+                // Only commit complete tool exchanges; a newer caller turn can supersede model planning.
+                const toolReply = { role: "tool", tool_call_id: call.id, content: JSON.stringify(result.data) };
+                messages.push(reply, toolReply);
+                this.history.push(reply, toolReply);
+                if (result.done || turn !== this.turn || !this.valid())
+                    return;
             }
-            else if (this.busy || this.uncertain) {
-                this.speak("I have not confirmed the running request yet. Check status or use Cancel in the dashboard; I cannot confirm it stopped.");
-            }
-            else
-                this.speak("I canceled the pending instruction. There is no confirmed running request to stop.");
-            return;
+            this.speak("I need a little more direction. Which part should we focus on first?");
         }
-        if (this.busy) {
-            this.speak("I am still checking that step. You can ask for status in a moment.");
-            return;
+        catch {
+            if (turn === this.turn && !abort.signal.aborted)
+                this.speak("I could not finish interpreting that. I have not sent a new action. Could you try again?");
         }
-        if (NO.test(clean)) {
-            this.choosingSave = false;
+        finally {
+            clearTimeout(waiting);
+            if (turn === this.turn)
+                this.thinking = false;
+        }
+    }
+    async useTool(name, args, turn) {
+        const fields = { inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
+        if (!fields[name] || Object.keys(args).some(key => !fields[name].includes(key)))
+            throw new Error("Unknown tool or arguments.");
+        if (name === "dismiss_action") {
             this.pending = undefined;
-            this.speak("Okay. I will not carry out that instruction.");
-            return;
+            return { data: { dismissed: true } };
         }
-        if (intent === "status") {
-            this.choosingSave = false;
-            this.pending = undefined;
+        if (name === "get_status") {
             if (!this.sessionId)
-                this.speak("Confirm the demo first so I can open its workspace.");
-            else
-                await this.poll(true);
-            return;
+                return { data: { state: "not_open", message: "Confirm the selected demo before opening." } };
+            const data = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+            this.state = data.session;
+            this.uncertain = false;
+            if (data.latestReply?.id)
+                this.lastEventId = data.latestReply.id;
+            return { data };
         }
-        if (YES.test(clean)) {
-            if (this.choosingSave) {
-                this.speak("Which destination: the working branch, or main for the live website?");
-                return;
-            }
-            const instruction = this.pending;
-            if (!instruction) {
-                this.speak("Tell me the change you want to make.");
-                return;
-            }
-            this.pending = undefined;
-            this.busy = true;
+        if (name === "inspect_page") {
+            if (!this.sessionId)
+                return { data: { error: "Open the selected demo first." } };
+            if (typeof args.path !== "string" || !/^\/(?:[a-zA-Z0-9_-]+\/)*[a-zA-Z0-9_-]*$/.test(args.path) || args.path.length > 200)
+                throw new Error("Invalid page path.");
+            this.speak(args.path === "/" ? "Let me check the homepage." : "Let me check that page.");
             try {
-                if (instruction.action === "open") {
-                    this.speak("Opening the demo and checking for unfinished work.");
-                    const result = await this.rpc("/v1/projects/open", { websiteId: this.websiteId });
-                    this.sessionId = result.session.id;
-                    this.state = result.session;
-                    if (this.disposed)
-                        return;
-                    this.timer = setInterval(() => { void this.poll(); }, 5000);
-                    this.timer.unref?.();
-                    await this.poll(true);
-                }
-                else {
-                    if (!this.sessionId || this.uncertain || this.state.state !== "ready") {
-                        this.speak("Check the workspace status before trying another change.");
-                        return;
-                    }
-                    const action = instruction.action === "edit" ? "messages" : instruction.action;
-                    this.speak(action === "messages" ? "Sending your change to Build Studio." : action === "save" ? "Saving your work to its GitHub branch." : action === "publish" ? "Saving to main on GitHub." : "Verifying the saved work and closing the project.");
-                    // Clear stale cancellable/ready state before awaiting the worker.
-                    this.state = { ...this.state, state: "working", cancellable: false };
-                    await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: instruction.text } : {});
-                    if (action === "close") {
-                        this.speak("Project closed. Your work is saved on GitHub.");
-                        this.dispose();
-                        return;
-                    }
-                    this.speak(action === "messages" ? "The builder accepted your request. I will let you know how it is progressing." : action === "publish" ? "Saved to main on GitHub. Your hosting service will deploy it next." : "Saved to the working branch on GitHub. The live website is unchanged.");
-                    await this.poll();
-                }
+                return { data: await this.rpc(`/v1/sessions/${this.sessionId}/phone-page`, { path: args.path }) };
             }
             catch {
-                this.uncertain = Boolean(this.sessionId);
-                this.speak("I could not confirm that step. It may still be running. Ask for status or check Build Studio before retrying; I will not send it again automatically.");
+                return { data: { error: "I could not inspect that preview. No page content was retrieved." } };
             }
-            finally {
-                this.busy = false;
-            }
-            return;
         }
-        if (!this.sessionId) {
-            this.begin();
-            return;
-        }
-        if (this.uncertain) {
-            await this.poll(true);
-            return;
-        }
-        if (this.state.state !== "ready") {
-            this.speak("The workspace is still getting ready or working. Ask for status, or cancel the current request.");
-            return;
-        }
-        if (["save", "main", "branch"].includes(intent)) {
+        if (name === "cancel_request") {
             this.pending = undefined;
-            if (intent === "save") {
-                this.choosingSave = true;
-                this.speak("Where should I save: the working branch to keep it as a draft, or main to update the live website?");
+            if (!this.sessionId)
+                return { data: { canceledPending: true, runningRequest: false } };
+            try {
+                const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+                this.state = current.session;
+                if (!this.state.cancellable)
+                    return { data: { canceledPending: true, runningRequest: false, busy: this.busy, uncertain: this.uncertain } };
+                await this.rpc(`/v1/sessions/${this.sessionId}/cancel`, {});
+                return { data: { cancellationRequested: true, changesAlreadyMadeRemain: true } };
+            }
+            catch {
+                return { data: { error: "Cancellation not confirmed. Check the dashboard." } };
+            }
+        }
+        if (this.busy || this.uncertain)
+            return { data: { error: "A prior operation is running or unconfirmed. Check status before another action." } };
+        if (name === "propose_action") {
+            if (!["open", "edit", "save", "publish", "close"].includes(args.action) || typeof args.instruction !== "string" || args.instruction.length > 2000)
+                throw new Error("Invalid action.");
+            if (args.action !== "open" && (!this.sessionId || this.state.state !== "ready"))
+                return { data: { error: "The workspace must be open and ready. Check status." } };
+            if (args.action === "open" && this.sessionId)
+                return { data: { alreadyOpen: true } };
+            if (args.action === "edit" && (!args.instruction.trim() || this.state.codexAuthenticated === false))
+                return { data: { error: "Need an agreed edit and connected Codex account." } };
+            if (args.action === "close" && !this.state.canClose)
+                return { data: { error: "Save to GitHub before closing. Ask caller to choose branch or main." } };
+            this.pending = { action: args.action, text: args.instruction, id: (0, node_crypto_1.randomUUID)(), turn, expires: this.now() + 120_000 };
+            const prompt = args.action === "edit" ? `For ${this.name}: ${spoken(args.instruction)}. Shall I make that change?`
+                : args.action === "publish" ? `Save all current changes for ${this.name} to main on GitHub? That publishes to the live website. Shall I proceed?`
+                    : args.action === "save" ? `Save the current changes for ${this.name} to its working branch as a draft?`
+                        : args.action === "close" ? "Close the saved project and stop its editing workspace?"
+                            : `Open ${this.name} and check for unfinished work?`;
+            this.speak(prompt);
+            return { data: { awaitingCaller: true, confirmationId: this.pending.id }, done: true };
+        }
+        const instruction = this.pending;
+        if (!instruction || args.confirmation_id !== instruction.id || instruction.turn >= turn || instruction.expires <= this.now())
+            return { data: { error: "No valid prior proposal to confirm. Discuss and propose the action first." } };
+        this.pending = undefined;
+        this.busy = true;
+        try {
+            if (instruction.action === "open") {
+                this.speak("Opening the demo and checking for unfinished work.");
+                const result = await this.rpc("/v1/projects/open", { websiteId: this.websiteId });
+                this.sessionId = result.session.id;
+                this.state = result.session;
+                if (!this.disposed) {
+                    this.timer = setInterval(() => { void this.poll(); }, 5000);
+                    this.timer.unref?.();
+                }
+                this.speak(this.state.state === "ready" ? "The workspace is open. What would you like to work on?" : "The workspace is opening. We can discuss the change while it gets ready.");
             }
             else {
-                this.choosingSave = false;
-                this.pending = { action: intent === "main" ? "publish" : "save" };
-                this.speak(intent === "main" ? `Save all current changes for ${this.name} to main on GitHub? That triggers publishing to the live website. Say yes to confirm.`
-                    : `Save all current changes for ${this.name} to the working branch on GitHub? Say yes to confirm.`);
+                const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+                this.state = current.session;
+                if (this.state.state !== "ready")
+                    return { data: { error: "The workspace is not ready; the proposal was cleared. Check status." } };
+                if (turn !== this.turn || !this.valid())
+                    return { data: { superseded: true }, done: true };
+                const action = instruction.action === "edit" ? "messages" : instruction.action;
+                this.speak(action === "messages" ? "I am sending the agreed change to the builder. I will keep you updated."
+                    : action === "publish" ? "I am saving the changes to main on GitHub." : action === "save" ? "I am saving the changes to your working branch." : "I am checking the saved work and closing the workspace.");
+                this.state = { ...this.state, state: "working", cancellable: false };
+                const result = await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: instruction.text } : {});
+                if (result.session)
+                    this.state = result.session;
+                this.speak(action === "messages" ? "The builder accepted the change. You can keep talking to me while it works."
+                    : action === "publish" ? "Saved to main on GitHub. Deployment is the next step."
+                        : action === "save" ? "Saved to the working branch. The live website is unchanged." : "Project closed. Your work is saved on GitHub.");
+                if (action === "close")
+                    this.dispose();
             }
-            return;
+            return { data: { accepted: true, action: instruction.action }, done: true };
         }
-        this.choosingSave = false;
-        if (intent === "close") {
-            this.pending = undefined;
-            if (!this.state.canClose) {
-                this.speak("Save your work to GitHub before closing the project. Say save to start.");
-                return;
-            }
-            this.pending = { action: "close" };
-            this.speak("Close the saved project and stop its editing workspace? Say yes to confirm.");
-            return;
+        catch {
+            this.uncertain = true;
+            this.speak("I could not confirm that operation. It may still be running. I will check status before doing anything else; I will not repeat it automatically.");
+            return { data: { unconfirmed: true }, done: true };
         }
-        if (intent === "help" || intent === "clarify") {
-            this.pending = undefined;
-            this.speak(intent === "help" ? "I can make a website change, check progress, cancel a request, save to a branch or main, and close the saved project. Main updates the live website; a working branch keeps a draft."
-                : "Do you want a website change, or an action such as save, status, cancel, or close? For saving, you can choose the working branch or main.");
-            return;
+        finally {
+            this.busy = false;
         }
-        if (this.state.codexAuthenticated === false) {
-            this.speak("Connect Codex in the Build Studio dashboard first, then ask for status here.");
-            return;
-        }
-        this.pending = { action: "edit", text: clean.slice(0, 2000) };
-        this.speak(`For ${this.name}, you want: ${spoken(clean)}. Shall I make that change?`);
     }
     async poll(force = false) {
         if (!this.valid() || !this.sessionId || this.polling)
@@ -306,7 +303,7 @@ class PhoneBuildConversation {
                 message = this.state.canClose ? "Your work is saved on GitHub. You can close the project or request another change."
                     : this.state.state === "ready" ? "The workspace is ready. Tell me a change, or say save when you are done."
                         : "The project is closed. Reopen it in Build Studio to continue.";
-            if (this.pending || this.choosingSave || this.busy && !force)
+            if (this.pending || this.thinking || this.busy && !force)
                 return;
             const working = ["working", "preparing"].includes(this.state.state);
             const newReply = Boolean(event?.id && event.id !== this.lastEventId && !working);

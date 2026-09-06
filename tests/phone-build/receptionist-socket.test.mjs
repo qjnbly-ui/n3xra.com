@@ -16,6 +16,14 @@ account.verifyCallerPin = async (_caller, pin) => ({ok:pin==='1234',reason:'inva
 const phone = require('../../api/_phone-build.js');
 const actions=[];const session={id:randomUUID(),state:'ready',codexAuthenticated:true};
 phone.createPhoneBuildRpc=()=>async(path,input)=>{actions.push({path,input});return {session};};
+const agent=require('../../api/_phone-build-agent.js');
+let agentTurn=0;
+agent.requestBuildAgent=async(_messages,context)=>{
+ agentTurn++;
+ if(agentTurn===1||agentTurn===3)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:'confirm_action',arguments:JSON.stringify({confirmation_id:context.pending?.id})}}]};
+ if(agentTurn===2)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:'propose_action',arguments:JSON.stringify({action:'edit',instruction:'Add one rocket to the homepage.'})}}]};
+ return {role:'assistant',content:'The builder already accepted your request.'};
+};
 const server = require('../../api/receptionist/conversation.js');
 const waitFor = async fn => { for(let i=0;i<100;i++){if(fn())return;await delay(10);}throw new Error('Socket test timed out'); };
 test('signed phone connection requires keypad PIN and two confirmations before editing', {timeout:10000}, async()=>{
@@ -34,13 +42,13 @@ test('signed phone connection requires keypad PIN and two confirmations before e
     for(const digit of '0000')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('did not match'));assert.equal(actions.length,0);
     for(const digit of '1234')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('website you want'));
     assert.equal(actions.length,0,'successful PIN alone cannot start a workspace');
-    prompt('yes');await waitFor(()=>actions.some(a=>a.path.endsWith('phone-status')));
+    prompt('yes');await waitFor(()=>actions.some(a=>a.path.endsWith('/open')));
     prompt('Add a rocket');await waitFor(()=>speech.join(' ').includes('Shall I make that change'));
     assert.equal(actions.filter(a=>a.path.endsWith('messages')).length,0);
     prompt('yes');await waitFor(()=>actions.some(a=>a.path.endsWith('messages')));
     prompt('yes');await delay(40);assert.equal(actions.filter(a=>a.path.endsWith('messages')).length,1);
     assert.equal(actions[0].input.websiteId,website);
-    const buildFrames=frames.filter(f=>f.token.includes('Shall I make') || f.token.includes('Sending your change'));
+    const buildFrames=frames.filter(f=>f.token.includes('Shall I make') || f.token.includes('sending the agreed change'));
     assert.ok(buildFrames.length);
     assert.ok(buildFrames.every(f=>f.preemptible===false && f.interruptible===true));
   } finally {ws.terminate();await new Promise(r=>server.close(r));}
