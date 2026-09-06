@@ -2,43 +2,43 @@
   "schemaVersion": 1,
   "name": "N3XRA Project Pulse",
   "visibility": "public-safe",
-  "generatedAt": "2026-08-31T18:10:21.464Z",
-  "updatedAt": "2026-08-31T11:09:57-07:00",
-  "commit": "d63be92",
+  "generatedAt": "2026-09-06T21:08:45.557Z",
+  "updatedAt": "2026-09-06T14:00:09-07:00",
+  "commit": "207f697",
   "summary": {
-    "statement": "N3XRA is a connected technology platform comprising approximately 238,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
-    "sourceFiles": 989,
-    "sourceLines": 238267,
+    "statement": "N3XRA is a connected technology platform comprising approximately 271,000 lines of source code across customer experiences, software products, APIs, database systems, administrative tools, and operational infrastructure.",
+    "sourceFiles": 1175,
+    "sourceLines": 270782,
     "products": 6,
-    "pages": 140,
-    "apiFunctions": 101,
-    "edgeFunctions": 28,
-    "databaseMigrations": 232
+    "pages": 157,
+    "apiFunctions": 111,
+    "edgeFunctions": 29,
+    "databaseMigrations": 289
   },
   "sourceBreakdown": {
     "css": {
-      "files": 64,
-      "lines": 40839
+      "files": 78,
+      "lines": 42440
     },
     "html": {
-      "files": 140,
-      "lines": 32535
+      "files": 157,
+      "lines": 33222
     },
     "js": {
-      "files": 297,
-      "lines": 90695
+      "files": 336,
+      "lines": 99842
     },
     "sql": {
-      "files": 393,
-      "lines": 50062
+      "files": 453,
+      "lines": 59481
     },
     "ts": {
-      "files": 94,
-      "lines": 23597
+      "files": 143,
+      "lines": 30498
     },
     "tsx": {
-      "files": 1,
-      "lines": 539
+      "files": 8,
+      "lines": 5299
     }
   },
   "products": [
@@ -101,6 +101,36 @@
     "Company governance planning"
   ],
   "recentCapabilities": [
+    {
+      "date": "2026-09-06",
+      "title": "Verified account-status texting pilot",
+      "summary": "Customers can approve temporary account-status replies through their signed-in account and matching registered phone number. Text access expires automatically and can be locked immediately; website editing is not enabled by text."
+    },
+    {
+      "date": "2026-09-06",
+      "title": "Ordered phone tasks and simpler callbacks",
+      "summary": "Nex can follow an ordered list of supported website actions during an active call while allowing questions between tasks. Requested callbacks use a shorter goodbye and return to the conversation after fresh phone verification."
+    },
+    {
+      "date": "2026-09-06",
+      "title": "Continue website work by callback",
+      "summary": "Verified phone-building callers can wait on the line or request a callback when their builder request finishes, then review the result and continue the conversation after verifying again."
+    },
+    {
+      "date": "2026-09-06",
+      "title": "Clearer questions and website instructions",
+      "summary": "Nex gained stronger separation between questions and edit requests, upcoming holiday context, and checks for unavailable preview images. These improvements help preserve the caller’s intent while leaving room for continued testing of unclear speech."
+    },
+    {
+      "date": "2026-09-05",
+      "title": "Private Nex conversation review",
+      "summary": "Administrators can compare captured phone text, Nex replies, and saved builder work in AI Settings. The review uses existing phone text without adding audio recording or a separate transcription service."
+    },
+    {
+      "date": "2026-09-05",
+      "title": "Phone-connected Build Studio pilot",
+      "summary": "Verified callers can ask Nex for website changes, review builder progress, and direct supported save actions within their connected Build Studio workspace."
+    },
     {
       "date": "2026-08-30",
       "title": "Refined N3XRA Communications experience",

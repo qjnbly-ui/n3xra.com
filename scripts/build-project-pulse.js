@@ -79,6 +79,42 @@ const MAJOR_MODULES = [
 
 const RECENT_CAPABILITIES = [
   {
+    introducedBy: "207f697a",
+    date: "2026-09-06",
+    title: "Verified account-status texting pilot",
+    summary: "Customers can approve temporary account-status replies through their signed-in account and matching registered phone number. Text access expires automatically and can be locked immediately; website editing is not enabled by text.",
+  },
+  {
+    introducedBy: "67fef54d",
+    date: "2026-09-06",
+    title: "Ordered phone tasks and simpler callbacks",
+    summary: "Nex can follow an ordered list of supported website actions during an active call while allowing questions between tasks. Requested callbacks use a shorter goodbye and return to the conversation after fresh phone verification.",
+  },
+  {
+    introducedBy: "7041388c",
+    date: "2026-09-06",
+    title: "Continue website work by callback",
+    summary: "Verified phone-building callers can wait on the line or request a callback when their builder request finishes, then review the result and continue the conversation after verifying again.",
+  },
+  {
+    introducedBy: "b8f4d9e9",
+    date: "2026-09-06",
+    title: "Clearer questions and website instructions",
+    summary: "Nex gained stronger separation between questions and edit requests, upcoming holiday context, and checks for unavailable preview images. These improvements help preserve the caller’s intent while leaving room for continued testing of unclear speech.",
+  },
+  {
+    introducedBy: "aa4d521b",
+    date: "2026-09-05",
+    title: "Private Nex conversation review",
+    summary: "Administrators can compare captured phone text, Nex replies, and saved builder work in AI Settings. The review uses existing phone text without adding audio recording or a separate transcription service.",
+  },
+  {
+    introducedBy: "d83094ce",
+    date: "2026-09-05",
+    title: "Phone-connected Build Studio pilot",
+    summary: "Verified callers can ask Nex for website changes, review builder progress, and direct supported save actions within their connected Build Studio workspace.",
+  },
+  {
     introducedBy: "42253a10",
     date: "2026-08-30",
     title: "Refined N3XRA Communications experience",
