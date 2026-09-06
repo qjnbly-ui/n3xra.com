@@ -148,27 +148,26 @@ async function saveCredential(userId, phone, pin) {
 
 async function verifyCallerPin(caller, pin) {
   if (!caller?.user_id) return { ok: false, reason: "unrecognized" };
-  const lockedUntil = caller.locked_until ? new Date(caller.locked_until).getTime() : 0;
-  if (lockedUntil > Date.now()) return { ok: false, reason: "locked" };
-  const ok = await matchesPin(pin, caller.pin_salt, caller.pin_hash);
-  if (ok) {
-    await supabaseJson(`account_phone_credentials?user_id=eq.${encodeURIComponent(caller.user_id)}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-      body: JSON.stringify({ failed_attempts: 0, locked_until: null, last_authenticated_at: new Date().toISOString() }),
+  // Compare-and-set prevents concurrent calls from overwriting each other's failed attempts.
+  for (let retry = 0; retry < 3; retry += 1) {
+    const credential = await getCredentialByUser(caller.user_id, { includeSecret: true });
+    if (!credential || credential.phone_e164 !== caller.phone_e164) return { ok: false, reason: "unrecognized" };
+    if (Date.parse(credential.locked_until || "") > Date.now()) return { ok: false, reason: "locked" };
+    const ok = await matchesPin(pin, credential.pin_salt, credential.pin_hash);
+    const attempts = Number(credential.failed_attempts || 0);
+    const locked = !ok && attempts + 1 >= 5;
+    const lockedUntil = locked ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
+    const updates = { failed_attempts: ok ? 0 : attempts + 1, locked_until: lockedUntil,
+      ...(ok ? { last_authenticated_at: new Date().toISOString() } : {}) };
+    const lockFilter = credential.locked_until ? `eq.${encodeURIComponent(credential.locked_until)}` : "is.null";
+    const rows = await supabaseJson(`account_phone_credentials?user_id=eq.${encodeURIComponent(caller.user_id)}&failed_attempts=eq.${attempts}&pin_salt=eq.${encodeURIComponent(credential.pin_salt)}&locked_until=${lockFilter}`, {
+      method: "PATCH", headers: { "Content-Type": "application/json", Prefer: "return=representation" }, body: JSON.stringify(updates),
     });
-    return { ok: true };
+    if (!Array.isArray(rows) || !rows.length) continue;
+    Object.assign(caller, updates);
+    return ok ? { ok: true } : { ok: false, reason: locked ? "locked" : "invalid" };
   }
-  const attempts = Number(caller.failed_attempts || 0) + 1;
-  caller.failed_attempts = attempts;
-  const locked = attempts >= 5;
-  caller.locked_until = locked ? new Date(Date.now() + 15 * 60 * 1000).toISOString() : null;
-  await supabaseJson(`account_phone_credentials?user_id=eq.${encodeURIComponent(caller.user_id)}`, {
-    method: "PATCH",
-    headers: { "Content-Type": "application/json", Prefer: "return=minimal" },
-    body: JSON.stringify({ failed_attempts: attempts, locked_until: caller.locked_until }),
-  });
-  return { ok: false, reason: locked ? "locked" : "invalid" };
+  return { ok: false, reason: "locked" };
 }
 
 function firstRow(rows) {

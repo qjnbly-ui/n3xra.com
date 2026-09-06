@@ -13,11 +13,13 @@ import { VercelWorkspace } from "./vercel-workspace.js";
 import { gitCommitIdentity } from "./git-identity.js";
 import { ConversationTurn, conversationSchema, readableError, redactNotes } from "./conversation.js";
 
+import { verifyPhoneRequest } from "./phone-access.js";
+
 import { organizeTasks } from "./task-history.js";
 import { syncWorkingCopy, verifyRemoteHead } from "./workspace-sync.js";
 
 type Json = Record<string, any>;
-type Identity = { id: string; email?: string };
+type Identity = { id: string; email?: string; phoneWebsiteId?: string; phoneCallId?: string };
 type Session = {
   id: string; websiteId: string; userId: string; cwd: string; repositoryFullName: string;
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
@@ -113,7 +115,14 @@ function headers(res: ServerResponse, status = 200, contentType = "application/j
   res.writeHead(status, { "Content-Type": contentType, "Cache-Control": "no-store", "Access-Control-Allow-Origin": allowOrigin, "Access-Control-Allow-Headers": "Authorization, Content-Type", "Access-Control-Allow-Methods": "GET, POST, OPTIONS", Vary: "Origin" });
 }
 function json(res: ServerResponse, status: number, value: unknown) { headers(res, status); res.end(JSON.stringify(value)); }
-async function body(req: IncomingMessage) { const chunks: Buffer[] = []; for await (const chunk of req) chunks.push(Buffer.from(chunk)); return chunks.length ? JSON.parse(Buffer.concat(chunks).toString("utf8")) as Json : {}; }
+const requestBodies = new WeakMap<IncomingMessage, string>();
+async function rawBody(req: IncomingMessage) {
+  if (requestBodies.has(req)) return requestBodies.get(req)!;
+  const chunks: Buffer[] = []; let size = 0;
+  for await (const chunk of req) { size += Buffer.byteLength(chunk); if (size > 64 * 1024) throw new Error("Request too large."); chunks.push(Buffer.from(chunk)); }
+  const raw = Buffer.concat(chunks).toString("utf8"); requestBodies.set(req, raw); return raw;
+}
+async function body(req: IncomingMessage) { const raw = await rawBody(req); return raw ? JSON.parse(raw) as Json : {}; }
 function safePath(path: string) { const output = resolve(path); if (output !== workspaceRoot && !output.startsWith(`${workspaceRoot}${sep}`)) throw new Error("Unsafe workspace path."); return output; }
 function bearer(req: IncomingMessage) { return String(req.headers.authorization || "").replace(/^Bearer\s+/i, ""); }
 
@@ -125,6 +134,22 @@ async function supabase(path: string, options: RequestInit = {}) {
 }
 
 async function authenticate(req: IncomingMessage): Promise<Identity> {
+  const phoneHeader = String(req.headers.authorization || "");
+  if (phoneHeader.startsWith("N3XRA-Phone ")) {
+    if (process.env.N3XRA_PHONE_BUILD_ENABLED !== "true") throw new Error("Phone access is disabled.");
+    const user = verifyPhoneRequest(phoneHeader.slice(12), req.method || "GET", req.url || "/", await rawBody(req),
+      process.env.N3XRA_PHONE_BUILD_SECRET || "", process.env.N3XRA_PHONE_BUILD_WEBSITE_ID || "");
+    // Phone privileges are deliberately narrower than dashboard administrator privileges.
+    const admins = await supabase(`/rest/v1/platform_admins?user_id=eq.${user.id}&status=eq.active&role=eq.owner&select=user_id&limit=1`);
+    const credentials = await supabase(`/rest/v1/account_phone_credentials?user_id=eq.${user.id}&select=last_authenticated_at,locked_until&limit=1`);
+    const profiles = await supabase(`/rest/v1/profiles?id=eq.${user.id}&select=account_status&limit=1`);
+    const credential = credentials?.[0];
+    const verifiedAt = Date.parse(credential?.last_authenticated_at || "");
+    if (!admins?.length || !profiles?.length || !["active", "trialing"].includes(profiles[0].account_status || "active")
+      || !Number.isFinite(verifiedAt) || verifiedAt < Date.now() - 15 * 60_000 || verifiedAt > Date.now() + 5000
+      || Date.parse(credential?.locked_until || "") > Date.now()) throw new Error("Verified owner phone access required.");
+    return user;
+  }
   const token = bearer(req);
   if (!token) throw new Error("Authentication required.");
   const userResponse = await fetch(`${env.SUPABASE_URL.replace(/\/$/, "")}/auth/v1/user`, { headers: { apikey: env.SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` } });
@@ -710,13 +735,32 @@ const server = createServer(async (req, res) => {
     const tasksMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/tasks$/);
     if (tasksMatch && req.method === "GET") return json(res, 200, await savedTasks(user, tasksMatch[1]!));
     const activeProjectMatch = url.pathname.match(/^\/v1\/projects\/([0-9a-f-]+)\/active$/);
+    if (activeProjectMatch && user.phoneWebsiteId && activeProjectMatch[1] !== user.phoneWebsiteId) throw new Error("Phone website access denied.");
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
-    if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); const session = await openProject(user, String(input.websiteId || ""), String(input.taskId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|preview\/restart))?$/);
+    if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); if (user.phoneWebsiteId && (input.websiteId !== user.phoneWebsiteId || input.taskId)) throw new Error("Phone website access denied."); const session = await openProject(user, String(input.websiteId || ""), String(input.taskId || "")); return json(res, 202, { session: publicSession(session) }); }
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|phone-status|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
+    if (user.phoneWebsiteId) {
+      // Check tenancy before recovery can start a machine or touch another repository.
+      const owned = await supabase(`/rest/v1/website_build_sessions?id=eq.${match[1]}&website_id=eq.${user.phoneWebsiteId}&created_by_user_id=eq.${user.id}&archived_at=is.null&select=id&limit=1`);
+      if (!owned?.length) throw new Error("Phone workspace access denied.");
+    }
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
     const action = match[2] || "";
+    if (action === "phone-status" && req.method === "GET") {
+      // Read progress before awaiting preparation; polling must not renew workspace lifetime.
+      const recent = await supabase(`/rest/v1/website_build_events?session_id=eq.${session.id}&select=id,event_type,message,metadata&order=created_at.desc,id.desc&limit=50`);
+      let latestReply = null;
+      for (const event of recent || []) {
+        if (event.metadata?.conversationStart || event.event_type === "user_message") break;
+        if (["agent_message", "error"].includes(event.event_type)) { latestReply = { id: event.id, message: event.message }; break; }
+      }
+      const state = publicSession(session);
+      return json(res, 200, { session: { id: state.id, state: state.state, progress: state.progress,
+        previewState: state.previewState, cancellable: state.cancellable, canClose: state.canClose,
+        codexAuthenticated: state.codexAuthenticated, changedFileCount: state.changedFileCount }, latestReply });
+    }
     if (action === "events" && req.method === "GET") {
       headers(res, 200, "text/event-stream"); res.write(": connected\n\n");
       const set = listeners.get(session.id) || new Set(); set.add(res); listeners.set(session.id, set);
@@ -852,7 +896,7 @@ const server = createServer(async (req, res) => {
         if (!model.supportedReasoningEfforts.some((item: Json) => item.reasoningEffort === effort)) throw new Error("The selected thinking effort is unavailable for this model.");
         session.selectedModel = model.model; session.selectedEffort = effort;
         await ensureThread(session);
-        await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort });
+        await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort, ...(user.phoneCallId ? { source: "phone", callId: user.phoneCallId } : {}) });
         const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes. Speak to the website owner in clear everyday language. Your final response must match the requested JSON schema: message is the short user-facing reply, and technicalNotes holds file paths, commands, test results, and diagnostic details. Keep meaningful limitations and actions the owner needs in message. Do not claim a check succeeded unless you ran it. Never include secrets in either field.\n\n";
         progress(session, "Working on your request…");
         let restoredContext = "";

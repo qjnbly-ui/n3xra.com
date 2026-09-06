@@ -1,0 +1,175 @@
+import { createHash, createHmac, randomUUID } from "node:crypto";
+
+type Json = Record<string, any>;
+type Rpc = (path: string, input?: Json) => Promise<Json>;
+type Speech = (message: string) => void;
+const YES = /^(yes|yeah|yep|okay|ok|correct|confirm|go ahead|do it|please do)[.!\s]*$/i;
+const NO = /^(no|nope|never mind|nevermind|cancel that)[.!\s]*$/i;
+export function isPhoneBuildRequest(text: string): boolean {
+  return /\b(build studio|website (?:edit|change)|(?:edit|change|update|build) (?:my |the |a |our )?website)\b/i.test(text);
+}
+export function phoneBuildConfigured(): boolean {
+  return process.env.N3XRA_PHONE_BUILD_ENABLED === "true"
+    && String(process.env.N3XRA_PHONE_BUILD_SECRET || "").length >= 32
+    && /^[0-9a-f-]{36}$/i.test(process.env.N3XRA_PHONE_BUILD_WEBSITE_ID || "")
+    && /^https:\/\//.test(process.env.N3XRA_PHONE_BUILD_WORKER_URL || "");
+}
+export function signPhoneRequest(userId: string, callId: string, websiteId: string, method: string, path: string,
+  body: string, secret: string, now = Date.now()): string {
+  const iat = Math.floor(now / 1000);
+  const payload = Buffer.from(JSON.stringify({ aud: "n3xra-build-phone", sub: userId, call: callId,
+    website: websiteId, nonce: randomUUID(), method, path, body: createHash("sha256").update(body).digest("hex"), iat, exp: iat + 45 })).toString("base64url");
+  return `${payload}.${createHmac("sha256", secret).update(payload).digest("base64url")}`;
+}
+export function createPhoneBuildRpc(userId: string, callId: string): Rpc {
+  return async (path, input) => {
+    if (!phoneBuildConfigured()) throw new Error("Phone building is not enabled yet.");
+    const base = new URL(process.env.N3XRA_PHONE_BUILD_WORKER_URL!);
+    if (base.protocol !== "https:" || base.username || base.password) throw new Error("Invalid worker configuration.");
+    const method = input === undefined ? "GET" : "POST";
+    const body = input === undefined ? "" : JSON.stringify(input);
+    const token = signPhoneRequest(userId, callId, process.env.N3XRA_PHONE_BUILD_WEBSITE_ID!, method, path, body, process.env.N3XRA_PHONE_BUILD_SECRET!);
+    // No automatic retry of mutations: a lost response may still mean the edit was accepted.
+    const response = await fetch(new URL(path, base), { method, redirect: "error", headers: {
+      Authorization: `N3XRA-Phone ${token}`, "Content-Type": "application/json",
+    }, ...(input === undefined ? {} : { body }), signal: AbortSignal.timeout(30_000) });
+    const data = await response.json().catch(() => ({})) as Json;
+    if (!response.ok) throw new Error("Build Studio could not complete that step. Check the dashboard before retrying.");
+    return data;
+  };
+}
+function spoken(value: string): string {
+  return value.replace(/https?:\/\/\S+/g, "the link in your dashboard").replace(/[*_`#]/g, "").replace(/\s+/g, " ").trim().slice(0, 650);
+}
+
+/** Phone UI only. All editing and repository operations stay in the existing worker. */
+export class PhoneBuildConversation {
+  private sessionId = "";
+  private pending: { action: "open" | "edit" | "save" | "close"; text?: string } | undefined;
+  private disposed = false;
+  private busy = false;
+  private polling = false;
+  private timer: ReturnType<typeof setInterval> | undefined;
+  private lastSpeech = "";
+  private lastSpokenAt = 0;
+  private lastEventId = "";
+  private expiresAt: number;
+  private state: Json = {};
+  private uncertain = false;
+  constructor(private rpc: Rpc, private say: Speech, private websiteId: string,
+    private name = "N3XRA Build Studio Demo", private now = () => Date.now()) {
+    this.expiresAt = now() + 15 * 60_000;
+  }
+  begin() {
+    this.pending = { action: "open" };
+    this.speak(`Phone editing is available for ${this.name}. Is that the website you want to work on?`);
+  }
+  get active() { return !this.disposed; }
+  dispose() { this.disposed = true; if (this.timer) clearInterval(this.timer); }
+  private speak(text: string) { if (!this.disposed) this.say(text); }
+  private valid() {
+    if (this.disposed) return false;
+    if (this.now() >= this.expiresAt) {
+      this.speak("Your phone editing session expired. Call back and enter your PIN again. Your workspace is still saved.");
+      this.dispose(); return false;
+    }
+    return true;
+  }
+  async handle(text: string) {
+    if (!this.valid()) return;
+    const clean = text.trim();
+    if (!clean) return;
+    if (/\b(call me back|callback)\b/i.test(clean)) { this.pending = undefined; this.speak("Automatic callbacks are not enabled in this first test. You can call back, enter your PIN, and reconnect to your workspace."); return; }
+    if (/\b(publish|push to main|deploy)\b/i.test(clean)) { this.pending = undefined; this.speak("Publishing to the live website is available in the dashboard. By phone, I can save to the working branch on GitHub."); return; }
+    if (/^(stop|cancel)( (the |my )?(request|edit|change|current request))?[.!\s]*$/i.test(clean)) {
+      this.pending = undefined;
+      if (this.state.cancellable && this.sessionId) {
+        try { await this.rpc(`/v1/sessions/${this.sessionId}/cancel`, {}); this.speak("I requested cancellation. Changes already made will remain for you to review."); }
+        catch { this.speak("I could not confirm cancellation. Check Build Studio before sending another edit."); }
+      } else if (this.busy || this.uncertain) {
+        this.speak("I have not confirmed the running request yet. Check status or use Cancel in the dashboard; I cannot confirm it stopped.");
+      } else this.speak("I canceled the pending instruction. There is no confirmed running request to stop.");
+      return;
+    }
+    if (this.busy) { this.speak("I am still checking that step. You can ask for status in a moment."); return; }
+    if (NO.test(clean)) { this.pending = undefined; this.speak("Okay. I will not carry out that instruction."); return; }
+    if (/^(status|progress|what.*(?:doing|happening)|are you done|is it done)[?!\s]*$/i.test(clean)) {
+      this.pending = undefined;
+      if (!this.sessionId) this.speak("Confirm the demo first so I can open its workspace."); else await this.poll(true);
+      return;
+    }
+    if (YES.test(clean)) {
+      const instruction = this.pending;
+      if (!instruction) { this.speak("Tell me the change you want to make."); return; }
+      this.pending = undefined; this.busy = true;
+      try {
+        if (instruction.action === "open") {
+          this.speak("Opening the demo and checking for unfinished work.");
+          const result = await this.rpc("/v1/projects/open", { websiteId: this.websiteId });
+          this.sessionId = result.session.id;
+          this.state = result.session;
+          if (this.disposed) return;
+          this.timer = setInterval(() => { void this.poll(); }, 5000);
+          this.timer.unref?.();
+          await this.poll(true);
+        } else {
+          if (!this.sessionId || this.uncertain || this.state.state !== "ready") { this.speak("Check the workspace status before trying another change."); return; }
+          const action = instruction.action === "edit" ? "messages" : instruction.action;
+          this.speak(action === "messages" ? "Sending your change to Build Studio." : action === "save" ? "Saving your work to its GitHub branch." : "Verifying the saved work and closing the project.");
+          // Clear stale cancellable/ready state before awaiting the worker.
+          this.state = { ...this.state, state: "working", cancellable: false };
+          await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: instruction.text } : {});
+          if (action === "close") { this.speak("Project closed. Your work is saved on GitHub."); this.dispose(); return; }
+          this.speak(action === "messages" ? "The builder accepted your request. I will let you know how it is progressing." : "Your work is saved to the working branch on GitHub. The live website has not been published.");
+          await this.poll();
+        }
+      } catch {
+        this.uncertain = Boolean(this.sessionId);
+        this.speak("I could not confirm that step. It may still be running. Ask for status or check Build Studio before retrying; I will not send it again automatically.");
+      } finally { this.busy = false; }
+      return;
+    }
+    if (!this.sessionId) { this.begin(); return; }
+    if (this.uncertain) { await this.poll(true); return; }
+    if (this.state.state !== "ready") { this.speak("The workspace is still getting ready or working. Ask for status, or cancel the current request."); return; }
+    if (/^(save|save (?:it|my work|the work|to (?:github|the branch)))[.!\s]*$/i.test(clean)) {
+      this.pending = { action: "save" }; this.speak("Save all current workspace changes to the working branch on GitHub? Say yes to confirm."); return;
+    }
+    if (/^(close|close (?:it|the project|the workspace|project|workspace))[.!\s]*$/i.test(clean)) {
+      if (!this.state.canClose) { this.speak("Save your work to GitHub before closing the project. Say save to start."); return; }
+      this.pending = { action: "close" }; this.speak("Close the saved project and stop its editing workspace? Say yes to confirm."); return;
+    }
+    if (this.state.codexAuthenticated === false) { this.speak("Connect Codex in the Build Studio dashboard first, then ask for status here."); return; }
+    this.pending = { action: "edit", text: clean.slice(0, 2000) };
+    this.speak(`For ${this.name}, you want: ${spoken(clean)}. Shall I make that change?`);
+  }
+  async poll(force = false) {
+    if (!this.valid() || !this.sessionId || this.polling) return;
+    this.polling = true;
+    try {
+      const result = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+      this.state = result.session;
+      this.uncertain = false;
+      let message = "";
+      const event = result.latestReply;
+      if (event?.id && event.id !== this.lastEventId) {
+        this.lastEventId = event.id;
+        message = spoken(String(event.message || ""));
+      }
+      if (this.state.state === "working" || this.state.state === "preparing") message = this.state.progress || "The workspace is getting ready. I am still checking on it.";
+      else if (this.state.state === "failed") message = "The workspace needs attention. Please check Build Studio for details.";
+      else if (this.state.codexAuthenticated === false) message = "Open the Build Studio dashboard and connect Codex to this workspace before we can edit.";
+      else if (!message) message = this.state.canClose ? "Your work is saved on GitHub. You can close the project or request another change."
+        : this.state.state === "ready" ? "The workspace is ready. Tell me a change, or say save when you are done."
+        : "The project is closed. Reopen it in Build Studio to continue.";
+      if (this.pending || this.busy && !force) return;
+      if (force || message !== this.lastSpeech || ((this.state.state === "working" || this.state.state === "preparing") && this.now() - this.lastSpokenAt >= 25_000)) {
+        this.lastSpeech = message; this.lastSpokenAt = this.now(); this.speak(message);
+      }
+    } catch {
+      if (force || this.now() - this.lastSpokenAt > 30_000) {
+        this.lastSpokenAt = this.now(); this.speak("I am having trouble checking progress. Your request may still be running; please check the dashboard.");
+      }
+    } finally { this.polling = false; }
+  }
+}

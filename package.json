@@ -37,7 +37,8 @@
     "refresh:ask-knowledge": "node scripts/build-site-knowledge.js",
     "build:availability": "astro build --root availability-app",
     "dev:availability": "astro dev --root availability-app",
-    "test:availability": "node --experimental-strip-types --test tests/resource-availability/*.test.mjs"
+    "test:availability": "node --experimental-strip-types --test tests/resource-availability/*.test.mjs",
+    "test:phone-build": "npm run build:ai-core && npm run build:communications-provider && npm run build:build-worker && node --test tests/phone-build/*.test.mjs tests/receptionist/*.test.mjs tests/build-studio/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "6.0.5",
