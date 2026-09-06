@@ -31,12 +31,12 @@ export async function listAssetFiles(db, website) {
     return [...files, ...versions.map((v) => ({ id: 'version:' + v.id, name: v.original_filename, bucket: v.storage_bucket, path: v.storage_path, mime: v.mime_type || '', size: v.size_bytes || 0, ...(v.status === 'published' && v.public_url ? { publicUrl: v.public_url } : {}) }))];
 }
 // A new website asset preserves the source and appears in the organization's existing Files & Assets library.
-export async function publishAssetFile(db, website, userId, file) {
+export async function publishAssetFile(db, website, userId, file, options = {}) {
     if (!website.organization_id)
         throw new Error('This website needs an organization.');
     const mime = fileMime(file.name, file.size);
-    const category = mime.startsWith('image/') ? (/(^|[\s._-])(logo|icon|favicon|wordmark)([\s._-]|$)/i.test(file.name) ? 'logo' : 'image') : 'document';
-    const replacement = mime.startsWith('image/') ? 'html_src' : 'download_only';
+    const category = options.category || (mime.startsWith('image/') ? (/(^|[\s._-])(logo|icon|favicon|wordmark)([\s._-]|$)/i.test(file.name) ? 'logo' : 'image') : 'document');
+    const replacement = options.replacementType || (mime.startsWith('image/') ? 'html_src' : 'download_only');
     const prepared = await prepareCdnImage(file, { category, replacement_type: replacement }, { mime_type: mime, original_filename: file.name });
     if (prepared.blob.size > 50 * 1024 * 1024)
         throw new Error('The prepared file is larger than 50 MB.');

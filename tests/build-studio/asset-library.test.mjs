@@ -61,3 +61,10 @@ test('library scopes private files and website discovery to selected organizatio
   assert.deepEqual(await listAssetFiles(db,site),[]);
   assert.deepEqual(calls,[['organization_files','organization_id','demo-org'],['client_websites','organization_id','demo-org']]);
 });
+
+test('admin folder and usage selections are preserved when publishing an upload',async()=>{
+  const {db,calls}=mockDb();
+  await publishAssetFile(db,site,'owner',new File(['logo'],'logo.png'),{category:'brand',replacementType:'metadata'});
+  const row=calls.find(c=>c[0]==='website_assets'&&c[1]==='insert')[2];
+  assert.equal(row.category,'brand'); assert.equal(row.replacement_type,'metadata');
+});

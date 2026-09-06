@@ -1,3 +1,4 @@
+import { setupAssetsAdminBridge } from '/n3xra-admin/build-studio/assets-admin-bridge.js';
 import { hasConfig } from "/shared/lib/supabase-client.js";
 import { getAdminSession } from "/account/admin/admin-session.js?v=3";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
@@ -119,6 +120,14 @@ let versionPreviewObserver = null;
 const fullQualityPreviewCache = new Map();
 let selectedAssetCategory = "";
 const selectedVersionIds = new Set();
+const buildAssetBridge = setupAssetsAdminBridge({
+  getWebsite: () => selectedWebsite,
+  getSelected: () => versions.filter(version => selectedVersionIds.has(version.id)),
+  getDb: () => supabase,
+  getUserId: () => currentUser.id,
+  approve: id => updateVersionStatus(id, "approved"),
+  publish: id => publishVersion(id, { reload: false, copyUrl: false }),
+});
 let members = [];
 let memberInvites = [];
 let memberUserLimit = 0;
@@ -803,6 +812,7 @@ function renderAssets() {
 
 function renderAssetBatchActions() {
   if (!approvePendingBatchButton || !publishApprovedBatchButton || !copyPublishedLinksButton) return;
+  buildAssetBridge.refresh();
   const availableIds = new Set(versions.map((version) => version.id));
   [...selectedVersionIds].forEach((id) => { if (!availableIds.has(id)) selectedVersionIds.delete(id); });
   const selectedVersions = versions.filter((version) => selectedVersionIds.has(version.id));
@@ -993,7 +1003,8 @@ async function uploadAdminImages(event) {
   try {
     for (const file of selectedFiles) {
       setAdminUploadStatus(`Uploading ${uploadedCount + 1} of ${selectedFiles.length}: ${file.name}`);
-      await uploadAdminImage(file, reservedKeys);
+      if (buildAssetBridge.active) await buildAssetBridge.upload(file, adminUploadCategory.value, adminUploadReplacementType.value);
+      else await uploadAdminImage(file, reservedKeys);
       uploadedCount += 1;
     }
     showToast(`${uploadedCount} image${uploadedCount === 1 ? "" : "s"} added to ${selectedWebsite.name}.`);
