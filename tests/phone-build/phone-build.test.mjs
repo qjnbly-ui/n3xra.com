@@ -28,7 +28,7 @@ test('even signed phone requests cannot login, push, or visit another website', 
 });
 
 const tool=(name,args={})=>({role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name,arguments:JSON.stringify(args)}}]});
-const say=content=>({role:'assistant',content});
+const say=content=>tool('respond',{text:content});
 function fixture() {
  const calls=[],speech=[],plans=[],contexts=[],inputs=[];let now=100000;
  let state={id:randomUUID(),state:'ready',cancellable:false,canClose:false,codexAuthenticated:true};let event=null,failure='';

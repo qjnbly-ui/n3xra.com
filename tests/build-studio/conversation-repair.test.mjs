@@ -78,10 +78,11 @@ function executionFixture({liveFails=0,testsFail=false,noChanges=false}={}) {
    return '';
   },push:async branch=>{pushed.push(branch)} };
  f.service.context=async()=>({events:[],builds:[]});f.service.turn=async()=>{turns++;return {...report}};
+ f.service.reviewOutcome=async()=>({approved:true,summary:'Verified actual workflow effects',issues:[]});
  f.service.verifyTests=async()=>{if(testsFail)throw Error('Regression check failed')};
  f.service.verifyDeployment=async()=>{checks++;if(checks<=liveFails)throw Error('Live check failed')};
  const run={id:randomUUID(),user_id:user,conversation_id:call,model:'gpt-5.6-sol',branch:'n3xra/repair-test',tokens:0,updates:[],deadline:new Date(Date.now()+30000).toISOString()};
- return {...f,run,pushed,get turns(){return turns},runIt:()=>f.service.execute(run,remote,{})};
+ return {...f,run,remote,pushed,get turns(){return turns},runIt:()=>f.service.execute(run,remote,{})};
 }
 test('complete job executes test, publish, exact deployment check without further approval',async()=>{
  const f=executionFixture();await f.runIt();assert.equal(f.run.state,'completed');assert.equal(f.run.report.verification,'regression_and_live_checks');assert.deepEqual(f.pushed,['n3xra/repair-test','main']);
@@ -127,4 +128,35 @@ test('analysis checkpoints save usage and notes without overwriting terminal res
   handler('turn/completed',{threadId:'t',turn:{id:'turn',status:'completed'}});
   assert.equal((await pending).summary,report.summary);
  }finally{globalThis.setInterval=original;}
+});
+
+
+test('failed outcome review blocks publishing even when regression tests pass',async()=>{
+ const f=executionFixture();f.service.reviewOutcome=async()=>({approved:false,summary:'Only wording changed',issues:['Save does not execute']});
+ await f.runIt();assert.equal(f.run.state,'failed');assert.equal(f.turns,3);assert.deepEqual(f.pushed,[]);assert.match(f.run.report.error,/Save does not execute/);
+});
+test('phone workflow contract and acceptance tests are protected from automatic repairs',()=>{
+ for(const path of ['docs/build-studio/phone-workflow-contract.md','tests/phone-build/workflow.test.mjs'])assert.throws(()=>validateRepairPaths([path]));
+});
+
+test('editing and independent review share one token budget; resumed history is not charged again',async()=>{
+ const f=fixture();let handler;
+ const run={id:randomUUID(),thread_id:'edit',model:'gpt-5.6-sol',tokens:0,report:{usageOffsets:{edit:{total:1000,cached:0,budgeted:1000}}},deadline:new Date(Date.now()+5000).toISOString()};
+ const remote={onEvent:fn=>{handler=fn;return ()=>{}},rpc:async()=>({turn:{id:'turn'}})};
+ for(const [threadId,total] of [['edit',1100],['review',50]]){
+  const pending=f.service.turn(remote,run,'fixture',()=>{},()=>{}, {threadId});
+  handler('thread/tokenUsage/updated',{threadId,tokenUsage:{total:{totalTokens:total}}});
+  handler('item/completed',{threadId,item:{type:'agentMessage',phase:'final_answer',text:JSON.stringify(report)}});
+  handler('turn/completed',{threadId,turn:{id:'turn',status:'completed'}});await pending;
+ }
+ assert.equal(run.tokens,150);assert.equal(run.report.usage.budgeted,150);
+});
+
+test('retry resumes the saved thread and draft only on the same unchanged baseline',async()=>{
+ const f=executionFixture();const base='a'.repeat(40),prior={id:randomUUID(),thread_id:'saved-thread',base_commit:base,branch:'n3xra/prior',report:{usage:{total:100,cached:0,budgeted:100}}};
+ const originalStore=f.service.store;f.service.store=async(path,opts)=>path.includes('state=in.(stopped,failed)')?[prior]:originalStore(path,opts);
+ const commands=[],rpcs=[],originalCommand=f.remote.command;f.remote.exists=async path=>path==='.git';
+ f.remote.command=async(cmd,args,...rest)=>{commands.push(args);if(args[0]==='branch')return prior.branch;return originalCommand(cmd,args,...rest);};
+ const originalRpc=f.remote.rpc;f.remote.rpc=async(method,args)=>{rpcs.push([method,args]);return originalRpc(method,args)};
+ await f.runIt();assert.equal(f.run.report.resumedFrom,prior.id);assert.ok(rpcs.some(([m,a])=>m==='thread/resume'&&a.threadId==='saved-thread'));assert.equal(commands.some(a=>a[0]==='stash'),false);
 });

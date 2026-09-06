@@ -16,7 +16,7 @@ const tool = (name, args = {}) => ({
   }],
 });
 
-test('a model-only reply cannot claim that an unexecuted save reached main', async () => {
+test('an unrouted model-only save claim is replanned into a real publish', async () => {
   const websiteId = randomUUID();
   const calls = [];
   const speech = [];
@@ -49,11 +49,12 @@ test('a model-only reply cannot claim that an unexecuted save reached main', asy
       role: 'assistant',
       content: 'Your changes have been saved to the main site and are now live.',
     });
+    replies.push(tool('execute_action', {action:'save',instruction:''}));
     await flow.handle('Okay. Save.');
 
-    assert.equal(calls.filter(call => /\/(?:save|publish)$/.test(call.path)).length, 0);
-    assert.doesNotMatch(speech.at(-1), /saved|now live/i);
-    assert.match(speech.at(-1), /not confirmed/i);
+    assert.equal(calls.filter(call => /\/(?:save|publish)$/.test(call.path)).length, 1);
+    assert.match(speech.at(-1), /Saved to main on GitHub/);
+    assert.doesNotMatch(speech.at(-1), /now live/);
   } finally {
     flow.dispose();
   }

@@ -174,6 +174,11 @@ async function loadRepairs() {
                     details.append(p);
                 }
             }
+            if (run.report?.assessment) {
+                const p = document.createElement("p");
+                p.textContent = `Outcome review: ${run.report.assessment.approved ? "passed" : "needs more work"} — ${run.report.assessment.summary}. ${(run.report.assessment.issues || []).join(" · ")}`;
+                details.append(p);
+            }
             if (run.report?.partialWork) {
                 const work = document.createElement("details");
                 const label = document.createElement("summary");

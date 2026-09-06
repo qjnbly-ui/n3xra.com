@@ -109,6 +109,11 @@ async function loadRepairs() {
       for (const key of ["findings", "changes", "liveChecks", "limitations"]) {
         if (run.report?.[key]?.length) { const p = document.createElement("p"); p.textContent = `${key === "liveChecks" ? "Live checks" : key}: ${run.report[key].join(" · ")}`; details.append(p); }
       }
+      if (run.report?.assessment) {
+        const p = document.createElement("p");
+        p.textContent = `Outcome review: ${run.report.assessment.approved ? "passed" : "needs more work"} — ${run.report.assessment.summary}. ${(run.report.assessment.issues || []).join(" · ")}`;
+        details.append(p);
+      }
       if (run.report?.partialWork) { const work = document.createElement("details"); const label = document.createElement("summary"); label.textContent = "Work notes"; const pre = document.createElement("pre"); pre.textContent = run.report.partialWork; work.append(label, pre); details.append(work); }
       if (run.report?.error) { const p = document.createElement("p"); p.textContent = run.report.error; details.append(p); }
       const usage = document.createElement("p"); usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} budgeted tokens · Limit: ${date(run.deadline)}`; details.append(usage);

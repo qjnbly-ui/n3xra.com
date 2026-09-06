@@ -8,7 +8,7 @@ test('agent uses existing receptionist model with tool schemas and preserves too
  try{
   globalThis.fetch=async(url,init)=>{assert.equal(url,'https://api.groq.com/openai/v1/chat/completions');const b=JSON.parse(init.body);
    assert.ok(b.messages.some(m=>m.role==='system'&&m.content.includes('Owner-reviewed style and intent guidance')));
-   assert.equal(b.model,'fixture-tool-model');assert.equal(b.tool_choice,'auto');assert.equal(b.parallel_tool_calls,false);
+   assert.equal(b.model,'fixture-tool-model');assert.equal(b.tool_choice,'required');assert.equal(b.parallel_tool_calls,false);
    assert.ok(b.tools.some(t=>t.function.name==='inspect_page'));assert.ok(b.tools.some(t=>t.function.name==='confirm_action'));
    assert.equal(b.messages.at(-1).role,'tool');assert.match(b.messages.at(-1).content,/untrusted/);
    return Response.json({choices:[{finish_reason:'tool_calls',message:{tool_calls:[{id:'one',type:'function',function:{name:'get_status',arguments:'{}'}}]}}]});};

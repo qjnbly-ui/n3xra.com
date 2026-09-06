@@ -603,6 +603,7 @@ wss.on("connection", (ws) => {
 
     if (message.type === "interrupt") {
       recordSpeechInterruption(ws, message);
+      ws.phoneBuild?.interrupted(toSpeechText(message.utteranceUntilInterrupt));
       return;
     }
 
@@ -640,6 +641,7 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (message.type === "prompt" && message.last === false) ws.phoneBuild?.listening();
     if (message.type === "prompt" && message.last !== false && !ws.awaitingPin) {
       ws.phoneRecorder?.record(ws.processing || ws.transferStarting ? "caller_ignored" : "caller", message.voicePrompt);
     }

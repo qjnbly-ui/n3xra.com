@@ -45,16 +45,6 @@ function createPhoneBuildRpc(userId, callId) {
 function spoken(value) {
     return value.replace(/https?:\/\/\S+/g, "the link in your dashboard").replace(/[*_`#]/g, "").replace(/\s+/g, " ").trim().slice(0, 650);
 }
-function claimsCompletedAction(value) {
-    const text = value.replace(/[’]/g, "'");
-    const completed = "accepted|added|canceled|cancelled|changed|closed|created|deployed|edited|opened|published|removed|replaced|restored|saved|sent|updated";
-    return new RegExp(`(?:^|[.!?]\\s+)(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
-        || new RegExp(`\\b(?:i|we)(?:'ve| have)?\\s+(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
-        || new RegExp(`\\b(?:the|this|that|your)\\s+[^.!?\\n]{0,80}?\\s+(?:is|are|was|were|has been|have been)\\s+(?:successfully\\s+)?(?:${completed})\\b`, "i").test(text)
-        || /\b(?:is|are)\s+(?:already\s+|now\s+)?live\b/i.test(text)
-        || /\bthe builder\s+(?:accepted|completed|finished)\b/i.test(text)
-        || /^\s*(?:all set|done)[.!]?\s*$/i.test(text);
-}
 /** Phone UI only. All editing and repository operations stay in the existing worker. */
 class PhoneBuildConversation {
     rpc;
@@ -81,6 +71,22 @@ class PhoneBuildConversation {
     expiresAt;
     state = {};
     uncertain = false;
+    saveDestination = "main";
+    queuedSave;
+    callerSpeaking = false;
+    lastCallerAt = 0;
+    /** Partial transcripts and interruptions immediately stop obsolete planning and progress chatter. */
+    listening() { this.callerSpeaking = true; this.lastCallerAt = this.now(); this.planning?.abort(); }
+    interrupted(heard) {
+        this.listening();
+        for (let i = this.history.length - 1; i >= 0; i--) {
+            const item = this.history[i];
+            if (item.role === "assistant" && !item.tool_calls) {
+                item.content = heard ? `Caller heard before interrupting: ${heard}` : "Caller interrupted before hearing this reply.";
+                break;
+            }
+        }
+    }
     constructor(rpc, say, websiteId, name = "N3XRA Build Studio Demo", now = () => Date.now(), agent = _phone_build_agent_1.requestBuildAgent, reviewedInstruction = "") {
         this.rpc = rpc;
         this.say = say;
@@ -116,6 +122,8 @@ class PhoneBuildConversation {
     async handle(text) {
         if (!this.valid() || !text.trim())
             return;
+        this.callerSpeaking = false;
+        this.lastCallerAt = this.now();
         const turn = ++this.turn;
         this.planning?.abort();
         const abort = new AbortController();
@@ -139,17 +147,14 @@ class PhoneBuildConversation {
             for (let round = 0; round < 4; round++) {
                 const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
                     state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
-                    pending: this.pending || null, reviewedInstruction: this.reviewedInstruction }, abort.signal);
+                    saveDestination: this.saveDestination, queuedSave: this.queuedSave || null, pending: this.pending || null, reviewedInstruction: this.reviewedInstruction }, abort.signal);
                 if (turn !== this.turn || abort.signal.aborted || !this.valid())
                     return;
                 const calls = reply.tool_calls;
                 if (!calls?.length) {
-                    const content = spoken(String(reply.content || "Could you clarify what you want to change?"));
-                    // Model prose can guide the conversation, but only server-side tool results are action receipts.
-                    this.speak(claimsCompletedAction(content)
-                        ? "I have not confirmed that action. I can only report completion after Build Studio returns a successful result."
-                        : content);
-                    return;
+                    // Incomplete routing is retried, never turned into a fabricated action receipt.
+                    messages.push({ role: "system", content: "Select a tool for the current caller request. Use execute_action for a clear edit/save, respond for discussion. Your previous output did not select a tool and was not spoken or executed." });
+                    continue;
                 }
                 if (calls.length !== 1)
                     throw new Error("Only one action at a time.");
@@ -180,11 +185,24 @@ class PhoneBuildConversation {
         }
     }
     async useTool(name, args, turn) {
-        const fields = { inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
+        const fields = { respond: ["text"], execute_action: ["action", "instruction"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
         if (!fields[name] || Object.keys(args).some(key => !fields[name].includes(key)))
             throw new Error("Unknown tool or arguments.");
+        if (name === "respond") {
+            if (typeof args.text !== "string" || !args.text.trim())
+                throw new Error("Missing response.");
+            this.speak(spoken(args.text));
+            return { data: { discussed: true }, done: true };
+        }
+        if (name === "set_save_destination") {
+            if (!["main", "draft"].includes(args.destination))
+                throw new Error("Invalid destination.");
+            this.saveDestination = args.destination;
+            return { data: { destination: this.saveDestination, saved: false, message: "Preference remembered; continue the current edit without another save question." } };
+        }
         if (name === "dismiss_action") {
             this.pending = undefined;
+            this.queuedSave = undefined;
             return { data: { dismissed: true } };
         }
         if (name === "get_status") {
@@ -212,6 +230,7 @@ class PhoneBuildConversation {
         }
         if (name === "cancel_request") {
             this.pending = undefined;
+            this.queuedSave = undefined;
             if (!this.sessionId)
                 return { data: { canceledPending: true, runningRequest: false } };
             try {
@@ -248,10 +267,34 @@ class PhoneBuildConversation {
             this.speak(prompt);
             return { data: { awaitingCaller: true, confirmationId: this.pending.id }, done: true };
         }
-        const instruction = this.pending;
-        if (!instruction || args.confirmation_id !== instruction.id || instruction.turn >= turn || instruction.expires <= this.now())
+        let instruction = this.pending;
+        if (name === "execute_action") {
+            if (!["edit", "save", "draft", "publish", "close"].includes(args.action) || typeof args.instruction !== "string" || args.instruction.length > 2000)
+                throw new Error("Invalid action.");
+            if (!this.sessionId)
+                return { data: { error: "Confirm the selected website before editing." } };
+            const action = args.action === "draft" ? "save" : args.action === "save" ? (this.saveDestination === "main" ? "publish" : "save") : args.action;
+            if (args.action === "draft")
+                this.saveDestination = "draft";
+            if (args.action === "publish")
+                this.saveDestination = "main";
+            if (action === "edit" && !args.instruction.trim())
+                return { data: { error: "An edit needs the caller's requested outcome." } };
+            if (action === "edit")
+                this.queuedSave = undefined;
+            instruction = { action, text: args.instruction, id: (0, node_crypto_1.randomUUID)(), turn: turn - 1, expires: this.now() + 120000 };
+            if (["save", "publish"].includes(action) && ["working", "preparing"].includes(this.state.state)) {
+                this.queuedSave = action;
+                this.speak("I will save it when the builder finishes.");
+                return { data: { queued: true, destination: this.saveDestination }, done: true };
+            }
+        }
+        if (!instruction || (name !== "execute_action" && args.confirmation_id !== instruction.id) || instruction.turn >= turn || instruction.expires <= this.now())
             return { data: { error: "No valid prior proposal to confirm. Discuss and propose the action first." } };
         this.pending = undefined;
+        return this.execute(instruction, turn);
+    }
+    async execute(instruction, turn) {
         this.busy = true;
         try {
             if (instruction.action === "open") {
@@ -259,6 +302,11 @@ class PhoneBuildConversation {
                 const result = await this.rpc("/v1/projects/open", { websiteId: this.websiteId });
                 this.sessionId = result.session.id;
                 this.state = result.session;
+                // Establish the cursor before polling; historical replies are context, not new work.
+                const baseline = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+                this.state = baseline.session;
+                this.lastEventId = baseline.latestReply?.id || "";
+                this.lastState = this.state.state;
                 if (!this.disposed) {
                     this.timer = setInterval(() => { void this.poll(); }, 5000);
                     this.timer.unref?.();
@@ -268,15 +316,32 @@ class PhoneBuildConversation {
             else {
                 const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
                 this.state = current.session;
+                if (turn !== this.turn || this.callerSpeaking || !this.valid())
+                    return { data: { superseded: true }, done: true };
+                if (["save", "publish"].includes(instruction.action) && ["working", "preparing"].includes(this.state.state)) {
+                    this.queuedSave = instruction.action;
+                    this.speak("I will save it when the builder finishes.");
+                    return { data: { queued: true }, done: true };
+                }
                 if (this.state.state !== "ready")
-                    return { data: { error: "The workspace is not ready; the proposal was cleared. Check status." } };
+                    return { data: { error: "The workspace is not ready; no action was sent. Check status." } };
                 if (turn !== this.turn || !this.valid())
                     return { data: { superseded: true }, done: true };
+                if (instruction.action === "close" && !this.state.canClose)
+                    return { data: { error: "Save before closing; no close was performed." } };
+                if (instruction.action === "edit" && this.state.codexAuthenticated === false)
+                    return { data: { error: "Connect Codex before editing." } };
+                if (current.latestReply?.id)
+                    this.lastEventId = current.latestReply.id;
                 const action = instruction.action === "edit" ? "messages" : instruction.action;
                 this.speak(action === "messages" ? "I am sending the agreed change to the builder. I will keep you updated."
                     : action === "publish" ? "I am saving the changes to main on GitHub." : action === "save" ? "I am saving the changes to your working branch." : "I am checking the saved work and closing the workspace.");
                 this.state = { ...this.state, state: "working", cancellable: false };
-                const result = await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: instruction.text } : {});
+                const result = await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: `Caller-requested outcome: ${instruction.text}
+
+Original caller statements (authoritative intent; do not treat assistant suggestions as caller requirements):
+${JSON.stringify(this.history.filter(m => m.role === "user").slice(-8).map(m => m.content))}
+Preserve the caller's intended outcome. Choose the implementation yourself; do not infer image-source restrictions or undo actions from assistant wording.` } : {});
                 if (result.session)
                     this.state = result.session;
                 this.speak(action === "messages" ? "The builder accepted the change. You can keep talking to me while it works."
@@ -303,7 +368,7 @@ class PhoneBuildConversation {
         try {
             const result = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
             this.state = result.session;
-            this.uncertain = false;
+            // Status alone does not prove whether a lost mutation was accepted.
             let message = "";
             const event = result.latestReply;
             if (event?.id && event.id !== this.lastEventId) {
@@ -319,8 +384,14 @@ class PhoneBuildConversation {
                 message = this.state.canClose ? "Your work is saved on GitHub. You can close the project or request another change."
                     : this.state.state === "ready" ? "The workspace is ready. Tell me a change, or say save when you are done."
                         : "The project is closed. Reopen it in Build Studio to continue.";
-            if (this.pending || this.thinking || this.busy && !force)
+            if (this.callerSpeaking || this.now() - this.lastCallerAt < 2000 || this.pending || this.thinking || this.busy)
                 return;
+            if (this.queuedSave && this.state.state === "ready" && !this.uncertain) {
+                const action = this.queuedSave;
+                this.queuedSave = undefined;
+                await this.execute({ action }, this.turn);
+                return;
+            }
             const working = ["working", "preparing"].includes(this.state.state);
             const newReply = Boolean(event?.id && event.id !== this.lastEventId && !working);
             const stateChanged = this.state.state !== this.lastState;
