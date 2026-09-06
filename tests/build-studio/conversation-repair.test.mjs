@@ -39,8 +39,12 @@ function fixture({owner=true,expired=false,daily=0}={}){
 test('non-owner rejected before workspace, storage access or inference',async()=>{
  const f=fixture({owner:false});await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}),/owner/);assert.equal(f.wake,0);
 });
-test('foreign or expired call and daily limit rejected before compute',async()=>{
- for(const options of [{expired:true},{daily:REPAIR_LIMITS.dailyRuns}]){const f=fixture(options);await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}));assert.equal(f.wake,0);}
+test('expired call rejected before compute',async()=>{
+ const f=fixture({expired:true});await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}));assert.equal(f.wake,0);
+});
+test('manual review starts despite many prior runs',async()=>{
+ const f=fixture({daily:100});f.service.execute=async()=>{};
+ const result=await f.service.handle(user,'POST','start',{conversationId:call});assert.ok(result.run.id);assert.equal(f.wake,1);
 });
 test('one-click dispatch persists job and does not wait for browser or ask approval',async()=>{
  const f=fixture();let finish;f.service.execute=()=>new Promise(r=>{finish=r});
