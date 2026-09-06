@@ -1,4 +1,4 @@
-import { requestBuildAgent, type BuildAgent, type AgentMessage } from "./_phone-build-agent";
+import { conversationOnlyReason, upcomingHolidays, requestBuildAgent, type BuildAgent, type AgentMessage } from "./_phone-build-agent";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 
 type Json = Record<string, any>;
@@ -48,6 +48,7 @@ export class PhoneBuildConversation {
   private pending: { action: "open" | "edit" | "save" | "publish" | "close" | "queue"; steps?: QueuedAction[]; text?: string; id: string; turn: number; expires: number } | undefined;
   private history: AgentMessage[] = [];
   private turn = 0;
+  private conversationOnly = "";
   private thinking = false;
   private planning: AbortController | undefined;
   private lastState = "";
@@ -120,6 +121,10 @@ export class PhoneBuildConversation {
     if (!this.valid() || !text.trim()) return;
     this.callerSpeaking = false; this.lastCallerAt = this.now();
     const turn = ++this.turn;
+    this.conversationOnly = conversationOnlyReason(text);
+    if (this.conversationOnly === "correction") {
+      this.queuePaused = true; this.pending = undefined; this.queuedSave = undefined;
+    }
     this.planning?.abort();
     const abort = new AbortController(); this.planning = abort; this.thinking = true;
     if (this.pending && this.pending.expires <= this.now()) this.pending = undefined;
@@ -136,7 +141,7 @@ export class PhoneBuildConversation {
     try {
       for (let round = 0; round < 4; round++) {
         const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
-          callbackAvailable: Boolean(this.requestId),
+          callbackAvailable: Boolean(this.requestId), conversationOnly: this.conversationOnly, upcomingHolidays: upcomingHolidays(new Date(this.now())),
           currentDate: new Date(this.now()).toISOString(), timeZone: "America/Los_Angeles",
           taskQueue: this.queue, queuePaused: this.queuePaused, queueWaitingForBuilder: Boolean(this.queueRequestId),
           previewInspectionAvailable: !this.previewInspectionFailed && this.inspectedTurn !== turn,
@@ -189,6 +194,7 @@ export class PhoneBuildConversation {
     } finally { clearTimeout(waiting); if (turn === this.turn) { this.thinking = false; await this.drainQueue(); } }
   }
   private async useTool(name: string, args: Json, turn: number): Promise<{ data: Json; done?: boolean }> {
+    if (this.conversationOnly && !["respond", "inspect_page", "get_status"].includes(name)) return {data:{error:"This caller turn is a question or correction, not authorization for an action. Answer or clarify; do not edit, replay, save, or queue work."}};
     const fields: Record<string, string[]> = { queue_actions: ["steps", "mode"], control_queue: ["operation"], completion_delivery: ["mode"], respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
     if (!fields[name] || Object.keys(args).some(key => !fields[name]!.includes(key))) throw new Error("Unknown tool or arguments.");
     if (name === "control_queue") {

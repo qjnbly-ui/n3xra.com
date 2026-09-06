@@ -191,3 +191,15 @@ test('adding steps during a running save does not copy or replay that save',asyn
  f.setState({state:'ready'});f.setEvent({id:'11',message:'Title done',completedRequestId:'10',type:'agent_message'});await f.flow.poll();assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).at(-1).input.text,'Footer');
  }finally{f.flow.dispose();}
 });
+
+test('real call questions cannot edit and a correction cannot replay a queued instruction',async()=>{
+ const f=fixture();try{await f.open();
+ await f.handle("I don't understand why you added a home page, preview status, and then I also don't see an image at the top.",tool('execute_action',{action:'edit',instruction:'Add a banner'}),say('I can check what changed without editing.'));
+ assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
+ await f.handle("That's not what I said.",queue([{action:'edit',instruction:'Apply Halloween theme again'}]),say('I misunderstood. What did you mean?'));
+ assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,0);
+ assert.equal(f.speech.at(-1),'I misunderstood. What did you mean?');
+ await f.handle('Make the web page Halloween theme.',tool('execute_action',{action:'edit',instruction:'Make the web page Halloween themed.'}));
+ assert.equal(f.calls.filter(c=>c.path.endsWith('/messages')).length,1);
+ }finally{f.flow.dispose();}
+});

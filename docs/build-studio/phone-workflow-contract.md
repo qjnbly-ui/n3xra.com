@@ -29,3 +29,10 @@ Callback delivery:
 - Support append, replace, pause, resume, and cancel of remaining steps. Updating the list does not undo a running mutation. Task lists are local to the active phone connection; finish or cancel them before selecting a callback.
 - After callback consent is saved, say only a short acknowledgement and end the call after the goodbye. Keep the fresh PIN requirement on the returned call.
 - Resuming a callback establishes the status cursor; do not follow the result with another ready greeting or repeat an already spoken save outcome.
+
+## Questions, corrections, and factual context
+- Recognized questions and objections receive only read-only tools. The server rejects mutation tools on those turns even if the provider emits them. Corrections pause the remaining queue and invalidate pending approvals, without replaying prior work.
+- Read-only conversation accepts complete plain text as speech rather than requiring tool-call formatting. Keep broad theme requests broad, without inventing navigation or asset requirements.
+- Supply calculated upcoming common U.S. holiday dates in the caller timezone, including Halloween; calendar scope is not exhaustive.
+- Page inspection checks up to5 same-workspace image URLs for successful HTTP and image MIME type with bounded HEAD requests. No external hosts are fetched; reachability does not prove rendering.
+- Tests cover recorded wording, deliberately wrong mutation tools, plain-text replies, calendar boundaries and asset delivery. They do not prove every live-model interpretation.

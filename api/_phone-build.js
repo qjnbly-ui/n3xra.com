@@ -60,6 +60,7 @@ class PhoneBuildConversation {
     pending;
     history = [];
     turn = 0;
+    conversationOnly = "";
     thinking = false;
     planning;
     lastState = "";
@@ -149,6 +150,12 @@ class PhoneBuildConversation {
         this.callerSpeaking = false;
         this.lastCallerAt = this.now();
         const turn = ++this.turn;
+        this.conversationOnly = (0, _phone_build_agent_1.conversationOnlyReason)(text);
+        if (this.conversationOnly === "correction") {
+            this.queuePaused = true;
+            this.pending = undefined;
+            this.queuedSave = undefined;
+        }
         this.planning?.abort();
         const abort = new AbortController();
         this.planning = abort;
@@ -170,7 +177,7 @@ class PhoneBuildConversation {
         try {
             for (let round = 0; round < 4; round++) {
                 const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
-                    callbackAvailable: Boolean(this.requestId),
+                    callbackAvailable: Boolean(this.requestId), conversationOnly: this.conversationOnly, upcomingHolidays: (0, _phone_build_agent_1.upcomingHolidays)(new Date(this.now())),
                     currentDate: new Date(this.now()).toISOString(), timeZone: "America/Los_Angeles",
                     taskQueue: this.queue, queuePaused: this.queuePaused, queueWaitingForBuilder: Boolean(this.queueRequestId),
                     previewInspectionAvailable: !this.previewInspectionFailed && this.inspectedTurn !== turn,
@@ -238,6 +245,8 @@ class PhoneBuildConversation {
         }
     }
     async useTool(name, args, turn) {
+        if (this.conversationOnly && !["respond", "inspect_page", "get_status"].includes(name))
+            return { data: { error: "This caller turn is a question or correction, not authorization for an action. Answer or clarify; do not edit, replay, save, or queue work." } };
         const fields = { queue_actions: ["steps", "mode"], control_queue: ["operation"], completion_delivery: ["mode"], respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
         if (!fields[name] || Object.keys(args).some(key => !fields[name].includes(key)))
             throw new Error("Unknown tool or arguments.");

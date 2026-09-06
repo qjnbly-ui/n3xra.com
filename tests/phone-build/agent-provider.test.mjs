@@ -33,3 +33,21 @@ test('invalid tool generation and truncated output retry once without replaying 
   await assert.rejects(()=>requestBuildAgent([],{},new AbortController().signal),/unavailable/);assert.equal(count,2);
  }finally{globalThis.fetch=original;if(key===undefined)delete process.env.GROQ_API_KEY;else process.env.GROQ_API_KEY=key;}
 });
+
+test('question responses need no tool formatting and receive no mutation tools',async()=>{
+ const original=globalThis.fetch,key=process.env.GROQ_API_KEY;process.env.GROQ_API_KEY='fixture';
+ try{globalThis.fetch=async(_url,init)=>{const b=JSON.parse(init.body);assert.equal(b.tool_choice,'auto');assert.deepEqual(b.tools.map(t=>t.function.name).sort(),['get_status','inspect_page','respond']);return Response.json({choices:[{finish_reason:'stop',message:{content:'Labor Day is tomorrow.'}}]});};
+ const answer=await requestBuildAgent([{role:'user',content:"What's the next holiday?"}],{conversationOnly:'question'},new AbortController().signal);
+ assert.equal(answer.tool_calls[0].function.name,'respond');assert.equal(JSON.parse(answer.tool_calls[0].function.arguments).text,'Labor Day is tomorrow.');
+ }finally{globalThis.fetch=original;if(key===undefined)delete process.env.GROQ_API_KEY;else process.env.GROQ_API_KEY=key;}
+});
+test('holiday context calculates Labor Day and handles year and local-date boundaries',()=>{
+ const {upcomingHolidays,conversationOnlyReason}=createRequire(import.meta.url)('../../api/_phone-build-agent.js');
+ assert.deepEqual(upcomingHolidays(new Date('2026-09-06T19:00:00Z')).dates[0],{name:'Labor Day',date:'2026-09-07'});
+ assert.equal(upcomingHolidays(new Date('2026-10-31T19:00:00Z')).dates[0].name,'Halloween');
+ assert.equal(upcomingHolidays(new Date('2027-01-01T01:00:00Z')).today,'2026-12-31');
+ assert.equal(upcomingHolidays(new Date('2027-01-01T01:00:00Z')).dates[0].date,'2027-01-01');
+ for(const q of ["What's the next holiday?","What about Halloween?","Do you know what the next holiday is?","I don't understand why you added that."])assert.equal(conversationOnlyReason(q),'question');
+ assert.equal(conversationOnlyReason("That's not what I said."),'correction');
+ for(const request of ['Can you remove the lion?','Make the website Halloween themed.','Save to main then close.'])assert.equal(conversationOnlyReason(request),'');
+});

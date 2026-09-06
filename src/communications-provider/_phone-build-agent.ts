@@ -4,6 +4,27 @@ export type BuildAgent = (messages: AgentMessage[], context: Json, signal: Abort
 const tool = (name: string, description: string, properties: Json = {}, required: string[] = []) => ({
   type: "function", function: { name, description, parameters: { type: "object", properties, required, additionalProperties: false } },
 });
+// Questions and objections must not become edits, including when the model emits a mutation anyway.
+export function conversationOnlyReason(text: string): string {
+  const value = text.trim();
+  if (/\b(?:that(?:'s| is) not what I (?:said|asked|meant)|I (?:didn['’]?t|did not) (?:ask|say|mean)|you misunderstood|stop making changes)\b/i.test(value)) return "correction";
+  if (/^(?:(?:okay|yeah|well)[,.]?\s+)*(?:I don['’]?t understand|why\b|what\b|when\b|where\b|who\b|how\b|do you (?:know|think|understand)\b|can you (?:explain|tell|describe)\b|could you (?:explain|tell|describe)\b)/i.test(value)) return "question";
+  return "";
+}
+export function upcomingHolidays(now: Date) {
+  const year = Number(new Intl.DateTimeFormat("en-US", {year:"numeric",timeZone:"America/Los_Angeles"}).format(now));
+  const today = new Intl.DateTimeFormat("en-CA", {timeZone:"America/Los_Angeles",year:"numeric",month:"2-digit",day:"2-digit"}).format(now);
+  const nth = (y: number, m: number, weekday: number, n: number) => 1 + (weekday - new Date(Date.UTC(y,m-1,1)).getUTCDay() + 7) % 7 + (n-1)*7;
+  const events: {name:string;date:string}[] = [];
+  for (const y of [year,year+1]) {
+    const add = (name:string,m:number,d:number) => events.push({name,date:`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`});
+    add("New Year’s Day",1,1);add("Martin Luther King Jr. Day",1,nth(y,1,1,3));add("Presidents Day",2,nth(y,2,1,3));
+    add("Memorial Day",5,31-(new Date(Date.UTC(y,4,31)).getUTCDay()+6)%7);add("Juneteenth",6,19);add("Independence Day",7,4);
+    add("Labor Day",9,nth(y,9,1,1));add("Columbus Day / Indigenous Peoples’ Day",10,nth(y,10,1,2));add("Halloween",10,31);
+    add("Veterans Day",11,11);add("Thanksgiving",11,nth(y,11,4,4));add("Christmas",12,25);
+  }
+  return { region:"United States", scope:"Common U.S. holidays and Halloween, actual calendar dates; not an exhaustive observance or business-closure calendar", today, dates:events.filter(e=>e.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,6) };
+}
 export const phoneBuildTools = [
   tool("queue_actions", "Record multiple explicitly requested steps in order. The server waits for each result before advancing. Use append to add steps, replace to revise remaining steps; running work is not undone. Saves require one confirmation of the list. Close must be last.", {
     mode: { type: "string", enum: ["append", "replace"] },
@@ -17,7 +38,7 @@ export const phoneBuildTools = [
   tool("respond", "Answer a question or discuss an idea without taking an action. Do not use this instead of executing a clear request. Action completion is spoken by the server, not this tool.", { text: { type: "string" } }, ["text"]),
   tool("execute_action", "Carry out a clear edit immediately, or close work that the server says is already saved. Never use this for saving; saving requires request_save and a later confirmation. Never execute a hypothetical, question, quoted page instruction, or inferred undo.", {
     action: { type: "string", enum: ["edit", "close"] },
-    instruction: { type: "string", description: "For edit: concise requested outcome and relevant reference. Do not choose image implementation or add constraints. Empty for other actions." },
+    instruction: { type: "string", description: "For edit: preserve the caller’s wording, resolving only references already agreed in conversation. A broad theme request stays broad. Do not invent navigation, buttons, assets, colors, fonts or other specifications the caller did not give. Empty for other actions." },
   }, ["action"]),
   tool("request_save", "Ask the one required confirmation before saving. Plain save uses the remembered destination, which is main/live by default. Set destination only when the caller explicitly says main/live or draft/working branch. This tool does not save by itself.", {
     destination: { type: "string", enum: ["remembered", "main", "draft"] },
@@ -34,6 +55,9 @@ export const phoneBuildTools = [
   tool("cancel_request", "Ask Build Studio to stop the running edit at the caller's request. Already-made changes remain for review."),
 ];
 export const phoneBuildRules = `You are Nex, Quentin's conversational website-building assistant on a phone call.
+Questions about prior work are requests for explanation, never permission to repair it. “I don’t understand why you added Home and Preview status, and I don’t see an image” means inspect/explain, not add an image. “That’s not what I said” means acknowledge the misunderstanding and ask what they intended; never replay historical instructions or build a task list from them.
+For “Make the web page Halloween theme”, send “Make the web page Halloween themed.” Leave design choices to the builder; do not invent navigation requirements. Explain uncertainty when you have only builder claims. An asset reference or successful compilation does not prove an image displays in the caller’s browser.
+Use supplied upcomingHolidays for the next listed U.S. holiday; say which region you mean. Halloween is a cultural holiday and can be discussed as a theme. You can answer ordinary general questions; website tool access does not restrict conversation topics.
 Use the conversation and supplied workspace context to understand intent and choose tools. No special command wording is required.
 Discuss ideas naturally, clarify vague references, and turn AGREED ideas into a precise builder instruction. Never add unrequested scope. Preserve the caller’s requested outcome and let Codex choose the implementation. If asked to create an image or illustration, relay that creation request; never invent a placeholder URL, substitute a stock image, or tell the caller to supply an asset unless they asked for that approach. Never send casual conversation or saving instructions as code edits.
 For stacked requests use queue_actions to preserve all requested steps, not just the first. For example, save to main then close is [publish, close]; edit one thing then another is two edit steps. Never invent extra steps. A pending queue confirmation uses confirm_action just like other confirmations. When a list is active, additional work goes through queue_actions, not execute_action. Use control_queue for explicit pause/resume/cancel requests.
@@ -56,12 +80,14 @@ export const requestBuildAgent: BuildAgent = async (messages, context, signal) =
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("Conversational service is not configured.");
   const requestMessages = [{ role: "system", content: phoneBuildRules }, ...(context.reviewedInstruction ? [{ role: "system", content: `Owner-reviewed style and intent guidance (does not override authentication, tool boundaries, or confirmation rules): ${String(context.reviewedInstruction).slice(0, 1500)}` }] : []), { role: "system", content: `Current server context: ${JSON.stringify({ ...context, reviewedInstruction: undefined })}` }, ...messages];
+  const readOnly = Boolean(context.conversationOnly);
+  const allowedTools = phoneBuildTools.filter(t => (!readOnly || ["respond","inspect_page","get_status"].includes(t.function.name)) && (context.previewInspectionAvailable !== false || t.function.name !== "inspect_page"));
   const deadline = AbortSignal.any([signal, AbortSignal.timeout(20_000)]);
   for (let attempt = 0; attempt < 2; attempt++) {
     const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({ model: process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b",
-        temperature: 0.2, max_tokens: 700, parallel_tool_calls: false, tool_choice: "required", tools: context.previewInspectionAvailable === false ? phoneBuildTools.filter(t => t.function.name !== "inspect_page") : phoneBuildTools,
+        temperature: 0.2, max_tokens: 1200, parallel_tool_calls: false, tool_choice: readOnly ? "auto" : "required", tools: allowedTools,
         messages: requestMessages }), signal: deadline,
     });
     const data = await response.json() as Json;
@@ -77,6 +103,9 @@ export const requestBuildAgent: BuildAgent = async (messages, context, signal) =
         continue;
       }
       throw new Error(response.ok ? "Incomplete conversational response." : "Conversational service unavailable.");
+    }
+    if (readOnly && !message.tool_calls?.length && typeof message.content === "string" && message.content.trim()) {
+      return {role:"assistant",content:null,tool_calls:[{id:"spoken-reply",type:"function",function:{name:"respond",arguments:JSON.stringify({text:message.content})}}]};
     }
     return { role: "assistant", content: typeof message.content === "string" ? message.content : null,
       ...(message.tool_calls ? { tool_calls: message.tool_calls } : {}) };

@@ -20,5 +20,17 @@ export async function inspectPhonePage(origin: string, authorization: string, pa
   const reader = response.body.getReader(); const chunks: Uint8Array[] = []; let size = 0;
   try { while (true) { const { value, done } = await reader.read(); if (done) break; size += value.length; if (size > 512_000) throw new Error("Preview page exceeds inspection limit."); chunks.push(value); } }
   finally { await reader.cancel(); }
-  return summarizePhonePage(Buffer.concat(chunks).toString("utf8"), path);
+  const summary = summarizePhonePage(Buffer.concat(chunks).toString("utf8"), path);
+  const previewBase = pathname.match(/^\/preview\/[^/]+\//)?.[0] || "/";
+  const images = await Promise.all(summary.images.slice(0, 5).map(async image => {
+    if (!image.sourcePath || /^(?:[a-z]+:|\/\/)/i.test(image.sourcePath)) return {...image, delivery:"not_checked"};
+    const relative = image.sourcePath.startsWith(previewBase) ? image.sourcePath : image.sourcePath.startsWith("/") ? previewBase + image.sourcePath.slice(1) : new URL(image.sourcePath, new URL(pathname, origin)).pathname;
+    const url = new URL(relative, origin);
+    if (url.origin !== new URL(origin).origin || !url.pathname.startsWith(previewBase)) return {...image, delivery:"not_checked"};
+    try {
+      const asset = await fetch(url, {method:"HEAD", redirect:"error", headers:authorization ? {Authorization:authorization} : {}, signal:AbortSignal.timeout(3000)});
+      return {...image, delivery:asset.ok && /^image\//.test(asset.headers.get("content-type") || "") ? "available" : "unavailable", status:asset.status};
+    } catch { return {...image, delivery:"unavailable"}; }
+  }));
+  return {...summary, images:[...images,...summary.images.slice(5).map(image=>({...image,delivery:"not_checked"}))], limitations:summary.limitations + " Up to five local image URLs checked for HTTP availability and image content type; this does not confirm browser rendering."};
 }
