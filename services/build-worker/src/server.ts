@@ -86,7 +86,7 @@ async function codexRequest(session: Session, method: string, params: Json = {})
   await codex.start(); return codex.request<Json>(method, params);
 }
 async function modelCatalog(session: Session) {
-  if (session.models) return session.models;
+  // Refresh the catalog so a resumed workspace runtime upgrade is immediately visible.
   const models: Json[] = []; let cursor: string | undefined;
   do {
     const page = await codexRequest(session, "model/list", { limit: 50, includeHidden: false, ...(cursor ? { cursor } : {}) });

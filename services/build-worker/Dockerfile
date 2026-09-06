@@ -11,7 +11,7 @@ FROM node:24-bookworm-slim AS runtime
 RUN apt-get update \
   && apt-get install -y --no-install-recommends ca-certificates git bubblewrap tini \
   && rm -rf /var/lib/apt/lists/* \
-  && npm install -g @openai/codex@0.143.0
+  && npm install -g @openai/codex@0.153.4
 
 WORKDIR /app
 RUN npm install --no-save --omit=dev @vercel/sandbox@3.2.1

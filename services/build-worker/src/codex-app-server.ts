@@ -4,6 +4,9 @@ import { createInterface } from "node:readline";
 type JsonObject = Record<string, unknown>;
 type Pending = { resolve: (value: any) => void; reject: (reason: Error) => void };
 
+export const CODEX_RUNTIME_VERSION = "0.153.4";
+export const ISOLATED_CODEX_BINARY = "/vercel/.n3xra/codex-runtime/node_modules/.bin/codex";
+
 export type CodexEventHandler = (method: string, params: JsonObject) => void;
 
 export class CodexAppServer {
@@ -23,7 +26,7 @@ export class CodexAppServer {
   }
 
   private async initialize() {
-    const child = spawn("codex", ["app-server"], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
+    const child = spawn(this.externallyIsolated ? ISOLATED_CODEX_BINARY : "codex", ["app-server"], { stdio: ["pipe", "pipe", "pipe"], env: process.env });
     this.process = child;
     child.stderr.on("data", (chunk) => process.stderr.write(`[codex] ${chunk}`));
     const stopped = (error: Error) => {

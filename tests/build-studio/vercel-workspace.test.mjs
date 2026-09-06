@@ -6,7 +6,7 @@ import { VercelWorkspace, workspaceName } from '../../dist/build-worker/vercel-w
 
 const env={N3XRA_VERCEL_TOKEN:'platform-token-never-in-vm',N3XRA_VERCEL_PROJECT_ID:'main-project',N3XRA_VERCEL_TEAM_ID:'team',N3XRA_BUILD_SANDBOX_SECRET:'test-secret-only'};
 const identity=()=>({id:randomUUID(),websiteId:randomUUID(),userId:randomUUID(),cwd:'/unused/local/workspace'});
-async function fixture(){
+async function fixture({installFails=false}={}){
  const machines=new Map();let creates=0;
  const sdk={
   async get({name}){if(!machines.has(name))throw Object.assign(new Error('Not found'),{response:{status:404}});return machines.get(name);},
@@ -26,7 +26,7 @@ async function fixture(){
     async extendTimeout(){},
     async writeFiles(values){for(const f of values){files.set(f.path,Buffer.from(f.content));if(f.path.endsWith('/config.json'))config=JSON.parse(f.content);}},
     async readFileToBuffer({path}){return files.get(path)||null;},
-    async runCommand(cmd,args){const q=typeof cmd==='string'?{cmd,args}:cmd;commands.push(q);if(q.cmd==='node')healthy=true;return {exitCode:0,stdout:async()=>'',stderr:async()=>''};},
+    async runCommand(cmd,args){const q=typeof cmd==='string'?{cmd,args}:cmd;commands.push(q);if(installFails&&q.cmd==='sh')return {exitCode:1};if(q.cmd==='node')healthy=true;return {exitCode:0,stdout:async()=>'',stderr:async()=>''};},
     async stop(){stops++;healthy=false;}
    };machines.set(params.name,machine);return machine;
   }
@@ -66,4 +66,10 @@ test('preview install recovers incomplete lockfiles without masking unrelated fa
  const calls=[];a.command=async(cmd,args)=>{calls.push(args);if(args[0]==='ci')throw Error('npm error Missing: @emnapi/runtime@1.11.3 from lock file');};
  await a.installNpm();assert.equal(calls.length,2);assert.ok(calls[1].includes('--package-lock=false'));
  a.command=async()=>{throw Error('network denied');};await assert.rejects(a.installNpm(),/network denied/);
+});
+
+test('runtime installation failure prevents an outdated bridge from starting',async()=>{
+ const f=await fixture({installFails:true});const a=new VercelWorkspace(identity(),env,f.sdk);
+ try{await assert.rejects(()=>a.start(),/Codex update failed/);const machine=[...f.machines.values()][0];assert.equal(machine.commands.some(c=>c.cmd==='node'),false);assert.equal(machine.stops,1);}
+ finally{await a.stop();await f.close();}
 });

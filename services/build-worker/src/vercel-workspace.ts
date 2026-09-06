@@ -1,3 +1,4 @@
+import { CODEX_RUNTIME_VERSION, ISOLATED_CODEX_BINARY } from "./codex-app-server.js";
 import { Sandbox } from "@vercel/sandbox";
 import { createHash, createHmac } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -75,6 +76,8 @@ export class VercelWorkspace {
       if (!healthy) {
         this.cursor = 0;
         await sandbox.runCommand("mkdir", ["-p", "/vercel/.n3xra"]);
+        const install = await sandbox.runCommand("sh", ["-c", `test "$( ${ISOLATED_CODEX_BINARY} --version 2>/dev/null )" = "codex-cli ${CODEX_RUNTIME_VERSION}" || npm install --prefix /vercel/.n3xra/codex-runtime --no-audit --no-fund @openai/codex@${CODEX_RUNTIME_VERSION}`]);
+        if (install.exitCode !== 0) throw new Error("The workspace Codex update failed. Retry opening the workspace.");
         await sandbox.writeFiles(runtimeFiles);
         await sandbox.writeFiles([{ path: "/vercel/.n3xra/config.json", content: Buffer.from(JSON.stringify({ secret: this.secret, sessionId: this.identity.id, version })), mode: 0o600 }]);
         await sandbox.runCommand({ cmd: "node", args: ["/vercel/.n3xra/sandbox-bridge.js"], detached: true });
