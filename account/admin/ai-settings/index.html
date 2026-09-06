@@ -40,7 +40,7 @@
         <h2 id="repair-title">Review and improve with Codex</h2>
         <p>Analyze this conversation, repair relevant code, test, publish, and verify automatically. You can leave this page and return for the results.</p>
         <div class="toolbar"><label>Model<select id="repair-model"><option value="gpt-5.6-sol">Sol</option><option value="gpt-6-astra">Astra</option></select></label><button id="analyze" type="button">Analyze conversation</button></div>
-        <p class="help">Up to 3 repair attempts, 30 minutes, and 80,000 new input/output tokens per run. Maximum 3 runs per 24 hours. Uses your Codex allowance and existing builder infrastructure. Stops at limits; no paid API fallback.</p>
+        <p class="help">Up to 3 repair attempts, 30 minutes, and 240,000 new input/output tokens per run. Maximum 3 runs per 24 hours. Uses your Codex allowance and existing builder infrastructure. Stops at limits; no paid API fallback.</p>
         <details><summary>Codex connection</summary><p>Connect once for this private maintenance workspace. Your sign-in stays with Codex.</p><button id="connect-repair" type="button">Connect Codex</button><p id="repair-connection"></p></details>
         <p id="repair-status" role="status" aria-live="polite"></p><div id="repair-results"></div>
       </section>

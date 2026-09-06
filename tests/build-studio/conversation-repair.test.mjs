@@ -97,9 +97,9 @@ test('no-change review does not claim a deployed fix',async()=>{
 });
 test('token cutoff interrupts an active turn and rejects success',async()=>{
  const f=fixture();let handler,stops=0;
- const remote={onEvent:fn=>{handler=fn;return ()=>{}},rpc:async()=>{setImmediate(()=>handler('thread/tokenUsage/updated',{threadId:'t',tokenUsage:{total:{totalTokens:80001}}}));return {turn:{id:'turn'}}}};
+ const remote={onEvent:fn=>{handler=fn;return ()=>{}},rpc:async()=>{setImmediate(()=>handler('thread/tokenUsage/updated',{threadId:'t',tokenUsage:{total:{totalTokens:REPAIR_LIMITS.tokens+1}}}));return {turn:{id:'turn'}}}};
  const run={thread_id:'t',model:'gpt-5.6-sol',tokens:0,deadline:new Date(Date.now()+5000).toISOString()};
- await assert.rejects(()=>f.service.turn(remote,run,'fixture',()=>{},()=>{stops++}),/token limit/);assert.equal(stops,1);assert.equal(run.tokens,80001);
+ await assert.rejects(()=>f.service.turn(remote,run,'fixture',()=>{},()=>{stops++}),/token limit/);assert.equal(stops,1);assert.equal(run.tokens,REPAIR_LIMITS.tokens+1);
 });
 test('deadline stops work rather than reopening a cancelled workspace',async()=>{
  const f=executionFixture();f.run.deadline=new Date(Date.now()-1).toISOString();await f.runIt();assert.equal(f.run.state,'failed');assert.equal(f.turns,0);assert.deepEqual(f.pushed,[]);
