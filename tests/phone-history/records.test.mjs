@@ -43,3 +43,17 @@ test('long inputs, raw credentials and backlogged calls stay bounded',async()=>{
  for(let i=0;i<120;i++)recorder.record('caller','turn '+i);await recorder.close();
  assert.ok(f.events.size<=52);assert.equal(f.writes.at(-1).data.status,'incomplete');
 });
+
+test('successful PostgREST minimal 201 responses are not counted as dropped events',async()=>{
+ const {phoneRecordStore}=require('../../api/_phone-records.js');
+ const oldFetch=global.fetch,oldKey=process.env.SUPABASE_SERVICE_ROLE_KEY;
+ process.env.SUPABASE_SERVICE_ROLE_KEY='test-only';
+ try {
+  global.fetch=async()=>new Response(null,{status:201});
+  assert.equal(await phoneRecordStore('ai_phone_events',{method:'POST',headers:{Prefer:'return=minimal'}}),null);
+  global.fetch=async()=>new Response('{"id":"saved"}',{status:201});
+  assert.deepEqual(await phoneRecordStore('ai_phone_events'),{id:'saved'});
+  global.fetch=async()=>new Response('denied',{status:403});
+  await assert.rejects(()=>phoneRecordStore('ai_phone_events'),/unavailable/);
+ } finally {global.fetch=oldFetch;if(oldKey===undefined)delete process.env.SUPABASE_SERVICE_ROLE_KEY;else process.env.SUPABASE_SERVICE_ROLE_KEY=oldKey;}
+});

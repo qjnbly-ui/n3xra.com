@@ -20,7 +20,8 @@ const phoneRecordStore = async (path, options = {}) => {
     });
     if (!response.ok)
         throw new Error("Phone history storage unavailable.");
-    return response.status === 204 ? null : response.json();
+    const text = await response.text();
+    return text.trim() ? JSON.parse(text) : null;
 };
 exports.phoneRecordStore = phoneRecordStore;
 const uuid = (value) => typeof value === "string" && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
@@ -133,5 +134,6 @@ class PhoneRecorder {
 }
 exports.PhoneRecorder = PhoneRecorder;
 async function cleanupPhoneRecords(store = exports.phoneRecordStore) {
+    await store(`ai_conversation_repairs?expires_at=lt.${encodeURIComponent(new Date().toISOString())}&state=in.(completed,stopped,failed)`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
     await store(`ai_phone_conversations?expires_at=lt.${encodeURIComponent(new Date().toISOString())}`, { method: "DELETE", headers: { Prefer: "return=minimal" } });
 }

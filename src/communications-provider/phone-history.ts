@@ -43,10 +43,13 @@ async function handler(req: Json, res: Json) {
     const requests = await store(`website_build_events?metadata->>callId=eq.${encodeURIComponent(call.call_id)}&website_id=eq.${call.website_id}&actor_user_id=eq.${user.id}&event_type=eq.user_message&select=id,session_id,message,created_at,metadata&order=id.asc&limit=50`);
     const builds = [];
     for (const request of requests || []) {
-      const following = await store(`website_build_events?session_id=eq.${request.session_id}&id=gt.${request.id}&event_type=in.(user_message,agent_message,error)&select=id,event_type,message,created_at&order=id.asc&limit=1`);
-      const next = following?.[0];
+      const following = await store(`website_build_events?session_id=eq.${request.session_id}&id=gt.${request.id}&event_type=in.(user_message,agent_message,error,push,status)&select=id,event_type,message,technical_notes,created_at&order=id.asc&limit=100`);
+      const boundary = (following || []).findIndex((event: Json) => event.event_type === "user_message");
+      const work = boundary < 0 ? following || [] : following.slice(0, boundary);
+      const next = work.find((event: Json) => ["agent_message", "error"].includes(event.event_type));
       builds.push({ id: request.id, created_at: request.created_at, instruction: redactPhoneText(request.message),
         configuredModel: request.metadata?.model || null,
+        work: work.map((event: Json) => ({ kind: event.event_type, message: redactPhoneText(event.message), notes: redactPhoneText(event.technical_notes, 32000), at: event.created_at })),
         reply: next && next.event_type !== "user_message" ? redactPhoneText(next.message) : null,
         replyAt: next && next.event_type !== "user_message" ? next.created_at : null,
         outcome: next?.event_type === "error" ? "error" : next?.event_type === "agent_message" ? "reply" : "unavailable" });

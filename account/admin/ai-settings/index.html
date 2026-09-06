@@ -29,12 +29,20 @@
         <section><h2>Phone conversation</h2><p class="help">Caller text is speech recognition output. Nex’s text was sent for speech; delivery of every word is not confirmed. Interruptions are marked separately. The phone handler uses up to 800 characters per caller turn.</p><div id="events"></div></section>
         <section><h2>Builder work</h2><p class="help">Existing saved builder records linked to this call, including replies received after hang-up. A builder reply alone does not prove the edit succeeded.</p><div id="builds"></div></section>
       </div>
-      <section class="review"><h2>Your review</h2><label>What went well or needs correcting<textarea id="note" rows="4" maxlength="3000"></textarea></label><button id="save-note" type="button">Save note</button>
-        <h2>Adjust Nex’s instructions</h2><p>These are your own reviewed additions for future verified phone-building sessions. They do not change permissions or confirmation requirements. No AI analysis runs on this page.</p>
+      <section class="review"><h2>Optional note</h2><label>What went well or needs correcting<textarea id="note" rows="4" maxlength="3000"></textarea></label><button id="save-note" type="button">Save note</button>
+        <details><summary>Manual instruction additions</summary><h2>Adjust Nex’s instructions</h2><p>These are your own reviewed additions for future verified phone-building sessions. They do not change permissions or confirmation requirements. Use the automatic review below to investigate and repair code.</p>
         <label>Instruction additions<textarea id="instruction" rows="5" maxlength="1500" placeholder="For example: Describe my intended result and leave implementation choices to Codex."></textarea></label>
         <label>Expected effect<textarea id="effect" rows="2" maxlength="1000" placeholder="Explain what should improve, or why you are clearing the additions."></textarea></label>
         <button id="preview" type="button">Review change</button>
         <div id="approval" class="notice" hidden><h3>Review before applying</h3><p>Current additions</p><pre id="before"></pre><p>Proposed additions</p><pre id="after"></pre><p>Expected effect</p><pre id="expected"></pre><button id="apply" type="button">Apply to future phone sessions</button><button id="cancel" type="button">Keep editing</button></div>
+      </details></section>
+      <section class="review" aria-labelledby="repair-title">
+        <h2 id="repair-title">Review and improve with Codex</h2>
+        <p>Analyze this conversation, repair relevant code, test, publish, and verify automatically. You can leave this page and return for the results.</p>
+        <div class="toolbar"><label>Model<select id="repair-model"><option value="gpt-5.6-sol">Sol</option><option value="gpt-6-astra">Astra</option></select></label><button id="analyze" type="button">Analyze conversation</button></div>
+        <p class="help">Up to 3 repair attempts, 30 minutes, and 80,000 reported Codex tokens per run. Maximum 3 runs per 24 hours. Uses your Codex allowance and existing builder infrastructure. Stops at limits; no paid API fallback.</p>
+        <details><summary>Codex connection</summary><p>Connect once for this private maintenance workspace. Your sign-in stays with Codex.</p><button id="connect-repair" type="button">Connect Codex</button><p id="repair-connection"></p></details>
+        <p id="repair-status" role="status" aria-live="polite"></p><div id="repair-results"></div>
       </section>
     </section>
   </section>

@@ -5,6 +5,8 @@ const status = node("status"), calls = node("calls");
 const note = node("note"), instruction = node("instruction"), effect = node("effect");
 let access;
 let selected = "", generation = 0;
+let repairRunning = false;
+let repairTimer;
 let current = { instruction: "", expected_effect: "", version: null };
 let proposal = null;
 const date = (value) => new Date(value).toLocaleString();
@@ -40,6 +42,8 @@ async function loadCall(id) {
     selected = id;
     node("detail").hidden = true;
     resetApproval();
+    if (repairTimer)
+        clearTimeout(repairTimer);
     if (!id)
         return;
     status.textContent = "Loading conversation…";
@@ -65,6 +69,19 @@ async function loadCall(id) {
         for (const build of data.builds) {
             entry(builds, `Nex → builder · ${build.configuredModel || "model not recorded"}`, build.instruction, build.created_at);
             entry(builds, build.outcome === "error" ? "Builder reported a problem" : "Builder response", build.reply || "No matching saved reply yet. Refresh later or check Build Studio; do not assume the edit succeeded.", build.replyAt || build.created_at);
+            for (const work of build.work || []) {
+                if (["push", "status"].includes(work.kind))
+                    entry(builds, "Saved action", work.message, work.at);
+                if (work.notes) {
+                    const details = document.createElement("details");
+                    const summary = document.createElement("summary");
+                    summary.textContent = "Builder work notes";
+                    const pre = document.createElement("pre");
+                    pre.textContent = work.notes;
+                    details.append(summary, pre);
+                    builds.append(details);
+                }
+            }
         }
         if (!data.builds.length)
             builds.textContent = "No saved builder instructions are linked to this call.";
@@ -75,6 +92,7 @@ async function loadCall(id) {
         effect.value = current.expected_effect;
         node("detail").hidden = false;
         status.textContent = "Conversation loaded.";
+        void loadRepairs();
     }
     catch (error) {
         if (version === generation)
@@ -105,11 +123,115 @@ async function action(button, run) {
         status.textContent = error.message;
     }
     finally {
-        button.disabled = false;
+        button.disabled = button.id === "analyze" && repairRunning;
     }
 }
 calls.addEventListener("change", () => void loadCall(calls.value));
 node("refresh").onclick = (event) => void action(event.currentTarget, refresh);
+async function repairRequest(action = "", body) {
+    const session = await access.supabase.auth.getSession();
+    const token = session.data?.session?.access_token;
+    if (!token)
+        throw Error("Your session expired. Sign in again.");
+    const config = window.RECORDS_APP_CONFIG;
+    const origin = config?.buildWorkerUrl;
+    if (!origin || (new URL(origin).protocol !== "https:" && !(location.hostname === "127.0.0.1" && new URL(origin).hostname === "127.0.0.1")))
+        throw Error("The builder connection is unavailable.");
+    const response = await fetch(`${origin}/v1/conversation-repairs${action ? `/${action}` : `?conversationId=${encodeURIComponent(selected)}`}`, {
+        method: body ? "POST" : "GET", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store",
+    });
+    const data = await response.json();
+    if (!response.ok)
+        throw Error(data.error || "The conversation review is unavailable.");
+    return data;
+}
+async function loadRepairs() {
+    const id = selected;
+    try {
+        const data = await repairRequest();
+        if (id !== selected)
+            return;
+        const target = node("repair-results");
+        target.replaceChildren();
+        const activeStates = ["queued", "analyzing", "testing", "publishing", "verifying"];
+        let running = false;
+        for (const run of data.runs) {
+            if (activeStates.includes(run.state))
+                running = true;
+            entry(target, `${run.model === "gpt-6-astra" ? "Astra" : "Sol"} · ${run.state}`, run.report?.summary || "Review in progress", run.created_at);
+            const details = document.createElement("details");
+            const summary = document.createElement("summary");
+            summary.textContent = "Progress and results";
+            details.append(summary);
+            details.open = run === data.runs[0];
+            for (const update of run.updates || [])
+                entry(details, "Progress", update.message, update.at);
+            for (const key of ["findings", "changes", "liveChecks", "limitations"]) {
+                if (run.report?.[key]?.length) {
+                    const p = document.createElement("p");
+                    p.textContent = `${key === "liveChecks" ? "Live checks" : key}: ${run.report[key].join(" · ")}`;
+                    details.append(p);
+                }
+            }
+            if (run.report?.error) {
+                const p = document.createElement("p");
+                p.textContent = run.report.error;
+                details.append(p);
+            }
+            const usage = document.createElement("p");
+            usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} reported tokens · Limit: ${date(run.deadline)}`;
+            details.append(usage);
+            target.append(details);
+            if (activeStates.includes(run.state)) {
+                const stop = document.createElement("button");
+                stop.textContent = "Stop run";
+                stop.type = "button";
+                stop.onclick = () => void action(stop, async () => { await repairRequest("stop", { id: run.id }); await loadRepairs(); });
+                target.append(stop);
+            }
+        }
+        repairRunning = running;
+        node("analyze").disabled = running;
+        node("repair-status").textContent = running ? "Working in the background. You can leave this page." : data.runs.length ? "The latest results are saved below." : "Ready to analyze this conversation.";
+        if (repairTimer)
+            clearTimeout(repairTimer);
+        if (running)
+            repairTimer = setTimeout(() => void loadRepairs(), 5000);
+    }
+    catch (error) {
+        if (id === selected)
+            node("repair-status").textContent = error.message;
+    }
+}
+node("analyze").onclick = event => void action(event.currentTarget, async () => {
+    node("repair-status").textContent = "Starting the review…";
+    try {
+        await repairRequest("start", { conversationId: selected, model: node("repair-model").value });
+        await loadRepairs();
+    }
+    catch (error) {
+        node("repair-status").textContent = error.message;
+    }
+});
+node("connect-repair").onclick = event => void action(event.currentTarget, async () => {
+    const data = await repairRequest("connect", {});
+    const target = node("repair-connection");
+    target.replaceChildren();
+    if (data.connected) {
+        target.textContent = "Codex is connected.";
+        return;
+    }
+    const url = new URL(data.verificationUrl);
+    if (url.protocol !== "https:" || url.hostname !== "auth.openai.com")
+        throw Error("Unexpected sign-in address.");
+    const link = document.createElement("a");
+    link.href = url.href;
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
+    link.textContent = "Sign in to Codex";
+    target.append(link, document.createTextNode(` — code: ${data.userCode}. After signing in, select Analyze conversation.`));
+});
 node("save-note").onclick = (event) => void action(event.currentTarget, async () => { await request("", { id: selected, action: "note", note: note.value }); status.textContent = "Review note saved."; });
 node("preview").onclick = () => {
     if (!effect.value.trim()) {

@@ -1,3 +1,4 @@
+import { ConversationRepairs } from "./conversation-repair.js";
 import { phonePagePath, inspectPhonePage } from "./phone-page";
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
 import { request as httpsRequest } from "node:https";
@@ -703,13 +704,17 @@ function previewSession(req: IncomingMessage, url: URL) {
   return url.searchParams.get("token") === session.previewToken || cookie === session.previewToken ? session : null;
 }
 
+const repairs = new ConversationRepairs(supabase, githubInstallationToken, workspaceRoot);
+const repairRecovery = isolated ? repairs.recover().catch(error => { console.error("Repair recovery unavailable:", redactNotes(String(error))); throw error; }) : Promise.resolve();
+void repairRecovery.catch(() => undefined);
+
 const server = createServer(async (req, res) => {
   let requestSession: Session | undefined;
   try {
     const url = new URL(req.url || "/", "http://worker.local");
     if (req.method === "OPTIONS") { headers(res, 204); return res.end(); }
     if (req.headers.origin && !allowedOrigins.has(req.headers.origin.replace(/\/$/, ""))) return json(res, 403, { error: "Origin not allowed." });
-    if (url.pathname === "/healthz") return json(res, 200, { ok: true });
+    if (url.pathname === "/healthz") return json(res, 200, { ok: true, commit: process.env.RENDER_GIT_COMMIT || null });
     if (url.pathname.startsWith("/preview/")) {
       const session = previewSession(req, url);
       if (!session || session.state === "stopped") return json(res, 404, { error: "Preview not found. Open the workspace first." });
@@ -717,6 +722,13 @@ const server = createServer(async (req, res) => {
       return await proxyPreview(req, res, session, session.previewBasePath === "/" ? `/${url.pathname.split("/").slice(3).join("/")}` : url.pathname);
     }
     const user = await authenticate(req);
+    const repairMatch = url.pathname.match(/^\/v1\/conversation-repairs(?:\/(start|stop|connect))?$/);
+    if (repairMatch) {
+      if (user.phoneWebsiteId || !isolated) return json(res, 403, { error: "Conversation repairs require owner dashboard access and the isolated builder." });
+      await repairRecovery;
+      try { return json(res, 200, await repairs.handle(user.id, req.method || "GET", repairMatch[1] || "", req.method === "GET" ? Object.fromEntries(url.searchParams) : await body(req))); }
+      catch (error) { return json(res, 409, { error: redactNotes(String((error as Error).message)) }); }
+    }
     if (url.pathname === "/v1/account" && req.method === "GET") {
       if (isolated) return json(res, 200, { ready: true, codexAuthenticated: false, requiresWorkspace: true });
       const account = await codex.account(); return json(res, 200, { ready: true, codexAuthenticated: Boolean(account.account), account: account.account ? { type: (account.account as Json).type } : null });
@@ -990,6 +1002,7 @@ server.on("upgrade", (req, socket, head) => {
 });
 
 async function shutdown() {
+  await repairs.shutdown();
   if (shuttingDown) return;
   shuttingDown = true;
   clearInterval(previewIdleTimer);

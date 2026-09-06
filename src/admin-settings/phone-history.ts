@@ -6,6 +6,8 @@ const status = node("status"), calls = node<HTMLSelectElement>("calls");
 const note = node<HTMLTextAreaElement>("note"), instruction = node<HTMLTextAreaElement>("instruction"), effect = node<HTMLTextAreaElement>("effect");
 let access: Awaited<ReturnType<typeof getAdminSession>>;
 let selected = "", generation = 0;
+let repairRunning = false;
+let repairTimer: ReturnType<typeof setTimeout> | undefined;
 let current: Json = { instruction: "", expected_effect: "", version: null };
 let proposal: Json | null = null;
 const date = (value: string) => new Date(value).toLocaleString();
@@ -29,6 +31,7 @@ function entry(target: HTMLElement, title: string, text: string, when: string, k
 function resetApproval() { proposal = null; node("approval").hidden = true; }
 async function loadCall(id: string) {
   const version = ++generation; selected = id; node("detail").hidden = true; resetApproval();
+  if (repairTimer) clearTimeout(repairTimer);
   if (!id) return;
   status.textContent = "Loading conversation…";
   try {
@@ -48,11 +51,16 @@ async function loadCall(id: string) {
     for (const build of data.builds) {
       entry(builds, `Nex → builder · ${build.configuredModel || "model not recorded"}`, build.instruction, build.created_at);
       entry(builds, build.outcome === "error" ? "Builder reported a problem" : "Builder response", build.reply || "No matching saved reply yet. Refresh later or check Build Studio; do not assume the edit succeeded.", build.replyAt || build.created_at);
+      for (const work of build.work || []) {
+        if (["push", "status"].includes(work.kind)) entry(builds, "Saved action", work.message, work.at);
+        if (work.notes) { const details = document.createElement("details"); const summary = document.createElement("summary"); summary.textContent = "Builder work notes"; const pre = document.createElement("pre"); pre.textContent = work.notes; details.append(summary, pre); builds.append(details); }
+      }
     }
     if (!data.builds.length) builds.textContent = "No saved builder instructions are linked to this call.";
     if (data.buildsMayBeTruncated) builds.append(document.createTextNode("Showing the first 50 builder requests for this call."));
     note.value = data.call.review_note || ""; instruction.value = current.instruction; effect.value = current.expected_effect;
     node("detail").hidden = false; status.textContent = "Conversation loaded.";
+    void loadRepairs();
   } catch (error) { if (version === generation) status.textContent = String((error as Error).message); }
 }
 async function refresh() {
@@ -67,10 +75,66 @@ async function refresh() {
 async function action(button: HTMLButtonElement, run: () => Promise<void>) {
   button.disabled = true;
   try { await run(); } catch (error) { status.textContent = (error as Error).message; }
-  finally { button.disabled = false; }
+  finally { button.disabled = button.id === "analyze" && repairRunning; }
 }
 calls.addEventListener("change", () => void loadCall(calls.value));
 node<HTMLButtonElement>("refresh").onclick = (event) => void action(event.currentTarget as HTMLButtonElement, refresh);
+async function repairRequest(action = "", body?: Json) {
+  const session = await access.supabase.auth.getSession();
+  const token = session.data?.session?.access_token;
+  if (!token) throw Error("Your session expired. Sign in again.");
+  const config = (window as unknown as { RECORDS_APP_CONFIG?: { buildWorkerUrl?: string } }).RECORDS_APP_CONFIG;
+  const origin = config?.buildWorkerUrl;
+  if (!origin || (new URL(origin).protocol !== "https:" && !(location.hostname === "127.0.0.1" && new URL(origin).hostname === "127.0.0.1"))) throw Error("The builder connection is unavailable.");
+  const response = await fetch(`${origin}/v1/conversation-repairs${action ? `/${action}` : `?conversationId=${encodeURIComponent(selected)}`}`, {
+    method: body ? "POST" : "GET", headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    ...(body ? { body: JSON.stringify(body) } : {}), cache: "no-store",
+  });
+  const data = await response.json();
+  if (!response.ok) throw Error(data.error || "The conversation review is unavailable.");
+  return data;
+}
+async function loadRepairs() {
+  const id = selected;
+  try {
+    const data = await repairRequest(); if (id !== selected) return;
+    const target = node("repair-results"); target.replaceChildren();
+    const activeStates = ["queued", "analyzing", "testing", "publishing", "verifying"];
+    let running = false;
+    for (const run of data.runs) {
+      if (activeStates.includes(run.state)) running = true;
+      entry(target, `${run.model === "gpt-6-astra" ? "Astra" : "Sol"} · ${run.state}`, run.report?.summary || "Review in progress", run.created_at);
+      const details = document.createElement("details"); const summary = document.createElement("summary"); summary.textContent = "Progress and results"; details.append(summary); details.open = run === data.runs[0];
+      for (const update of run.updates || []) entry(details, "Progress", update.message, update.at);
+      for (const key of ["findings", "changes", "liveChecks", "limitations"]) {
+        if (run.report?.[key]?.length) { const p = document.createElement("p"); p.textContent = `${key === "liveChecks" ? "Live checks" : key}: ${run.report[key].join(" · ")}`; details.append(p); }
+      }
+      if (run.report?.error) { const p = document.createElement("p"); p.textContent = run.report.error; details.append(p); }
+      const usage = document.createElement("p"); usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} reported tokens · Limit: ${date(run.deadline)}`; details.append(usage);
+      target.append(details);
+      if (activeStates.includes(run.state)) {
+        const stop = document.createElement("button"); stop.textContent = "Stop run"; stop.type = "button";
+        stop.onclick = () => void action(stop, async () => { await repairRequest("stop", { id: run.id }); await loadRepairs(); }); target.append(stop);
+      }
+    }
+    repairRunning = running; node<HTMLButtonElement>("analyze").disabled = running;
+    node("repair-status").textContent = running ? "Working in the background. You can leave this page." : data.runs.length ? "The latest results are saved below." : "Ready to analyze this conversation.";
+    if (repairTimer) clearTimeout(repairTimer);
+    if (running) repairTimer = setTimeout(() => void loadRepairs(), 5000);
+  } catch (error) { if (id === selected) node("repair-status").textContent = (error as Error).message; }
+}
+node<HTMLButtonElement>("analyze").onclick = event => void action(event.currentTarget as HTMLButtonElement, async () => {
+  node("repair-status").textContent = "Starting the review…";
+  try { await repairRequest("start", { conversationId: selected, model: node<HTMLSelectElement>("repair-model").value }); await loadRepairs(); }
+  catch (error) { node("repair-status").textContent = (error as Error).message; }
+});
+node<HTMLButtonElement>("connect-repair").onclick = event => void action(event.currentTarget as HTMLButtonElement, async () => {
+  const data = await repairRequest("connect", {}); const target = node("repair-connection"); target.replaceChildren();
+  if (data.connected) { target.textContent = "Codex is connected."; return; }
+  const url = new URL(data.verificationUrl); if (url.protocol !== "https:" || url.hostname !== "auth.openai.com") throw Error("Unexpected sign-in address.");
+  const link = document.createElement("a"); link.href = url.href; link.target = "_blank"; link.rel = "noopener noreferrer"; link.textContent = "Sign in to Codex";
+  target.append(link, document.createTextNode(` — code: ${data.userCode}. After signing in, select Analyze conversation.`));
+});
 node<HTMLButtonElement>("save-note").onclick = (event) => void action(event.currentTarget as HTMLButtonElement, async () => { await request("", { id: selected, action: "note", note: note.value }); status.textContent = "Review note saved."; });
 node<HTMLButtonElement>("preview").onclick = () => {
   if (!effect.value.trim()) { status.textContent = "Explain the expected effect before reviewing this change."; effect.focus(); return; }
