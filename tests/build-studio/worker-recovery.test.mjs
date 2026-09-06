@@ -78,7 +78,7 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     const firstThread=rows[0].codex_thread_id;
     assert.equal((await phoneRequest('/v1/projects/open',{websiteId:randomUUID()})).status,401);
     assert.equal(rows.length,1,'wrong-site phone request never creates a workspace');
-    assert.equal((await phoneRequest(`/v1/sessions/${id}/publish`,{})).status,401);
+    assert.equal((await phoneRequest(`/v1/sessions/${id}/push`,{})).status,401);
     phoneOwner=false;assert.equal((await phoneRequest(`/v1/sessions/${id}/phone-status`)).status,401);phoneOwner=true;
     phoneRecent=false;assert.equal((await phoneRequest(`/v1/sessions/${id}/phone-status`)).status,401);phoneRecent=true;
     const phoneState=await phoneRequest(`/v1/sessions/${id}/phone-status`);
@@ -197,7 +197,7 @@ test('worker restores sessions and Codex threads; edits, previews, checkpoints a
     assert.equal(execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim(),mainBefore,'protected main stays unchanged');
     assert.equal((await active()).session.state,'ready');
     await rm(join(bare,'hooks','pre-receive'));
-    const published=await request(`/v1/sessions/${id}/publish`,{});
+    const published=await phoneRequest(`/v1/sessions/${id}/publish`,{});
     assert.equal(published.status,200,JSON.stringify(published));
     assert.equal(published.session.state,'ready','publishing does not close the workspace');assert.equal(published.session.canClose,true);
     assert.equal(execFileSync(git,['rev-parse','main'],{cwd:bare,encoding:'utf8'}).trim(),execFileSync(git,['rev-parse','HEAD'],{cwd:repository,encoding:'utf8'}).trim());

@@ -329,7 +329,7 @@ function splitSpeechIntoChunks(value, maxChars = 320) {
   return chunks;
 }
 
-function sendSpeech(ws, token, { historyIndex = null } = {}) {
+function sendSpeech(ws, token, { historyIndex = null, preemptible = !ws.phoneBuild?.active } = {}) {
   if (ws.readyState !== WebSocket.OPEN) return [];
   const fullText = toSpeechText(token);
   const chunks = splitSpeechIntoChunks(fullText);
@@ -339,7 +339,7 @@ function sendSpeech(ws, token, { historyIndex = null } = {}) {
       token: `${index > 0 ? " " : ""}${chunk}`,
       last: index === chunks.length - 1,
       interruptible: true,
-      preemptible: true,
+      preemptible,
     }));
   });
   ws.activeSpeech = fullText ? { fullText, historyIndex } : null;

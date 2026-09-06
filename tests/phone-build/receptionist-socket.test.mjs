@@ -22,8 +22,8 @@ test('signed phone connection requires keypad PIN and two confirmations before e
   await new Promise(r=>server.listen(0,'127.0.0.1',r));
   const host=`127.0.0.1:${server.address().port}`, path='/api/receptionist/conversation';
   const signature=twilio.getExpectedTwilioSignature(process.env.TWILIO_AUTH_TOKEN,`wss://${host}${path}`,{});
-  const ws=new WebSocket(`ws://${host}${path}`,{headers:{'x-twilio-signature':signature}});const speech=[];
-  ws.on('message',raw=>{const data=JSON.parse(raw);if(data.type==='text')speech.push(data.token);});
+  const ws=new WebSocket(`ws://${host}${path}`,{headers:{'x-twilio-signature':signature}});const speech=[], frames=[];
+  ws.on('message',raw=>{const data=JSON.parse(raw);if(data.type==='text'){speech.push(data.token);frames.push(data);}});
   const send=x=>ws.send(JSON.stringify(x));
   const prompt=voicePrompt=>send({type:'prompt',voicePrompt,last:true});
   try {
@@ -40,5 +40,8 @@ test('signed phone connection requires keypad PIN and two confirmations before e
     prompt('yes');await waitFor(()=>actions.some(a=>a.path.endsWith('messages')));
     prompt('yes');await delay(40);assert.equal(actions.filter(a=>a.path.endsWith('messages')).length,1);
     assert.equal(actions[0].input.websiteId,website);
+    const buildFrames=frames.filter(f=>f.token.includes('Shall I make') || f.token.includes('Sending your change'));
+    assert.ok(buildFrames.length);
+    assert.ok(buildFrames.every(f=>f.preemptible===false && f.interruptible===true));
   } finally {ws.terminate();await new Promise(r=>server.close(r));}
 });
