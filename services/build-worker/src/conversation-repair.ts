@@ -247,6 +247,16 @@ export class ConversationRepairs {
     return new Promise((resolve, reject) => {
       let final = "";
       const notes = new ConversationTurn();
+      let checkpointing = false;
+      const checkpoint = setInterval(() => {
+        if (checkpointing) return;
+        checkpointing = true;
+        // A delayed progress write must never overwrite a terminal result.
+        void this.db(`ai_conversation_repairs?id=eq.${run.id}&state=eq.analyzing`, {
+          method: "PATCH", body: JSON.stringify({ tokens: run.tokens, report: run.report || {} }),
+        }).catch(() => { /* Final state writes remain authoritative; retry next interval. */ }).finally(() => { checkpointing = false; });
+      }, 15000);
+      checkpoint.unref();
       const timeout = setTimeout(() => { stop(); cleanup(); reject(Error("The repair time limit was reached.")); }, Math.max(1, Date.parse(run.deadline) - Date.now()));
       const unsubscribe = remote.onEvent((method, params) => {
         if (method === "worker/disconnected") { cleanup(); reject(Error("Codex disconnected. Work is preserved.")); return; }
@@ -268,7 +278,7 @@ export class ConversationRepairs {
           try { resolve(JSON.parse(final)); } catch { reject(Error("Codex returned an unreadable repair report.")); }
         }
       });
-      const cleanup = () => { clearTimeout(timeout); unsubscribe(); };
+      const cleanup = () => { clearTimeout(timeout); clearInterval(checkpoint); unsubscribe(); };
       void remote.rpc("turn/start", { threadId: run.thread_id, model: run.model, effort: "high", approvalPolicy: "never", outputSchema: schema, input: [{ type: "text", text: prompt }] }).then(result => started(result.turn.id)).catch(error => { cleanup(); reject(error); });
     });
   }

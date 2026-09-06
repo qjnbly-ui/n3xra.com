@@ -159,7 +159,7 @@ async function loadRepairs() {
         for (const run of data.runs) {
             if (activeStates.includes(run.state))
                 running = true;
-            entry(target, `${run.model === "gpt-6-astra" ? "Astra" : "Sol"} · ${run.state}`, run.report?.summary || "Review in progress", run.created_at);
+            entry(target, `${run.model === "gpt-6-astra" ? "Astra" : "Sol"} · ${run.state}`, run.report?.summary || (activeStates.includes(run.state) ? "Review in progress" : run.report?.error || "Review finished without a verified repair"), run.created_at);
             const details = document.createElement("details");
             const summary = document.createElement("summary");
             summary.textContent = "Progress and results";

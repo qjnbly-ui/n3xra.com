@@ -109,3 +109,22 @@ test('cached prompt reuse does not consume the new-token repair budget repeatedl
  assert.deepEqual(repairUsage({totalTokens:104095,cachedInputTokens:80000}),{total:104095,cached:80000,budgeted:24095});
  assert.equal(repairUsage({totalTokens:80001}).budgeted,80001);
 });
+
+test('analysis checkpoints save usage and notes without overwriting terminal results',async()=>{
+ const original=globalThis.setInterval;let tick,handler;
+ globalThis.setInterval=(fn)=>{tick=fn;return {unref(){}}};
+ const writes=[];
+ const service=new ConversationRepairs(async(path,opts)=>{writes.push({path,...JSON.parse(opts.body)});return []},async()=>'', '/tmp');
+ const remote={onEvent:fn=>{handler=fn;return ()=>{}},rpc:async()=>({turn:{id:'turn'}})};
+ const run={id:randomUUID(),thread_id:'t',model:'gpt-5.6-sol',tokens:0,deadline:new Date(Date.now()+5000).toISOString()};
+ try {
+  const pending=service.turn(remote,run,'fixture',()=>{},()=>{});
+  handler('thread/tokenUsage/updated',{threadId:'t',tokenUsage:{total:{totalTokens:123,cachedInputTokens:23}}});
+  handler('item/completed',{threadId:'t',item:{type:'agentMessage',phase:'commentary',text:'Checking the saved action result.'}});
+  tick();await new Promise(resolve=>setImmediate(resolve));
+  assert.match(writes[0].path,/state=eq.analyzing/);assert.equal(writes[0].tokens,100);assert.ok(writes[0].report.partialWork);
+  handler('item/completed',{threadId:'t',item:{type:'agentMessage',phase:'final_answer',text:JSON.stringify(report)}});
+  handler('turn/completed',{threadId:'t',turn:{id:'turn',status:'completed'}});
+  assert.equal((await pending).summary,report.summary);
+ }finally{globalThis.setInterval=original;}
+});
