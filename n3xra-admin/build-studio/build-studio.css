@@ -125,3 +125,23 @@
 .build-attachment { display:flex; align-items:center; gap:6px; max-width:100%; background:#edf5f3; border-radius:8px; padding:2px 8px; }
 .build-attachment a { overflow-wrap:anywhere; font-size:13px; }
 .build-attachment button { min-width:44px; min-height:44px; border:0; background:transparent; cursor:pointer; }
+
+#build-internal-files { width:min(1200px,96vw); height:min(850px,94dvh); max-width:96vw; max-height:94dvh; padding:0; border:1px solid #d4e0e2; border-radius:16px; overflow:hidden; color:#203b3a; }
+#build-internal-files[open] { display:flex; flex-direction:column; }
+#build-internal-files::backdrop { background:#092b32a6; }
+.build-files-heading,.build-files-footer { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:14px 20px; flex-shrink:0; background:white; }
+.build-files-heading h2 { margin:0; font-size:22px; }
+.build-files-footer { border-top:1px solid #d4e0e2; }
+.build-files-footer p { margin:0; overflow-wrap:anywhere; }
+.build-files-body { flex:1; min-height:0; overflow:hidden; --files-sidebar:250px; }
+#build-internal-files .n3xra-files-shell { height:100%; }
+#build-internal-files .n3xra-modal { z-index:20; }
+#build-internal-files button { min-height:40px; }
+@media(max-width:700px) {
+ #build-internal-files { width:98vw; max-width:98vw; height:96dvh; max-height:96dvh; }
+ .build-files-heading,.build-files-footer { padding:10px; gap:8px; }
+ .build-files-footer { flex-wrap:wrap; } .build-files-footer button { width:100%; }
+ #build-internal-files .n3xra-files-shell { display:flex; flex-direction:column; }
+ #build-internal-files .n3xra-files-locations { max-height:24dvh; flex-shrink:0; overflow:auto; }
+ #build-internal-files .n3xra-file-view { flex:1; min-height:0; }
+}

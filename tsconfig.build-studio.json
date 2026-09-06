@@ -5,8 +5,15 @@
     "moduleResolution": "Bundler",
     "baseUrl": ".",
     "paths": {
-      "/account/admin/admin-session.js": ["src/build-studio/admin-session.d.ts"],
-      "/client-portal/workspace-context.js": ["src/build-studio/workspace-context.d.ts"]
+      "/account/admin/admin-session.js": [
+        "src/build-studio/admin-session.d.ts"
+      ],
+      "/client-portal/workspace-context.js": [
+        "src/build-studio/workspace-context.d.ts"
+      ],
+      "/account/admin/files/files.js?v=28": [
+        "src/build-studio/internal-files.d.ts"
+      ]
     },
     "rootDir": "src/build-studio",
     "outDir": "n3xra-admin/build-studio",
@@ -20,7 +27,13 @@
     "skipLibCheck": true,
     "declaration": false,
     "sourceMap": false,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ]
   },
-  "include": ["src/build-studio/**/*.ts"]
+  "include": [
+    "src/build-studio/**/*.ts"
+  ]
 }

@@ -7,6 +7,7 @@ let fileState = { files: [], folders: [], access: [], admins: [], websites: [], 
 let fileSupabase = null;
 let fileInvoke = null;
 let fileUserId = null;
+let pickerOptions = null;
 let fileAccessToken = "";
 let currentFolderPath = "";
 let fileViewMode = window.localStorage.getItem("n3xra-internal-files-view") === "gallery" ? "gallery" : "list";
@@ -434,7 +435,7 @@ function renderFiles() {
 }
 
 async function loadWebsiteFiles() {
-  const websiteResult = await fileSupabase.from("client_websites").select("id,name,slug,live_url,status").order("name");
+  const websiteResult = await fileSupabase.from("client_websites").select("id,name,slug,organization_id,live_url,status").order("name");
   if (websiteResult.error) throw websiteResult.error;
   const websites = websiteResult.data || [];
   const usedPaths = new Set();
@@ -532,6 +533,11 @@ async function uploadFiles(input) {
   if (!Array.isArray(input)) input.target.value = "";
   if (!selected.length) return;
   const website = currentWebsite();
+  if (pickerOptions?.upload && website) {
+    try { await pickerOptions.upload(selected, website, websiteCategoryForFolder(website)); await loadFiles(); fileStatus("Files uploaded and published to the CDN.", "success"); }
+    catch (error) { fileStatus(error.message || "Upload failed.", "error"); }
+    return;
+  }
   if (currentFolderPath === "Websites") {
     fileStatus("Choose a website folder before uploading.", "error");
     return;
@@ -549,7 +555,11 @@ async function uploadFiles(input) {
     const { error } = await fileSupabase.storage.from("n3xra-files").upload(path, file, { contentType: file.type || "application/octet-stream", upsert: false });
     if (error) { fileStatus(error.message, "error"); return; }
     try {
-      await fileInvoke("create-n3xra-file", { name: relativeName, storagePath: path, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
+      const created = await fileInvoke("create-n3xra-file", { name: relativeName, storagePath: path, mimeType: file.type || "application/octet-stream", sizeBytes: file.size });
+      if (pickerOptions?.afterUpload) {
+        try { await pickerOptions.afterUpload(created.file, file); }
+        catch (error) { fileStatus(`Original saved. CDN preparation failed: ${error.message}`, "error"); await loadFiles(); return; }
+      }
     } catch (error) {
       await fileSupabase.storage.from("n3xra-files").remove([path]);
       fileStatus(error.message, "error");
@@ -1369,7 +1379,8 @@ function handleFileSelection(event) {
   renderFiles();
 }
 
-export async function startFiles({ supabase, session, invoke }) {
+export async function startFiles({ supabase, session, invoke, picker = null }) {
+  pickerOptions = picker;
   fileSupabase = supabase;
   fileInvoke = invoke;
   fileUserId = session?.user?.id || null;
@@ -1497,3 +1508,15 @@ export async function startFiles({ supabase, session, invoke }) {
   await loadFiles();
   await subscribeToWebsiteLibraries();
 }
+
+// Shared file-browser picker hooks; the full Internal Files page keeps its existing behavior.
+export function selectedInternalFiles() { return selectedFiles(); }
+export async function openInternalFilesFolder(websiteId) {
+  await loadFiles();
+  const website = fileState.websites.find(item => item.id === websiteId);
+  currentFolderPath = website?.folder_path || "";
+  expandedFolderPaths.add("Websites");
+  if (currentFolderPath) expandedFolderPaths.add(currentFolderPath);
+  selectedFileKeys.clear(); renderFiles();
+}
+export async function internalFileDownload(file) { return fullQualityFilePreviewData(file); }
