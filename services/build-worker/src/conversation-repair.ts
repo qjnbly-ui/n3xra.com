@@ -8,6 +8,11 @@ type Json = Record<string, any>;
 type Store = (path: string, options?: RequestInit) => Promise<any>;
 export const REPAIR_REPOSITORY = "qjnbly-ui/n3xra.com";
 export const REPAIR_LIMITS = { attempts: 3, minutes: 30, tokens: 80000, dailyRuns: 3 } as const;
+export function repairUsage(total: Json = {}) {
+  const all = Math.max(0, Number(total.totalTokens || 0));
+  const cached = Math.max(0, Math.min(all, Number(total.cachedInputTokens || 0)));
+  return { total: all, cached, budgeted: all - cached };
+}
 export const repairModel = (value: unknown) => {
   const model = value || "gpt-5.6-sol";
   if (model !== "gpt-5.6-sol" && model !== "gpt-6-astra") throw Error("Choose Sol or Astra.");
@@ -156,6 +161,10 @@ export class ConversationRepairs {
       await remote.prepare(REPAIR_REPOSITORY, "main", run.branch, await this.githubToken(REPAIR_REPOSITORY));
       if ((await remote.command("git", ["status", "--porcelain"])).trim()) throw Error("The repair workspace has unfinished changes from an earlier run. They have been preserved.");
       await remote.installNpm();
+      // Keep bulky tool output available for selective inspection, outside the Git tree.
+      await remote.write(".n3xra-review-evidence.json", JSON.stringify(context));
+      await remote.command("mv", [".n3xra-review-evidence.json", "/vercel/.n3xra/conversation-evidence.json"]);
+      const promptContext = { ...context, builds: context.builds.map((event: Json) => ({ ...event, notes: event.notes ? "Detailed notes are in /vercel/.n3xra/conversation-evidence.json; inspect relevant sections without printing large compiled HTML." : "" })) };
       const base = await remote.command("git", ["rev-parse", "HEAD"]);
       let expectedMain = base;
       await this.update(run, "analyzing", "Preparing an isolated repair using your Codex account.", { base_commit: base });
@@ -168,10 +177,10 @@ export class ConversationRepairs {
       for (let attempt = 1; attempt <= REPAIR_LIMITS.attempts; attempt++) {
         await check(); await remote.wake();
         await this.update(run, "analyzing", `Repair attempt ${attempt} of ${REPAIR_LIMITS.attempts}.`, { attempt });
-        const result = await this.turn(remote, run, repairPrompt(context, failure), id => { activeTurn = id; }, stop);
+        const result = await this.turn(remote, run, repairPrompt(promptContext, failure), id => { activeTurn = id; }, stop);
         activeTurn = "";
         await check();
-        const report = validateReport(result);
+        const report: Json = { ...validateReport(result), usage: run.report?.usage };
         await this.update(run, "testing", "Checking the repair against the original failure and existing tests.", { report });
         try {
           const paths = [...new Set([
@@ -242,7 +251,9 @@ export class ConversationRepairs {
         if (method === "worker/disconnected") { cleanup(); reject(Error("Codex disconnected. Work is preserved.")); return; }
         if (params.threadId && params.threadId !== run.thread_id) return;
         if (method === "thread/tokenUsage/updated") {
-          run.tokens = Math.max(run.tokens, Number(params.tokenUsage?.total?.totalTokens || 0));
+          const usage = repairUsage(params.tokenUsage?.total);
+          run.tokens = Math.max(run.tokens, usage.budgeted);
+          run.report = { ...run.report, usage };
           if (run.tokens >= REPAIR_LIMITS.tokens) { stop(); cleanup(); reject(Error("The Codex token limit was reached.")); }
         }
         if (method === "item/completed" && params.item?.type === "agentMessage" && params.item?.phase !== "commentary") final = params.item.text || final;

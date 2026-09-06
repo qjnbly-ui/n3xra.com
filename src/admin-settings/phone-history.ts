@@ -110,7 +110,7 @@ async function loadRepairs() {
         if (run.report?.[key]?.length) { const p = document.createElement("p"); p.textContent = `${key === "liveChecks" ? "Live checks" : key}: ${run.report[key].join(" · ")}`; details.append(p); }
       }
       if (run.report?.error) { const p = document.createElement("p"); p.textContent = run.report.error; details.append(p); }
-      const usage = document.createElement("p"); usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} reported tokens · Limit: ${date(run.deadline)}`; details.append(usage);
+      const usage = document.createElement("p"); usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} budgeted tokens · Limit: ${date(run.deadline)}`; details.append(usage);
       target.append(details);
       if (activeStates.includes(run.state)) {
         const stop = document.createElement("button"); stop.textContent = "Stop run"; stop.type = "button";

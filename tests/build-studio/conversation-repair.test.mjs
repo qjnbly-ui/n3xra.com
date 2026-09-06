@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createRequire} from 'node:module';
 import {randomUUID} from 'node:crypto';
 const require=createRequire(import.meta.url);
-const {ConversationRepairs,repairModel,validateReport,validateRepairPaths,repairPrompt,REPAIR_LIMITS}=require('../../dist/build-worker/conversation-repair.js');
+const {ConversationRepairs,repairModel,validateReport,validateRepairPaths,repairPrompt,repairUsage,REPAIR_LIMITS}=require('../../dist/build-worker/conversation-repair.js');
 process.env.N3XRA_BUILD_GIT_AUTHOR_NAME='Fixture';
 process.env.N3XRA_BUILD_GIT_AUTHOR_EMAIL='fixture@example.test';
 const user=randomUUID(),call=randomUUID(),workspace=randomUUID();
@@ -66,7 +66,7 @@ test('broken test imports do not count as reproducing a bug',async()=>{
 });
 function executionFixture({liveFails=0,testsFail=false,noChanges=false}={}) {
  const f=fixture();let commits=0,turns=0,checks=0;const pushed=[];
- const remote={exists:async()=>false,stop:async()=>{},wake:async()=>{},prepare:async()=>{},installNpm:async()=>{},
+ const remote={exists:async()=>false,write:async()=>{},stop:async()=>{},wake:async()=>{},prepare:async()=>{},installNpm:async()=>{},
   rpc:async method=>method==='model/list'?{data:[{model:'gpt-5.6-sol'}]}:{thread:{id:'thread'}},
   command:async(cmd,args)=>{
    if(args[0]==='rev-parse')return commits?'b'.repeat(39)+commits:'a'.repeat(40);
@@ -77,7 +77,7 @@ function executionFixture({liveFails=0,testsFail=false,noChanges=false}={}) {
    if(args[0]==='commit')commits++;
    return '';
   },push:async branch=>{pushed.push(branch)} };
- f.service.context=async()=>({events:[]});f.service.turn=async()=>{turns++;return {...report}};
+ f.service.context=async()=>({events:[],builds:[]});f.service.turn=async()=>{turns++;return {...report}};
  f.service.verifyTests=async()=>{if(testsFail)throw Error('Regression check failed')};
  f.service.verifyDeployment=async()=>{checks++;if(checks<=liveFails)throw Error('Live check failed')};
  const run={id:randomUUID(),user_id:user,conversation_id:call,model:'gpt-5.6-sol',branch:'n3xra/repair-test',tokens:0,updates:[],deadline:new Date(Date.now()+30000).toISOString()};
@@ -103,4 +103,9 @@ test('token cutoff interrupts an active turn and rejects success',async()=>{
 });
 test('deadline stops work rather than reopening a cancelled workspace',async()=>{
  const f=executionFixture();f.run.deadline=new Date(Date.now()-1).toISOString();await f.runIt();assert.equal(f.run.state,'failed');assert.equal(f.turns,0);assert.deepEqual(f.pushed,[]);
+});
+
+test('cached prompt reuse does not consume the new-token repair budget repeatedly',()=>{
+ assert.deepEqual(repairUsage({totalTokens:104095,cachedInputTokens:80000}),{total:104095,cached:80000,budgeted:24095});
+ assert.equal(repairUsage({totalTokens:80001}).budgeted,80001);
 });

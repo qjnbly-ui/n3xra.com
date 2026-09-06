@@ -180,7 +180,7 @@ async function loadRepairs() {
                 details.append(p);
             }
             const usage = document.createElement("p");
-            usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} reported tokens · Limit: ${date(run.deadline)}`;
+            usage.textContent = `Attempt ${run.attempt}/3 · ${run.tokens || 0} budgeted tokens · Limit: ${date(run.deadline)}`;
             details.append(usage);
             target.append(details);
             if (activeStates.includes(run.state)) {
