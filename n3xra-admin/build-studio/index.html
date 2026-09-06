@@ -13,7 +13,7 @@
   <link rel="stylesheet" href="/client-portal/portal.css?v=19">
   <link rel="stylesheet" href="/account/admin/admin.css?v=34">
   <link rel="stylesheet" href="/n3xra-admin/website-admin.css?v=21">
-  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=6">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/build-studio.css?v=7">
   <script src="/shared/config.js"></script>
   <script src="/account/admin/admin-shell.js?v=2" defer></script>
   <script src="/assets/site-nav.js?v=5"></script>
@@ -78,6 +78,8 @@
               <button class="build-button build-button-secondary build-cancel" id="build-cancel" type="button" hidden>Cancel request</button>
               <p class="build-notice" id="build-sync-issue" hidden></p>
               <form class="build-composer" id="build-composer">
+                <button type="button" class="build-button build-button-secondary" id="build-upload-files">Upload files</button>
+                <div id="build-attachments" aria-label="Attached website files"></div>
                 <textarea id="build-prompt" rows="3" placeholder="What should we build or change next?" required></textarea>
                 <div><span>Changes stay on this branch until you push.</span><button class="build-button" type="submit">Send</button></div>
               </form>
@@ -104,7 +106,16 @@
     </div>
   </main>
   <div class="portal-status" id="portal-status" role="status">Opening Build Studio…</div>
+  <dialog id="build-assets-dialog" aria-labelledby="build-assets-title">
+    <header><h2 id="build-assets-title">Organization files &amp; assets</h2><button class="build-button build-button-secondary" type="button" id="build-assets-close">Close</button></header>
+    <p>Choose existing files or upload new ones. Files you add here get a public website link and appear in Files &amp; Assets. Private originals stay private.</p>
+    <label for="build-assets-search">Search files</label><input type="search" id="build-assets-search" placeholder="Find a file…">
+    <div id="build-assets-list"></div>
+    <p id="build-assets-status" role="status" aria-live="polite"></p>
+    <footer><label class="build-button build-button-secondary build-file-upload">Upload new files<input type="file" id="build-assets-upload" multiple></label><button type="button" class="build-button" id="build-assets-use" disabled>Use selected files</button></footer>
+    <small>Images, PDFs, documents, spreadsheets, ZIP and text files. Up to 50 MB each. Photos are automatically optimized; originals are kept.</small>
+  </dialog>
   <script type="module" src="/client-portal/portal-shell.js"></script>
-  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=11"></script>
+  <script type="module" src="/n3xra-admin/build-studio/build-studio.js?v=12"></script>
 </body>
 </html>

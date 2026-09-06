@@ -1,3 +1,4 @@
+import { setupAssetPicker } from './asset-picker.js';
 import { getAdminSession } from "/account/admin/admin-session.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 const workerBase = String(window.RECORDS_APP_CONFIG?.buildWorkerUrl || "").replace(/\/+$/, "");
@@ -32,6 +33,7 @@ let activeSession = null;
 let eventAbort = null;
 const seenEvents = new Set();
 let sending = false;
+let assetPicker;
 async function loadSavedTasks() {
     if (!currentWebsite)
         return;
@@ -226,6 +228,7 @@ function renderSession(session) {
         void loadModels(session);
     prompt.disabled = Boolean(session.codexAuthenticated && modelSessionId !== session.id) || Boolean(session.syncIssue) || sending || session.state !== "ready" || session.codexAuthenticated === false;
     composer.querySelector('button[type="submit"]').disabled = prompt.disabled;
+    byId("build-upload-files").disabled = sending;
     renderPreview(session);
 }
 function renderPreview(session) {
@@ -443,6 +446,7 @@ async function initialize() {
     if (!context.allowed || !context.session)
         return;
     accessToken = context.session.access_token;
+    assetPicker = setupAssetPicker(context.supabase, context.session.user.id, () => currentWebsite, prompt);
     const [websiteResult, repositoryResult] = await Promise.all([
         context.supabase.from("client_websites").select("id,name,organization_id").order("name"),
         context.supabase.from("website_repositories").select("website_id,full_name,default_branch,html_url").order("created_at", { ascending: false }),
@@ -459,6 +463,7 @@ async function initialize() {
     websiteSelect.value = currentWebsite?.id || "";
     websiteSelect.addEventListener("change", () => {
         currentWebsite = websites.find((item) => item.id === websiteSelect.value) || null;
+        assetPicker?.reset();
         if (currentWebsite)
             writeWorkspaceContext("admin", context.session.user.id, { websiteId: currentWebsite.id, name: currentWebsite.name });
         activeSession = null;
@@ -506,13 +511,15 @@ composer.addEventListener("submit", async (event) => {
     if (!activeSession || activeSession.state !== "ready" || sending || !prompt.value.trim())
         return;
     const sessionId = activeSession.id;
-    const text = prompt.value.trim();
+    const text = prompt.value.trim() + (assetPicker?.context() || "");
     sending = true;
     renderSession(activeSession);
     try {
         await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text, model: modelSelect.value, effort: effortSelect.value }) });
-        if (activeSession?.id === sessionId)
+        if (activeSession?.id === sessionId) {
             prompt.value = "";
+            assetPicker?.clear();
+        }
     }
     catch (error) {
         if (activeSession?.id === sessionId)

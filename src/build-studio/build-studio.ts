@@ -1,3 +1,4 @@
+import { setupAssetPicker } from './asset-picker.js';
 import { getAdminSession } from "/account/admin/admin-session.js";
 import { readWorkspaceContext, writeWorkspaceContext } from "/client-portal/workspace-context.js";
 
@@ -51,6 +52,7 @@ let activeSession: BuildSession | null = null;
 let eventAbort: AbortController | null = null;
 const seenEvents = new Set<number>();
 let sending = false;
+let assetPicker: ReturnType<typeof setupAssetPicker> | undefined;
 
 type SavedTask = { id: string; title: string; updatedAt: string; messages: { role: string; text: string }[] };
 async function loadSavedTasks() {
@@ -202,6 +204,7 @@ function renderSession(session: BuildSession) {
   if (session.codexAuthenticated && session.state === "ready") void loadModels(session);
   prompt.disabled = Boolean(session.codexAuthenticated && modelSessionId !== session.id) || Boolean(session.syncIssue) || sending || session.state !== "ready" || session.codexAuthenticated === false;
   composer.querySelector<HTMLButtonElement>('button[type="submit"]')!.disabled = prompt.disabled;
+  byId<HTMLButtonElement>("build-upload-files").disabled = sending;
   renderPreview(session);
 }
 
@@ -397,6 +400,7 @@ async function initialize() {
   const context = await getAdminSession();
   if (!context.allowed || !context.session) return;
   accessToken = context.session.access_token;
+  assetPicker = setupAssetPicker(context.supabase, context.session.user.id, () => currentWebsite, prompt);
   const [websiteResult, repositoryResult] = await Promise.all([
     context.supabase.from("client_websites").select("id,name,organization_id").order("name"),
     context.supabase.from("website_repositories").select("website_id,full_name,default_branch,html_url").order("created_at", { ascending: false }),
@@ -411,6 +415,7 @@ async function initialize() {
   websiteSelect.value = currentWebsite?.id || "";
   websiteSelect.addEventListener("change", () => {
     currentWebsite = websites.find((item) => item.id === websiteSelect.value) || null;
+    assetPicker?.reset();
     if (currentWebsite) writeWorkspaceContext("admin", context.session!.user.id, { websiteId: currentWebsite.id, name: currentWebsite.name });
     activeSession = null; modelSessionId = ""; availableModels = [];
     renderActivity();
@@ -450,12 +455,12 @@ composer.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!activeSession || activeSession.state !== "ready" || sending || !prompt.value.trim()) return;
   const sessionId = activeSession.id;
-  const text = prompt.value.trim();
+  const text = prompt.value.trim() + (assetPicker?.context() || "");
   sending = true;
   renderSession(activeSession);
   try {
     await workerRequest(`/v1/sessions/${sessionId}/messages`, { method: "POST", body: JSON.stringify({ text, model: modelSelect.value, effort: effortSelect.value }) });
-    if (activeSession?.id === sessionId) prompt.value = "";
+    if (activeSession?.id === sessionId) { prompt.value = ""; assetPicker?.clear(); }
   } catch (error) {
     if (activeSession?.id === sessionId) addMessage("status", "The request could not be completed. Check the connection and try again.");
   } finally {
