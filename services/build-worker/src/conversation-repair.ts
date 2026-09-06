@@ -7,7 +7,7 @@ import { ConversationTurn, redactNotes } from "./conversation.js";
 type Json = Record<string, any>;
 type Store = (path: string, options?: RequestInit) => Promise<any>;
 export const REPAIR_REPOSITORY = "qjnbly-ui/n3xra.com";
-export const REPAIR_LIMITS = { attempts: 3, minutes: 30, tokens: 240000, dailyRuns: 3 } as const;
+export const REPAIR_LIMITS = { attempts: 3, minutes: 30, tokens: 240000, dailyRuns: 4 } as const;
 export function repairUsage(total: Json = {}) {
   const all = Math.max(0, Number(total.totalTokens || 0));
   const cached = Math.max(0, Math.min(all, Number(total.cachedInputTokens || 0)));
@@ -104,8 +104,8 @@ export class ConversationRepairs {
       const calls = await this.db(`ai_phone_conversations?id=eq.${input.conversationId}&user_id=eq.${userId}&expires_at=gt.${encodeURIComponent(new Date().toISOString())}&select=*&limit=1`);
       if (!calls?.length) throw Error("Conversation unavailable or expired.");
       const day = new Date(Date.now() - 86400_000).toISOString();
-      const recent = await this.db(`ai_conversation_repairs?user_id=eq.${userId}&created_at=gt.${encodeURIComponent(day)}&select=id&limit=3`);
-      if (recent.length >= REPAIR_LIMITS.dailyRuns) throw Error("The limit of three repair runs in 24 hours has been reached.");
+      const recent = await this.db(`ai_conversation_repairs?user_id=eq.${userId}&created_at=gt.${encodeURIComponent(day)}&select=id&limit=${REPAIR_LIMITS.dailyRuns}`);
+      if (recent.length >= REPAIR_LIMITS.dailyRuns) throw Error("The limit of four repair runs in 24 hours has been reached.");
       const ws = await this.workspace(userId); remote = ws.remote;
       const account = await remote.rpc("account/read", { refreshToken: false });
       if (account.account?.type !== "chatgpt") throw Error("Connect your Codex account once before starting. API billing is not used.");

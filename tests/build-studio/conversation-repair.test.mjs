@@ -40,7 +40,7 @@ test('non-owner rejected before workspace, storage access or inference',async()=
  const f=fixture({owner:false});await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}),/owner/);assert.equal(f.wake,0);
 });
 test('foreign or expired call and daily limit rejected before compute',async()=>{
- for(const options of [{expired:true},{daily:3}]){const f=fixture(options);await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}));assert.equal(f.wake,0);}
+ for(const options of [{expired:true},{daily:REPAIR_LIMITS.dailyRuns}]){const f=fixture(options);await assert.rejects(()=>f.service.handle(user,'POST','start',{conversationId:call}));assert.equal(f.wake,0);}
 });
 test('one-click dispatch persists job and does not wait for browser or ask approval',async()=>{
  const f=fixture();let finish;f.service.execute=()=>new Promise(r=>{finish=r});
