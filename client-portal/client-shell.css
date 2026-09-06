@@ -151,3 +151,6 @@ body[data-client-workspace-view="assets"] .website-assets-client-site { display:
   .client-mobile-menu-utilities { grid-template-columns:1fr; }
   .site-topbar.client-portal-topbar .site-brand { font-size:.78rem; letter-spacing:.1em; }
 }
+
+/* Keep disabled navigation hidden even when mobile link styles set display. */
+.client-portal-shell [hidden]{display:none!important}
