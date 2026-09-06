@@ -20,3 +20,12 @@ Callback delivery:
 - Persist the choice on the existing request record. Only a terminal result linked to that request can trigger it; preview errors and progress are insufficient. Wait until the original call has ended.
 - Call only the still-registered verified number, using the original Nex number. Claim delivery before dialing; ambiguous provider results and missed calls do not redial automatically. Pending requests expire after six hours.
 - The callback greeting discloses no work details. Require a fresh keypad PIN using existing lockout checks, then resume the same workspace with the original request and saved result. Never automatically replay the edit.
+
+## Ordered work during a call
+- Preserve explicitly requested multi-step work as an ordered task list (up to eight pending steps), with edit, draft save, main save, and workspace close operations. Close must be last. Do not invent steps from casual speech.
+- A list containing a save asks one confirmation covering the exact list. General questions preserve that confirmation and the remaining tasks; they neither approve nor cancel it.
+- Wait for the exact edit request's terminal result before starting its dependent step. Errors pause later steps; ambiguous mutations are never automatically replayed.
+- Allow casual conversation while work runs. Supply current date and timezone to Nex, but do not claim access to live information without a lookup capability.
+- Support append, replace, pause, resume, and cancel of remaining steps. Updating the list does not undo a running mutation. Task lists are local to the active phone connection; finish or cancel them before selecting a callback.
+- After callback consent is saved, say only a short acknowledgement and end the call after the goodbye. Keep the fresh PIN requirement on the returned call.
+- Resuming a callback establishes the status cursor; do not follow the result with another ready greeting or repeat an already spoken save outcome.

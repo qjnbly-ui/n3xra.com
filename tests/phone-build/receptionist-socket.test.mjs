@@ -14,11 +14,13 @@ const account = require('../../api/_account-phone.js');
 account.getCallerAccount = async () => ({ user_id:user, phone_e164:'+15555550123' });
 account.verifyCallerPin = async (_caller, pin) => ({ok:pin==='1234',reason:'invalid'});
 const phone = require('../../api/_phone-build.js');
+let callbackChoiceTest=false;
 const actions=[];const session={id:randomUUID(),state:'ready',codexAuthenticated:true};
-phone.createPhoneBuildRpc=()=>async(path,input)=>{actions.push({path,input});return {session};};
+phone.createPhoneBuildRpc=()=>async(path,input)=>{actions.push({path,input});return callbackChoiceTest ? (path.endsWith("/messages") ? {accepted:true,requestId:"20"} : path.endsWith("/callback") ? {saved:true} : {session}) : {session};};
 const agent=require('../../api/_phone-build-agent.js');
 let agentTurn=0;
 agent.requestBuildAgent=async(_messages,context)=>{
+ if(callbackChoiceTest)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:context.callbackAvailable?'completion_delivery':'execute_action',arguments:JSON.stringify(context.callbackAvailable?{mode:'callback'}:{action:'edit',instruction:'Change the title.'})}}]};
  agentTurn++;
  if(agentTurn===1||agentTurn===3)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:'confirm_action',arguments:JSON.stringify({confirmation_id:context.pending?.id})}}]};
  if(agentTurn===2)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:'propose_action',arguments:JSON.stringify({action:'edit',instruction:'Add one rocket to the homepage.'})}}]};
@@ -90,4 +92,25 @@ test('callback resumes the saved request only after a fresh correct keypad PIN',
   for(const digit of '1234')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('rocket has been improved'));
   assert.equal(actions.filter(a=>a.path.endsWith('/phone-status')).length,1);assert.equal(actions.filter(a=>a.path.endsWith('/open')||a.path.endsWith('/messages')).length,0);
  }finally{callbackFixture=null;ws.terminate();await new Promise(r=>server.close(r));}
+});
+
+test('requested callback gives a short goodbye then ends the phone connection', {timeout:10000}, async()=>{
+ actions.length=0;callbackChoiceTest=true;callbackFixture={userId:user,phone:'+15555550123',sessionId:session.id,request:'Earlier request',result:'Earlier work done.'};
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const host=`127.0.0.1:${server.address().port}`,path='/api/receptionist/conversation';
+ const signature=twilio.getExpectedTwilioSignature(process.env.TWILIO_AUTH_TOKEN,`wss://${host}${path}`,{});
+ const ws=new WebSocket(`ws://${host}${path}`,{headers:{'x-twilio-signature':signature}}),frames=[];
+ ws.on('message',raw=>frames.push(JSON.parse(raw)));
+ const send=x=>ws.send(JSON.stringify(x));
+ try{
+  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
+  send({type:'setup',callSid:sid,accountSid:process.env.TWILIO_ACCOUNT_SID,from:'+15555550999',to:'+15555550123',customParameters:{n3xraCallback:'true'}});
+  for(const digit of '1234')send({type:'dtmf',digit});await waitFor(()=>frames.some(f=>f.token?.includes('Earlier work done')));
+  send({type:'prompt',voicePrompt:'Change the title',last:true});await waitFor(()=>frames.some(f=>f.token?.includes('wait on the line')));
+  send({type:'prompt',voicePrompt:'Call me back',last:true});await waitFor(()=>frames.some(f=>f.token?.includes('give you a call back')));
+  assert.equal(frames.some(f=>f.type==='end'),false);
+  await delay(3300);assert.equal(frames.filter(f=>f.type==='end').length,1);
+  assert.equal(JSON.parse(frames.find(f=>f.type==='end').handoffData).reasonCode,'requested-builder-callback');
+  assert.equal(actions.filter(a=>a.path.endsWith('/callback')).length,1);
+ }finally{callbackFixture=null;callbackChoiceTest=false;ws.terminate();await new Promise(r=>server.close(r));}
 });

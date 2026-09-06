@@ -469,7 +469,12 @@ async function performAccountAction(ws) {
     if (ws.readyState !== WebSocket.OPEN) { await ws.phoneRecorder?.close(); return; }
     ws.phoneBuild = new PhoneBuildConversation(createPhoneBuildRpc(ws.caller.user_id, ws.callSid),
       (text) => sendSpeech(ws, text), process.env.N3XRA_PHONE_BUILD_WEBSITE_ID,
-      "N3XRA Build Studio Demo", undefined, undefined, reviewedInstruction);
+      "N3XRA Build Studio Demo", undefined, undefined, reviewedInstruction, () => {
+        // Allow the short goodbye to play before ending ConversationRelay.
+        ws.transferTimer = setTimeout(() => {
+          if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: "end", handoffData: JSON.stringify({ reasonCode: "requested-builder-callback" }) }));
+        }, 3000);
+      });
     if (ws.buildCallback) {
       const callback = ws.buildCallback; ws.buildCallback = null;
       try { await ws.phoneBuild.resumeCallback(callback.sessionId, callback.request, callback.result); }

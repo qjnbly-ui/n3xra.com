@@ -782,7 +782,7 @@ const server = createServer(async (req, res) => {
       let latestReply = null;
       for (const event of recent || []) {
         if (event.metadata?.conversationStart || event.event_type === "user_message") break;
-        if (["agent_message", "error"].includes(event.event_type)) { latestReply = { id: event.id, message: event.message }; break; }
+        if (["agent_message", "error"].includes(event.event_type)) { latestReply = { id: event.id, message: event.message, type: event.event_type, completedRequestId: event.metadata?.completedRequestId || null }; break; }
       }
       const state = publicSession(session);
       return json(res, 200, { session: { id: state.id, state: state.state, progress: state.progress,

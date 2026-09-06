@@ -3,6 +3,7 @@ import { createHash, createHmac, randomUUID } from "node:crypto";
 
 type Json = Record<string, any>;
 type Rpc = (path: string, input?: Json) => Promise<Json>;
+type QueuedAction = { action: "edit" | "save" | "publish" | "close"; text?: string };
 type Speech = (message: string) => void;
 export function isPhoneBuildRequest(text: string): boolean {
   return /\b(build studio|website (?:edit|change)|(?:edit|change|update|build) (?:my |the |a |our )?website)\b/i.test(text);
@@ -44,7 +45,7 @@ function spoken(value: string): string {
 export class PhoneBuildConversation {
   private sessionId = "";
   private requestId = "";
-  private pending: { action: "open" | "edit" | "save" | "publish" | "close"; text?: string; id: string; turn: number; expires: number } | undefined;
+  private pending: { action: "open" | "edit" | "save" | "publish" | "close" | "queue"; steps?: QueuedAction[]; text?: string; id: string; turn: number; expires: number } | undefined;
   private history: AgentMessage[] = [];
   private turn = 0;
   private thinking = false;
@@ -63,6 +64,12 @@ export class PhoneBuildConversation {
   private previewInspectionFailed = false;
   private inspectedTurn = -1;
   private saveDestination: "main" | "draft" = "main";
+  private queue: QueuedAction[] = [];
+  private queuePaused = false;
+  private queueRunning = false;
+  private queueRevision = 0;
+  private queueRequestId = "";
+  private queueSummary = "";
   private queuedSave: "save" | "publish" | undefined;
   private hasUnsavedChanges = false;
   private callerSpeaking = false;
@@ -80,7 +87,7 @@ export class PhoneBuildConversation {
     }
   }
   constructor(private rpc: Rpc, private say: Speech, private websiteId: string,
-    private name = "N3XRA Build Studio Demo", private now = () => Date.now(), private agent: BuildAgent = requestBuildAgent, private reviewedInstruction = "") {
+    private name = "N3XRA Build Studio Demo", private now = () => Date.now(), private agent: BuildAgent = requestBuildAgent, private reviewedInstruction = "", private endCall: () => void = () => {}) {
     this.expiresAt = now() + 15 * 60_000;
   }
   begin() {
@@ -91,6 +98,7 @@ export class PhoneBuildConversation {
     this.sessionId = sessionId;
     const current = await this.rpc(`/v1/sessions/${sessionId}/phone-status`);
     this.state = current.session;
+    this.lastState = this.state.state;
     this.hasUnsavedChanges = Number(this.state.changedFileCount || 0) > 0;
     this.lastEventId = current.latestReply?.id || "";
     this.history.push({ role: "user", content: `Earlier request, for context only: ${request.slice(0, 2000)}` });
@@ -129,6 +137,8 @@ export class PhoneBuildConversation {
       for (let round = 0; round < 4; round++) {
         const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
           callbackAvailable: Boolean(this.requestId),
+          currentDate: new Date(this.now()).toISOString(), timeZone: "America/Los_Angeles",
+          taskQueue: this.queue, queuePaused: this.queuePaused, queueWaitingForBuilder: Boolean(this.queueRequestId),
           previewInspectionAvailable: !this.previewInspectionFailed && this.inspectedTurn !== turn,
           state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
           saveDestination: this.saveDestination, hasUnsavedChanges: this.hasUnsavedChanges,
@@ -176,16 +186,47 @@ export class PhoneBuildConversation {
       this.speak("I need a little more direction. Which part should we focus on first?");
     } catch {
       if (turn === this.turn && !abort.signal.aborted) this.speak("I could not finish interpreting that. I have not sent a new action. Could you try again?");
-    } finally { clearTimeout(waiting); if (turn === this.turn) this.thinking = false; }
+    } finally { clearTimeout(waiting); if (turn === this.turn) { this.thinking = false; await this.drainQueue(); } }
   }
   private async useTool(name: string, args: Json, turn: number): Promise<{ data: Json; done?: boolean }> {
-    const fields: Record<string, string[]> = { completion_delivery: ["mode"], respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
+    const fields: Record<string, string[]> = { queue_actions: ["steps", "mode"], control_queue: ["operation"], completion_delivery: ["mode"], respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
     if (!fields[name] || Object.keys(args).some(key => !fields[name]!.includes(key))) throw new Error("Unknown tool or arguments.");
+    if (name === "control_queue") {
+      if (!["pause", "resume", "cancel"].includes(args.operation)) throw Error("Invalid queue operation.");
+      this.queuePaused = args.operation !== "resume";
+      if (args.operation === "cancel") { this.queueRevision++; this.queue = []; this.pending = undefined; this.queuedSave = undefined; }
+      this.speak(args.operation === "pause" ? "Okay, I will pause after the current step." : args.operation === "cancel" ? "Okay, I have cleared the remaining steps. Any work already running may still finish." : "Okay, I will continue.");
+      return { data: { queued: this.queue.length, paused: this.queuePaused }, done: true };
+    }
+    if (name === "queue_actions") {
+      if (!this.sessionId || !Array.isArray(args.steps) || !args.steps.length || args.steps.length > 8 || !["append", "replace"].includes(args.mode)) throw Error("Invalid task list.");
+      const steps: QueuedAction[] = args.steps.map((step: Json) => {
+        if (!step || Object.keys(step).some(k => !["action", "instruction"].includes(k)) || !["edit", "save", "publish", "close"].includes(step.action)
+          || (step.instruction !== undefined && (typeof step.instruction !== "string" || step.instruction.length > 2000))
+          || (step.action === "edit" && !step.instruction?.trim())) throw Error("Invalid step.");
+        return { action: step.action, text: step.instruction || "" };
+      });
+      const combined = [...(args.mode === "append" ? this.queue : []), ...steps];
+      if (combined.length > 8 || combined.some((step, i) => step.action === "close" && i !== combined.length - 1)) throw Error("Close must be the final step.");
+      // Replacing the list never cancels a mutation already accepted by the worker.
+      this.queueRevision++; this.queue = []; this.queuePaused = false; this.queuedSave = undefined;
+      if (combined.some(step => ["save", "publish"].includes(step.action))) {
+        this.pending = { action: "queue", steps: combined, id: randomUUID(), turn, expires: this.now() + 120_000 };
+        const description = combined.map(step => step.action === "edit" ? spoken(step.text || "") : step.action === "publish" ? "save to main" : step.action === "save" ? "save a draft" : "close the workspace").join(", then ");
+        this.speak(`Shall I ${description}?`);
+        return { data: { awaitingCaller: true, confirmationId: this.pending.id }, done: true };
+      }
+      this.pending = undefined; this.queue = combined;
+      this.speak("Okay, I will do those steps in order.");
+      return { data: { queued: combined.length }, done: true };
+    }
     if (name === "completion_delivery") {
       if (!["wait", "callback"].includes(args.mode) || !this.requestId || !this.sessionId) return { data: { error: "A callback requires an accepted builder request first." } };
+      if (args.mode === "callback" && (this.queue.length || this.queueRequestId)) return { data: { error: "Finish or cancel the remaining task list before choosing a callback." } };
       const saved = await this.rpc(`/v1/sessions/${this.sessionId}/callback`, { requestId: this.requestId, mode: args.mode });
       if (saved.saved !== true) throw Error("Callback choice was not saved.");
-      this.speak(args.mode === "callback" ? "You can hang up. I will call this verified number when the request finishes, and ask for your PIN again before we continue." : "Of course. Stay on the line and I will let you know when it finishes.");
+      this.speak(args.mode === "callback" ? "Okay, I’ll give you a call back." : "Of course. Stay on the line and I will let you know when it finishes.");
+      if (args.mode === "callback") { this.dispose(); this.endCall(); }
       return { data: saved, done: true };
     }
     if (name === "respond") {
@@ -201,6 +242,7 @@ export class PhoneBuildConversation {
     if (name === "execute_action" && ["save", "draft", "publish"].includes(args.action)) {
       return this.useTool("request_save", { destination: args.action === "draft" ? "draft" : args.action === "publish" ? "main" : "remembered" }, turn);
     }
+    if (["execute_action", "request_save", "propose_action"].includes(name) && (this.queue.length || this.queueRequestId)) return { data: { error: "A task list is active. Use queue_actions to append or revise steps; do not bypass their order." } };
     if (name === "request_save") {
       if (this.busy || this.uncertain) return { data: { error: "A prior operation is unconfirmed. Check status before saving." } };
       if (!this.sessionId) return { data: { error: "Confirm the selected website before saving." } };
@@ -212,7 +254,7 @@ export class PhoneBuildConversation {
       this.speak(action === "publish" ? "Save these changes to the live site?" : "Save these changes as a draft to the working branch?");
       return { data: { awaitingCaller: true, confirmationId: this.pending.id, destination: this.saveDestination }, done: true };
     }
-    if (name === "dismiss_action") { this.pending = undefined; this.queuedSave = undefined; return { data: { dismissed: true } }; }
+    if (name === "dismiss_action") { this.pending = undefined; this.queuedSave = undefined; this.queueRevision++; this.queue = []; return { data: { dismissed: true } }; }
     if (name === "get_status") {
       if (!this.sessionId) return { data: { state: "not_open", message: "Confirm the selected demo before opening." } };
       const data = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
@@ -230,7 +272,7 @@ export class PhoneBuildConversation {
       catch { this.previewInspectionFailed = true; return { data: { error: "Preview unavailable. No page content was retrieved. Do not retry inspection. A clear edit can still be sent to execute_action so the builder can inspect and change its source. Otherwise respond honestly." } }; }
     }
     if (name === "cancel_request") {
-      this.pending = undefined; this.queuedSave = undefined;
+      this.pending = undefined; this.queuedSave = undefined; this.queueRevision++; this.queue = []; this.queuePaused = true;
       if (!this.sessionId) return { data: { canceledPending: true, runningRequest: false } };
       try {
         const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`); this.state = current.session;
@@ -269,9 +311,14 @@ export class PhoneBuildConversation {
     }
     if (!instruction || (name !== "execute_action" && args.confirmation_id !== instruction.id) || instruction.turn >= turn || instruction.expires <= this.now()) return { data: { error: "No valid prior proposal to confirm. Discuss and propose the action first." } };
     this.pending = undefined;
+    if (instruction.action === "queue") {
+      this.queue = instruction.steps || []; this.queuePaused = false;
+      this.speak("Okay, I will do those steps in order.");
+      return { data: { queued: this.queue.length }, done: true };
+    }
     return this.execute(instruction, turn);
   }
-  private async execute(instruction: { action: string; text?: string }, turn: number): Promise<{ data: Json; done?: boolean }> {
+  private async execute(instruction: { action: string; text?: string }, turn: number, quiet = false): Promise<{ data: Json; done?: boolean }> {
     this.busy = true;
     try {
       if (instruction.action === "open") {
@@ -288,6 +335,7 @@ export class PhoneBuildConversation {
         const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`); this.state = current.session;
         if (turn !== this.turn || this.callerSpeaking || !this.valid()) return { data: { superseded: true }, done: true };
         if (["save", "publish"].includes(instruction.action) && ["working", "preparing"].includes(this.state.state)) {
+          if (quiet) return { data: { waiting: true }, done: true };
           this.queuedSave = instruction.action as "save" | "publish";
           this.speak("I will save it when the builder finishes.");
           return { data: { queued: true }, done: true };
@@ -298,7 +346,7 @@ export class PhoneBuildConversation {
         if (instruction.action === "edit" && this.state.codexAuthenticated === false) return { data: { error: "Connect Codex before editing." } };
         if (current.latestReply?.id) this.lastEventId = current.latestReply.id;
         const action = instruction.action === "edit" ? "messages" : instruction.action;
-        this.speak(action === "messages" ? "I am sending the agreed change to the builder. I will keep you updated."
+        if (!quiet) this.speak(action === "messages" ? "I am sending the agreed change to the builder. I will keep you updated."
           : action === "publish" ? "I am saving the changes to main on GitHub." : action === "save" ? "I am saving the changes to your working branch." : "I am checking the saved work and closing the workspace.");
         this.state = { ...this.state, state: "working", cancellable: false };
         const result = await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: String(instruction.text || "").trim() } : {});
@@ -306,9 +354,14 @@ export class PhoneBuildConversation {
         if (result.session) this.state = result.session;
         if (action === "messages") { this.hasUnsavedChanges = true; this.requestId = String(result.requestId || ""); }
         if (action === "publish" || action === "save") this.hasUnsavedChanges = false;
-        this.speak(action === "messages" ? (this.requestId ? "The builder accepted the change. Would you like to wait on the line, or have me call you back when it finishes?" : "The builder accepted the change. You can keep talking to me while it works.")
+        if (!quiet) this.speak(action === "messages" ? (this.requestId ? "The builder accepted the change. Would you like to wait on the line, or have me call you back when it finishes?" : "The builder accepted the change. You can keep talking to me while it works.")
           : action === "publish" ? "Saved to main on GitHub. Deployment is the next step."
           : action === "save" ? "Saved to the working branch. The live website is unchanged." : "Project closed. Your work is saved on GitHub.");
+        if (action !== "messages" && action !== "close") {
+          // The save response already supplied its outcome; do not replay its event on the next poll.
+          try { const baseline = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`); this.state = baseline.session; this.lastEventId = baseline.latestReply?.id || this.lastEventId; } catch { /* A read failure does not undo a confirmed save. */ }
+        }
+        this.lastState = this.state.state;
         if (action === "close") this.dispose();
       }
       return { data: { accepted: true, action: instruction.action,
@@ -319,8 +372,47 @@ export class PhoneBuildConversation {
       return { data: { unconfirmed: true }, done: true };
     } finally { this.busy = false; }
   }
+  private async drainQueue() {
+    if (!this.valid() || this.queueRunning || this.queuePaused || this.busy || this.uncertain || this.thinking || this.pending || this.callerSpeaking) return;
+    if (!this.queue.length && !this.queueRequestId) return;
+    this.queueRunning = true;
+    try {
+      while (this.valid() && !this.queuePaused && !this.thinking && !this.pending && !this.callerSpeaking) {
+        const current = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
+        this.state = current.session;
+        if (this.thinking || this.callerSpeaking || this.queuePaused || this.pending) return;
+        if (this.queueRequestId) {
+          if (String(current.latestReply?.completedRequestId || "") !== this.queueRequestId) return;
+          this.queueRequestId = "";
+          this.lastEventId = current.latestReply.id;
+          if (current.latestReply.type === "error") { this.queuePaused = true; this.speak("That step failed. I have paused the remaining tasks."); return; }
+          this.queueSummary = spoken(current.latestReply.message || "Changes completed.");
+        }
+        if (this.state.state === "failed") { this.queuePaused = true; this.speak("The workspace needs attention. I have paused the remaining tasks."); return; }
+        if (this.state.state !== "ready") return;
+        const step = this.queue[0];
+        if (!step) { if (this.queueSummary) this.speak(this.queueSummary); this.queueSummary = ""; this.lastState = this.state.state; return; }
+        // Remove the in-flight step before an await so a concurrent append cannot copy/replay it.
+        const revision = this.queueRevision;
+        this.queue.shift();
+        const result = await this.execute(step, this.turn, true);
+        if (!result.data.accepted) {
+          if (revision === this.queueRevision) this.queue.unshift(step);
+          if (result.data.superseded || result.data.waiting) return;
+          this.queuePaused = true;
+          if (result.data.error) this.speak("I could not complete that step. The remaining tasks are paused.");
+          return;
+        }
+        this.queueSummary = step.action === "publish" ? "Saved to main." : step.action === "save" ? "Draft saved." : step.action === "close" ? "Saved and closed." : "Changes completed.";
+        if (step.action === "close") { this.say(this.queueSummary); this.queueSummary = ""; return; }
+        if (step.action === "edit") { this.queueRequestId = this.requestId; if (!this.queueRequestId) { this.queuePaused = true; this.speak("I cannot track that step yet. The remaining tasks are paused."); } return; }
+      }
+    } catch { this.queuePaused = true; this.speak("I could not check the next step. The remaining tasks are paused."); }
+    finally { this.queueRunning = false; }
+  }
   async poll(force = false) {
     if (!this.valid() || !this.sessionId || this.polling) return;
+    if (this.queue.length || this.queueRequestId) { await this.drainQueue(); return; }
     this.polling = true;
     try {
       const result = await this.rpc(`/v1/sessions/${this.sessionId}/phone-status`);
