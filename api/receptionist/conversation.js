@@ -3,6 +3,7 @@ const express = require("express");
 const twilio = require("twilio");
 const { WebSocketServer, WebSocket } = require("ws");
 const askN3xra = require("../ask");
+const { PhoneRecorder } = require("../_phone-records");
 const { PhoneBuildConversation, createPhoneBuildRpc, phoneBuildConfigured, isPhoneBuildRequest } = require("../_phone-build");
 const { toSpeechText } = require("../_receptionist");
 const {
@@ -300,6 +301,7 @@ function endForTransfer(ws) {
 function announceAndTransfer(ws, delayMs = 4600) {
   if (ws.readyState !== WebSocket.OPEN || ws.transferStarting) return;
   ws.transferStarting = true;
+  ws.phoneRecorder?.record("nex_sent", "Absolutely. One moment while I try to connect you with Quentin.");
   ws.send(JSON.stringify({
     type: "text",
     token: "Absolutely. One moment while I try to connect you with Quentin.",
@@ -342,6 +344,7 @@ function sendSpeech(ws, token, { historyIndex = null, preemptible = !ws.phoneBui
       preemptible,
     }));
   });
+  if (chunks.length) ws.phoneRecorder?.record("nex_sent", fullText);
   ws.activeSpeech = fullText ? { fullText, historyIndex } : null;
   return chunks;
 }
@@ -366,6 +369,7 @@ function speechRemainder(fullText, utteranceUntilInterrupt) {
 function recordSpeechInterruption(ws, message) {
   if (!ws.activeSpeech) return null;
   const heard = toSpeechText(message?.utteranceUntilInterrupt);
+  ws.phoneRecorder?.record("interrupt", heard || "Interruption reported without spoken text.");
   const remainder = speechRemainder(ws.activeSpeech.fullText, heard);
   const historyIndex = ws.activeSpeech.historyIndex;
   if (Number.isInteger(historyIndex) && ws.history?.[historyIndex]?.role === "assistant") {
@@ -454,9 +458,17 @@ async function performAccountAction(ws) {
   const { action, accountIntent } = completeAccountActionState(ws);
   if (action === "build_studio") {
     ws.phoneBuild?.dispose();
+    if (ws.phoneRecorder) await ws.phoneRecorder.close();
+    ws.phoneRecorder = null;
+    let reviewedInstruction = "";
+    try {
+      const capture = await PhoneRecorder.start(ws.caller.user_id, ws.callSid, process.env.N3XRA_PHONE_BUILD_WEBSITE_ID);
+      if (capture) { ws.phoneRecorder = capture.recorder; reviewedInstruction = capture.instruction.instruction; }
+    } catch { sendSpeech(ws, "Phone history is unavailable right now. You can still use the builder, but this conversation may not be saved."); }
+    if (ws.readyState !== WebSocket.OPEN) { await ws.phoneRecorder?.close(); return; }
     ws.phoneBuild = new PhoneBuildConversation(createPhoneBuildRpc(ws.caller.user_id, ws.callSid),
       (text) => sendSpeech(ws, text), process.env.N3XRA_PHONE_BUILD_WEBSITE_ID,
-      "N3XRA Build Studio Demo");
+      "N3XRA Build Studio Demo", undefined, undefined, reviewedInstruction);
     ws.phoneBuild.begin();
     return;
   }
@@ -563,6 +575,7 @@ wss.on("connection", (ws) => {
   ws.on("close", () => {
     if (ws.transferTimer) clearTimeout(ws.transferTimer);
     ws.phoneBuild?.dispose();
+    void ws.phoneRecorder?.close();
   });
 
   ws.on("message", async (raw) => {
@@ -627,6 +640,9 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (message.type === "prompt" && message.last !== false && !ws.awaitingPin) {
+      ws.phoneRecorder?.record(ws.processing || ws.transferStarting ? "caller_ignored" : "caller", message.voicePrompt);
+    }
     if (message.type !== "prompt" || message.last === false || ws.processing || ws.transferStarting) return;
     const question = toSpeechText(message.voicePrompt).slice(0, 800);
     if (!question) return;

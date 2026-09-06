@@ -24,6 +24,18 @@ agent.requestBuildAgent=async(_messages,context)=>{
  if(agentTurn===2)return {role:'assistant',content:null,tool_calls:[{id:randomUUID(),type:'function',function:{name:'propose_action',arguments:JSON.stringify({action:'edit',instruction:'Add one rocket to the homepage.'})}}]};
  return {role:'assistant',content:'The builder already accepted your request.'};
 };
+const records=require('../../api/_phone-records.js');
+const captured=[];let captureStarts=0;
+const start=records.PhoneRecorder.start.bind(records.PhoneRecorder);
+records.PhoneRecorder.start=async(u,c,w)=>{
+ captureStarts++;
+ return start(u,c,w,async(path,options={})=>{
+  if(path.startsWith('platform_admins'))return [{user_id:user}];
+  if(path.startsWith('ai_phone_instructions'))return [];
+  if(path.startsWith('ai_phone_events'))captured.push(...JSON.parse(options.body));
+  return [];
+ });
+};
 const server = require('../../api/receptionist/conversation.js');
 const waitFor = async fn => { for(let i=0;i<100;i++){if(fn())return;await delay(10);}throw new Error('Socket test timed out'); };
 test('signed phone connection requires keypad PIN and two confirmations before editing', {timeout:10000}, async()=>{
@@ -40,6 +52,7 @@ test('signed phone connection requires keypad PIN and two confirmations before e
     prompt('I want to access Build Studio');await waitFor(()=>speech.join(' ').includes('four digit'));
     prompt('yes');await waitFor(()=>speech.join(' ').includes('do not say it aloud'));assert.equal(actions.length,0);
     for(const digit of '0000')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('did not match'));assert.equal(actions.length,0);
+    assert.equal(captureStarts,0);assert.equal(captured.length,0);
     for(const digit of '1234')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('website you want'));
     assert.equal(actions.length,0,'successful PIN alone cannot start a workspace');
     prompt('yes');await waitFor(()=>actions.some(a=>a.path.endsWith('/open')));
@@ -51,5 +64,10 @@ test('signed phone connection requires keypad PIN and two confirmations before e
     const buildFrames=frames.filter(f=>f.token.includes('Shall I make') || f.token.includes('sending the agreed change'));
     assert.ok(buildFrames.length);
     assert.ok(buildFrames.every(f=>f.preemptible===false && f.interruptible===true));
+    send({type:'interrupt',utteranceUntilInterrupt:'The builder accepted'});
+    await waitFor(()=>captured.some(e=>e.kind==='interrupt'));
+    assert.ok(captured.some(e=>e.kind==='caller'&&e.text==='Add a rocket'));
+    assert.ok(captured.some(e=>e.kind==='nex_sent'&&e.text.includes('Shall I make')));
+    assert.doesNotMatch(JSON.stringify(captured),/1234|0000|I want to access Build Studio/);
   } finally {ws.terminate();await new Promise(r=>server.close(r));}
 });

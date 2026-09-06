@@ -53,6 +53,7 @@ class PhoneBuildConversation {
     name;
     now;
     agent;
+    reviewedInstruction;
     sessionId = "";
     pending;
     history = [];
@@ -70,13 +71,14 @@ class PhoneBuildConversation {
     expiresAt;
     state = {};
     uncertain = false;
-    constructor(rpc, say, websiteId, name = "N3XRA Build Studio Demo", now = () => Date.now(), agent = _phone_build_agent_1.requestBuildAgent) {
+    constructor(rpc, say, websiteId, name = "N3XRA Build Studio Demo", now = () => Date.now(), agent = _phone_build_agent_1.requestBuildAgent, reviewedInstruction = "") {
         this.rpc = rpc;
         this.say = say;
         this.websiteId = websiteId;
         this.name = name;
         this.now = now;
         this.agent = agent;
+        this.reviewedInstruction = reviewedInstruction;
         this.expiresAt = now() + 15 * 60_000;
     }
     begin() {
@@ -127,7 +129,7 @@ class PhoneBuildConversation {
             for (let round = 0; round < 4; round++) {
                 const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
                     state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
-                    pending: this.pending || null }, abort.signal);
+                    pending: this.pending || null, reviewedInstruction: this.reviewedInstruction }, abort.signal);
                 if (turn !== this.turn || abort.signal.aborted || !this.valid())
                     return;
                 const calls = reply.tool_calls;

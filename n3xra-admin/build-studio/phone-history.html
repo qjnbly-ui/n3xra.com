@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Phone review · N3XRA</title>
+  <link rel="icon" href="/assets/n3xra_logo_transparent_small.png">
+  <link rel="stylesheet" href="/n3xra-admin/build-studio/phone-history.css">
+  <script src="/shared/config.js"></script>
+  <script type="module" src="/n3xra-admin/build-studio/phone-history.js"></script>
+</head>
+<body>
+<main>
+  <header><a href="/n3xra-admin/build-studio/">← Build Studio</a><p class="eyebrow">N3XRA · Private owner review</p><h1>Conversations with Nex</h1>
+    <p>Compare your words, Nex’s replies, and what reached the builder.</p></header>
+  <p class="notice">Text from verified phone-building sessions only. No audio recording or extra transcription service. Phone text and review notes expire after 30 days; an applied instruction stays until you replace or clear it.</p>
+  <p id="status" role="status" aria-live="polite">Checking access…</p>
+  <section id="history" hidden>
+    <div class="toolbar"><label>Recent conversation<select id="calls"><option value="">Choose a conversation</option></select></label><button id="refresh" type="button">Refresh</button></div>
+    <section id="detail" hidden>
+      <h2 id="call-title"></h2><p id="coverage" class="notice"></p>
+      <details><summary>Recording details</summary><p id="provenance"></p></details>
+      <div class="columns">
+        <section><h2>Phone conversation</h2><p class="help">Caller text is speech recognition output. Nex’s text was sent for speech; delivery of every word is not confirmed. Interruptions are marked separately. The phone handler uses up to 800 characters per caller turn.</p><div id="events"></div></section>
+        <section><h2>Builder work</h2><p class="help">Existing saved builder records linked to this call, including replies received after hang-up. A builder reply alone does not prove the edit succeeded.</p><div id="builds"></div></section>
+      </div>
+      <section class="review"><h2>Your review</h2><label>What went well or needs correcting<textarea id="note" rows="4" maxlength="3000"></textarea></label><button id="save-note" type="button">Save note</button>
+        <h2>Adjust Nex’s instructions</h2><p>These are your own reviewed additions for future verified phone-building sessions. They do not change permissions or confirmation requirements. No AI analysis runs on this page.</p>
+        <label>Instruction additions<textarea id="instruction" rows="5" maxlength="1500" placeholder="For example: Describe my intended result and leave implementation choices to Codex."></textarea></label>
+        <label>Expected effect<textarea id="effect" rows="2" maxlength="1000" placeholder="Explain what should improve, or why you are clearing the additions."></textarea></label>
+        <button id="preview" type="button">Review change</button>
+        <div id="approval" class="notice" hidden><h3>Review before applying</h3><p>Current additions</p><pre id="before"></pre><p>Proposed additions</p><pre id="after"></pre><p>Expected effect</p><pre id="expected"></pre><button id="apply" type="button">Apply to future phone sessions</button><button id="cancel" type="button">Keep editing</button></div>
+      </section>
+    </section>
+  </section>
+</main>
+</body></html>

@@ -1,3 +1,4 @@
+const { cleanupPhoneRecords } = require("./_phone-records");
 const SUPABASE_URL = String(process.env.SUPABASE_URL || "https://vdbjlgmbpykjblprqnak.supabase.co").trim();
 const SUPABASE_SERVICE_ROLE_KEY = String(process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SERVICE_ROLE_KEY || "").trim();
 const RECORDINGS_BUCKET = "meeting-recordings";
@@ -16,6 +17,8 @@ async function handler(req, res) {
   if (!cronSecret || req.headers.authorization !== `Bearer ${cronSecret}`) return res.status(401).json({ error: "Unauthorized." });
 
   try {
+    // Keep existing recording cleanup independent if phone-history cleanup fails.
+    await cleanupPhoneRecords().catch(() => console.warn("Phone history cleanup failed."));
     const cutoff = encodeURIComponent(new Date().toISOString());
     const chunkResponse = await fetch(`${SUPABASE_URL}/rest/v1/meeting_recording_chunks?select=id,meeting_recording_id,storage_path&expires_at=lt.${cutoff}&limit=200`, { headers: headers() });
     const chunks = await chunkResponse.json();

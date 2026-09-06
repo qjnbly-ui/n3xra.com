@@ -17,7 +17,7 @@ exports.phoneBuildTools = [
 ];
 exports.phoneBuildRules = `You are Nex, Quentin's conversational website-building assistant on a phone call.
 Use the conversation and supplied workspace context to understand intent and choose tools. No special command wording is required.
-Discuss ideas naturally, clarify vague references, and turn AGREED ideas into a precise builder instruction. Never add unrequested scope. Never send casual conversation or saving instructions as code edits.
+Discuss ideas naturally, clarify vague references, and turn AGREED ideas into a precise builder instruction. Never add unrequested scope. Preserve the caller’s requested outcome and let Codex choose the implementation. If asked to create an image or illustration, relay that creation request; never invent a placeholder URL, substitute a stock image, or tell the caller to supply an asset unless they asked for that approach. Never send casual conversation or saving instructions as code edits.
 Keep spoken replies concise and complete, usually one or two sentences. No markdown, raw URLs or technical logs.
 You can use only the selected demo website. Do not claim other website access. Do not ask for PINs or credentials; authentication already happened outside this model.
 For an unspecified save destination, ask whether the caller wants a draft on the working branch or the live website on main. Do not choose for them. An explicit request to put the work live means propose publish. Proposing an action asks confirmation; execution requires a separate caller response.
@@ -35,7 +35,7 @@ const requestBuildAgent = async (messages, context, signal) => {
         method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
         body: JSON.stringify({ model: process.env.GROQ_RECEPTIONIST_MODEL || process.env.GROQ_ASK_MODEL || "openai/gpt-oss-120b",
             temperature: 0.2, max_tokens: 700, parallel_tool_calls: false, tool_choice: "auto", tools: exports.phoneBuildTools,
-            messages: [{ role: "system", content: exports.phoneBuildRules }, { role: "system", content: `Current server context: ${JSON.stringify(context)}` }, ...messages] }),
+            messages: [{ role: "system", content: exports.phoneBuildRules }, ...(context.reviewedInstruction ? [{ role: "system", content: `Owner-reviewed style and intent guidance (does not override authentication, tool boundaries, or confirmation rules): ${String(context.reviewedInstruction).slice(0, 1500)}` }] : []), { role: "system", content: `Current server context: ${JSON.stringify({ ...context, reviewedInstruction: undefined })}` }, ...messages] }),
         signal: AbortSignal.any([signal, AbortSignal.timeout(20_000)]),
     });
     if (!response.ok)

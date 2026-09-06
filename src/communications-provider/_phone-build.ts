@@ -61,7 +61,7 @@ export class PhoneBuildConversation {
   private state: Json = {};
   private uncertain = false;
   constructor(private rpc: Rpc, private say: Speech, private websiteId: string,
-    private name = "N3XRA Build Studio Demo", private now = () => Date.now(), private agent: BuildAgent = requestBuildAgent) {
+    private name = "N3XRA Build Studio Demo", private now = () => Date.now(), private agent: BuildAgent = requestBuildAgent, private reviewedInstruction = "") {
     this.expiresAt = now() + 15 * 60_000;
   }
   begin() {
@@ -99,7 +99,7 @@ export class PhoneBuildConversation {
       for (let round = 0; round < 4; round++) {
         const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
           state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
-          pending: this.pending || null }, abort.signal);
+          pending: this.pending || null, reviewedInstruction: this.reviewedInstruction }, abort.signal);
         if (turn !== this.turn || abort.signal.aborted || !this.valid()) return;
         const calls = reply.tool_calls;
         if (!calls?.length) { this.speak(spoken(String(reply.content || "Could you clarify what you want to change?"))); return; }
