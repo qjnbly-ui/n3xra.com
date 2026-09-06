@@ -1,0 +1,6 @@
+{
+  "extends": "astro/tsconfigs/strict",
+  "compilerOptions": { "jsx": "react-jsx", "noUncheckedIndexedAccess": true },
+  "include": [".astro/types.d.ts", "**/*"],
+  "exclude": ["../resource-availability"]
+}

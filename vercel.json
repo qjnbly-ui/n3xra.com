@@ -5,6 +5,11 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/supabase/:path*",
+      "destination": "/404",
+      "permanent": false
+    },
+    {
       "source": "/",
       "has": [
         {
