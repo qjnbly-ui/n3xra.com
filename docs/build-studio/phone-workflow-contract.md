@@ -14,3 +14,9 @@ Required behavior:
 - Keep captured caller speech, Nex replies, builder instructions, and builder work available for review with existing privacy limits.
 
 The controller always runs the protected workflow tests in tests/phone-build/workflow.test.mjs. These test real controller side effects with a simulated provider; they do not establish actual speech recognition or live model quality. New conversation-specific regression tests must demonstrate the caller's desired behavior, not simply restate a chosen implementation. An independent read-only Codex review must compare the diff and tests to the conversation and this contract before publication. Report remaining gaps plainly; they cannot be counted as repaired.
+
+Callback delivery:
+- After accepting an edit, offer waiting on the line or a callback. Callback consent is explicit and tied to that accepted request; it never authorizes saving or another edit.
+- Persist the choice on the existing request record. Only a terminal result linked to that request can trigger it; preview errors and progress are insufficient. Wait until the original call has ended.
+- Call only the still-registered verified number, using the original Nex number. Claim delivery before dialing; ambiguous provider results and missed calls do not redial automatically. Pending requests expire after six hours.
+- The callback greeting discloses no work details. Require a fresh keypad PIN using existing lockout checks, then resume the same workspace with the original request and saved result. Never automatically replay the edit.

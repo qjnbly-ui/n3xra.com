@@ -37,7 +37,7 @@ test("Build worker uses App Server over stdio and server-managed sessions", asyn
     read("services/build-worker/src/codex-app-server.ts"),
     read("supabase/migrations/20260826204348_build_studio_foundation.sql"),
   ]);
-  assert.match(appServer, /spawn\("codex", \["app-server"\]/);
+  assert.match(appServer, /spawn\(this\.externallyIsolated \? ISOLATED_CODEX_BINARY : "codex", \["app-server"\]/);
   assert.match(appServer, /chatgptDeviceCode/);
   assert.match(worker, /Do not commit, push, deploy/);
   assert.match(migration, /enable row level security/);
@@ -64,6 +64,6 @@ test("Build worker ships as a persistent Render service", async () => {
   assert.match(worker, /activeProject/);
   assert.match(worker, /void prepareProject\(session\)/);
   assert.match(worker, /Installing the website dependencies/);
-  assert.match(dockerfile, /@openai\/codex@0\.143\.0/);
+  assert.match(dockerfile, /@openai\/codex@0\.153\.4/);
   assert.match(dockerfile, /N3XRA_BUILD_HOST=0\.0\.0\.0/);
 });

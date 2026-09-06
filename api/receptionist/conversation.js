@@ -3,6 +3,7 @@ const express = require("express");
 const twilio = require("twilio");
 const { WebSocketServer, WebSocket } = require("ws");
 const askN3xra = require("../ask");
+const { callbackForCall } = require("../_phone-callbacks");
 const { PhoneRecorder } = require("../_phone-records");
 const { PhoneBuildConversation, createPhoneBuildRpc, phoneBuildConfigured, isPhoneBuildRequest } = require("../_phone-build");
 const { toSpeechText } = require("../_receptionist");
@@ -469,7 +470,11 @@ async function performAccountAction(ws) {
     ws.phoneBuild = new PhoneBuildConversation(createPhoneBuildRpc(ws.caller.user_id, ws.callSid),
       (text) => sendSpeech(ws, text), process.env.N3XRA_PHONE_BUILD_WEBSITE_ID,
       "N3XRA Build Studio Demo", undefined, undefined, reviewedInstruction);
-    ws.phoneBuild.begin();
+    if (ws.buildCallback) {
+      const callback = ws.buildCallback; ws.buildCallback = null;
+      try { await ws.phoneBuild.resumeCallback(callback.sessionId, callback.request, callback.result); }
+      catch { sendSpeech(ws, "Your PIN is verified, but I could not reopen that workspace. Please check Build Studio before making more changes."); ws.phoneBuild.dispose(); }
+    } else ws.phoneBuild.begin();
     return;
   }
   if (action === "password_reset") return sendPasswordReset(ws);
@@ -594,10 +599,23 @@ wss.on("connection", (ws) => {
       }
       ws.callSid = String(message.callSid || "");
       ws.fromNumber = String(message.from || "");
-      ws.callerReady = getCallerAccount(message.from).then((caller) => {
+      ws.callerReady = (async () => {
+        const isCallback = message.customParameters?.n3xraCallback === "true";
+        const callback = isCallback ? await callbackForCall(ws.callSid) : null;
+        if (isCallback && !callback) throw Error("Callback unavailable.");
+        const caller = await getCallerAccount(callback ? callback.phone : message.from);
+        if (callback) {
+          if (!caller || caller.user_id !== callback.userId || message.to !== callback.phone) throw Error("Callback identity mismatch.");
+          ws.fromNumber = callback.phone;
+          ws.buildCallback = callback;
+          ws.pendingAccountAction = "build_studio";
+          ws.awaitingPin = true;
+          ws.accountVerified = false;
+          ws.pinDigits = "";
+        }
         ws.caller = caller;
         return caller;
-      }).catch(() => null);
+      })().catch(() => { ws.close(1008, "Caller verification unavailable"); return null; });
       return;
     }
 
@@ -607,6 +625,7 @@ wss.on("connection", (ws) => {
       return;
     }
 
+    if (message.type === "dtmf") await ws.callerReady;
     if (message.type === "dtmf" && ws.awaitingPin) {
       const digit = String(message.digit || "");
       if (!/^[0-9]$/.test(digit)) return;

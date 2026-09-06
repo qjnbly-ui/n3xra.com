@@ -43,6 +43,7 @@ function buildTwiML({
   interruptSensitivity = "low",
   speechTimeout = "1200",
   ignoreBackchannel = "true",
+  callback = false,
 }) {
   const voiceAttribute = voice ? ` voice="${escapeXml(voice)}"` : "";
   const actionAttribute = actionUrl ? ` action="${escapeXml(actionUrl)}" method="POST"` : "";
@@ -50,7 +51,7 @@ function buildTwiML({
     '<?xml version="1.0" encoding="UTF-8"?>',
     "<Response>",
     `  <Connect${actionAttribute}>`,
-    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="${escapeXml(welcomeGreetingInterruptible)}" reportInputDuringAgentSpeech="${escapeXml(reportInputDuringAgentSpeech)}" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="${escapeXml(interruptSensitivity)}" speechTimeout="${escapeXml(speechTimeout)}" ignoreBackchannel="${escapeXml(ignoreBackchannel)}" dtmfDetection="true" />`,
+    `    <ConversationRelay url="${escapeXml(websocketUrl)}" welcomeGreeting="${escapeXml(greeting)}" welcomeGreetingInterruptible="${escapeXml(welcomeGreetingInterruptible)}" reportInputDuringAgentSpeech="${escapeXml(reportInputDuringAgentSpeech)}" language="en-US" transcriptionProvider="Deepgram" ttsProvider="ElevenLabs"${voiceAttribute} interruptSensitivity="${escapeXml(interruptSensitivity)}" speechTimeout="${escapeXml(speechTimeout)}" ignoreBackchannel="${escapeXml(ignoreBackchannel)}" dtmfDetection="true"${callback ? '><Parameter name="n3xraCallback" value="true" /></ConversationRelay>' : " />"}`,
     "  </Connect>",
     "</Response>",
   ].join("\n");

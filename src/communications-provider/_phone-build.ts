@@ -43,6 +43,7 @@ function spoken(value: string): string {
 /** Phone UI only. All editing and repository operations stay in the existing worker. */
 export class PhoneBuildConversation {
   private sessionId = "";
+  private requestId = "";
   private pending: { action: "open" | "edit" | "save" | "publish" | "close"; text?: string; id: string; turn: number; expires: number } | undefined;
   private history: AgentMessage[] = [];
   private turn = 0;
@@ -86,6 +87,16 @@ export class PhoneBuildConversation {
     this.pending = { action: "open", id: randomUUID(), turn: this.turn, expires: this.now() + 120_000 };
     this.speak(`Phone editing is available for ${this.name}. Is that the website you want to work on?`);
   }
+  async resumeCallback(sessionId: string, request: string, result: string) {
+    this.sessionId = sessionId;
+    const current = await this.rpc(`/v1/sessions/${sessionId}/phone-status`);
+    this.state = current.session;
+    this.hasUnsavedChanges = Number(this.state.changedFileCount || 0) > 0;
+    this.lastEventId = current.latestReply?.id || "";
+    this.history.push({ role: "user", content: `Earlier request, for context only: ${request.slice(0, 2000)}` });
+    this.speak(`Thanks for verifying. ${spoken(result)} Would you like to review it, make another change, or save?`);
+    this.timer = setInterval(() => { void this.poll(); }, 5000); this.timer.unref?.();
+  }
   get active() { return !this.disposed; }
   dispose() { this.disposed = true; this.planning?.abort(); if (this.timer) clearInterval(this.timer); }
   private speak(text: string) { if (!this.disposed) { this.lastSpokenAt = this.now(); this.history.push({ role: "assistant", content: text }); this.say(text); } }
@@ -117,6 +128,7 @@ export class PhoneBuildConversation {
     try {
       for (let round = 0; round < 4; round++) {
         const reply = await this.agent(messages, { website: this.name, workspaceOpen: Boolean(this.sessionId),
+          callbackAvailable: Boolean(this.requestId),
           previewInspectionAvailable: !this.previewInspectionFailed && this.inspectedTurn !== turn,
           state: this.state.state || "not_open", busy: this.busy, uncertain: this.uncertain,
           saveDestination: this.saveDestination, hasUnsavedChanges: this.hasUnsavedChanges,
@@ -167,8 +179,15 @@ export class PhoneBuildConversation {
     } finally { clearTimeout(waiting); if (turn === this.turn) this.thinking = false; }
   }
   private async useTool(name: string, args: Json, turn: number): Promise<{ data: Json; done?: boolean }> {
-    const fields: Record<string, string[]> = { respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
+    const fields: Record<string, string[]> = { completion_delivery: ["mode"], respond: ["text"], execute_action: ["action", "instruction"], request_save: ["destination"], set_save_destination: ["destination"], inspect_page: ["path"], get_status: [], propose_action: ["action", "instruction"], confirm_action: ["confirmation_id"], dismiss_action: [], cancel_request: [] };
     if (!fields[name] || Object.keys(args).some(key => !fields[name]!.includes(key))) throw new Error("Unknown tool or arguments.");
+    if (name === "completion_delivery") {
+      if (!["wait", "callback"].includes(args.mode) || !this.requestId || !this.sessionId) return { data: { error: "A callback requires an accepted builder request first." } };
+      const saved = await this.rpc(`/v1/sessions/${this.sessionId}/callback`, { requestId: this.requestId, mode: args.mode });
+      if (saved.saved !== true) throw Error("Callback choice was not saved.");
+      this.speak(args.mode === "callback" ? "You can hang up. I will call this verified number when the request finishes, and ask for your PIN again before we continue." : "Of course. Stay on the line and I will let you know when it finishes.");
+      return { data: saved, done: true };
+    }
     if (name === "respond") {
       if (typeof args.text !== "string" || !args.text.trim()) throw new Error("Missing response.");
       this.speak(spoken(args.text)); return { data: { discussed: true }, done: true };
@@ -285,9 +304,9 @@ export class PhoneBuildConversation {
         const result = await this.rpc(`/v1/sessions/${this.sessionId}/${action}`, action === "messages" ? { text: String(instruction.text || "").trim() } : {});
         if (action === "messages" && result.accepted !== true) throw new Error("Builder did not accept the edit.");
         if (result.session) this.state = result.session;
-        if (action === "messages") this.hasUnsavedChanges = true;
+        if (action === "messages") { this.hasUnsavedChanges = true; this.requestId = String(result.requestId || ""); }
         if (action === "publish" || action === "save") this.hasUnsavedChanges = false;
-        this.speak(action === "messages" ? "The builder accepted the change. You can keep talking to me while it works."
+        this.speak(action === "messages" ? (this.requestId ? "The builder accepted the change. Would you like to wait on the line, or have me call you back when it finishes?" : "The builder accepted the change. You can keep talking to me while it works.")
           : action === "publish" ? "Saved to main on GitHub. Deployment is the next step."
           : action === "save" ? "Saved to the working branch. The live website is unchanged." : "Project closed. Your work is saved on GitHub.");
         if (action === "close") this.dispose();

@@ -1,3 +1,4 @@
+import { setPhoneCallback, startPhoneCallbackPoller } from "./phone-callbacks.js";
 import { ConversationRepairs } from "./conversation-repair.js";
 import { phonePagePath, inspectPhonePage } from "./phone-page";
 import { createServer, request as httpRequest, type IncomingMessage, type ServerResponse } from "node:http";
@@ -27,7 +28,7 @@ type Session = {
   baseBranch: string; workingBranch: string; codexThreadId: string; previewPort: number;
   state: "preparing" | "ready" | "working" | "awaiting_approval" | "failed" | "stopped" | "archived";
   previewState: "offline" | "starting" | "ready" | "failed"; changedFileCount: number; previewToken: string; previewProcess?: ChildProcess; preparation?: Promise<void>; previewStarting?: Promise<void>; hasUnpushedCommits?: boolean; previewBasePath?: string; previewUsesAstro?: boolean; lastPreviewActivity?: number;
-  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; taskNeedsContext?: boolean; savedHead?: string; savedBranch?: string; operation?: "request" | "sync" | "close" | "publish" | "save"; activeTurnId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
+  codexAuthenticated?: boolean; progress?: string; progressDetail?: string; taskNeedsContext?: boolean; savedHead?: string; savedBranch?: string; operation?: "request" | "sync" | "close" | "publish" | "save"; activeTurnId?: string; requestEventId?: string; cancelRequested?: boolean; syncIssue?: string; selectedModel?: string; selectedEffort?: string; models?: Json[];
 };
 
 const required = ["SUPABASE_URL", "SUPABASE_ANON_KEY", "SUPABASE_SERVICE_ROLE_KEY", "N3XRA_BUILD_WORKSPACE_ROOT", "CODEX_HOME", "GITHUB_APP_CLIENT_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_INSTALLATION_ID"] as const;
@@ -236,6 +237,7 @@ async function emit(session: Session, eventType: string, message = "", metadata:
   const rows = await supabase("/rest/v1/website_build_events", { method: "POST", body: JSON.stringify({ session_id: session.id, website_id: session.websiteId, actor_user_id: session.userId, event_type: eventType, message: message || null, technical_notes: technicalNotes || null, metadata }) });
   const event = Array.isArray(rows) ? rows[0] : {};
   broadcast(session, { id: event.id, eventType, message, technicalNotes, metadata });
+  return event.id;
 }
 
 function publicSession(session: Session) {
@@ -662,7 +664,8 @@ function handleCodexEvent(method: string, params: Json, sourceSessionId?: string
       catch (error) { diagnostics += `\nChange check failed: ${String(error)}`; result.message += " I couldn’t refresh the list of changed files. Refresh before saving."; }
       session.state = "ready"; session.progress = ""; delete session.operation; delete session.activeTurnId; session.cancelRequested = false;
       await supabase(`/rest/v1/website_build_sessions?id=eq.${session.id}`, { method: "PATCH", body: JSON.stringify({ state: "ready" }) }).catch(() => null);
-      await emit(session, failed ? "error" : "agent_message", result.message, { session: publicSession(session) }, diagnostics);
+      const requestId = session.requestEventId || String((await supabase(`/rest/v1/website_build_events?session_id=eq.${session.id}&event_type=eq.user_message&order=id.desc&limit=1`))?.[0]?.id || "");
+      await emit(session, failed ? "error" : "agent_message", result.message, { session: publicSession(session), completedRequestId: requestId }, diagnostics);
     })().catch(() => broadcast(session, { eventType: "error", message: "Your reply could not be saved. Refresh before continuing.", metadata: { session: publicSession(session) } }));
   }
 }
@@ -751,7 +754,7 @@ const server = createServer(async (req, res) => {
     if (activeProjectMatch && user.phoneWebsiteId && activeProjectMatch[1] !== user.phoneWebsiteId) throw new Error("Phone website access denied.");
     if (activeProjectMatch && req.method === "GET") return json(res, 200, await activeProject(user, activeProjectMatch[1] || ""));
     if (url.pathname === "/v1/projects/open" && req.method === "POST") { const input = await body(req); if (user.phoneWebsiteId && (input.websiteId !== user.phoneWebsiteId || input.taskId)) throw new Error("Phone website access denied."); const session = await openProject(user, String(input.websiteId || ""), String(input.taskId || "")); return json(res, 202, { session: publicSession(session) }); }
-    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|phone-status|phone-page|preview\/restart))?$/);
+    const match = url.pathname.match(/^\/v1\/sessions\/([0-9a-f-]+)(?:\/(messages|checkpoint|push|events|pause|close|save|publish|sync|cancel|models|phone-status|phone-page|callback|preview\/restart))?$/);
     if (!match) return json(res, 404, { error: "Not found." });
     if (user.phoneWebsiteId) {
       // Check tenancy before recovery can start a machine or touch another repository.
@@ -761,6 +764,11 @@ const server = createServer(async (req, res) => {
     const session = await recoverSession(user, match[1] || ""); if (!session) return json(res, 404, { error: "Build session not found." });
     requestSession = session;
     const action = match[2] || "";
+    if (action === "callback" && req.method === "POST") {
+      if (!user.phoneCallId) return json(res, 403, { error: "Callback consent requires the verified phone call." });
+      const input = await body(req);
+      return json(res, 200, await setPhoneCallback(supabase, session.id, user.id, user.phoneCallId, input.requestId, input.mode));
+    }
     if (action === "phone-page" && req.method === "POST") {
       const input = await body(req); const path = phonePagePath(input.path);
       if (session.previewState !== "ready" || (isolated && !remoteWorkspaces.get(session.id)?.running)) return json(res, 409, { error: "Open the live preview before inspecting it." });
@@ -916,7 +924,8 @@ const server = createServer(async (req, res) => {
         if (!model.supportedReasoningEfforts.some((item: Json) => item.reasoningEffort === effort)) throw new Error("The selected thinking effort is unavailable for this model.");
         session.selectedModel = model.model; session.selectedEffort = effort;
         await ensureThread(session);
-        await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort, ...(user.phoneCallId ? { source: "phone", callId: user.phoneCallId } : {}) });
+        const requestId = await emit(session, "user_message", text, { session: publicSession(session), model: model.model, effort, ...(user.phoneCallId ? { source: "phone", callId: user.phoneCallId } : {}) });
+        session.requestEventId = String(requestId);
         const guardrail = "Work only inside this repository. Do not commit, push, deploy, access secrets, or change files outside the current workspace. Make and verify the requested website changes. Speak to the website owner in clear everyday language. Your final response must match the requested JSON schema: message is the short user-facing reply, and technicalNotes holds file paths, commands, test results, and diagnostic details. Keep meaningful limitations and actions the owner needs in message. Do not claim a check succeeded unless you ran it. Never include secrets in either field.\n\n";
         progress(session, "Working on your request…");
         let restoredContext = "";
@@ -932,7 +941,7 @@ const server = createServer(async (req, res) => {
           if (session.cancelRequested) await codexRequest(session, "turn/interrupt", { threadId: session.codexThreadId, turnId: turn.turn.id });
           else progress(session, "Working on your request…");
         }
-        return json(res, 202, { accepted: true });
+        return json(res, 202, { accepted: true, requestId });
       } catch (error) {
         session.state = "ready"; delete session.operation; session.cancelRequested = false;
         await emit(session, "error", String((error as Error).message), { session: await updateStatus(session) });
@@ -1026,3 +1035,5 @@ void Promise.all([
 ]).then(() => {
   server.listen(port, host, () => process.stdout.write(`N3XRA Build Worker listening on ${host}:${port}\n`));
 });
+
+startPhoneCallbackPoller();

@@ -33,7 +33,8 @@ function fixture() {
  const calls=[],speech=[],plans=[],contexts=[],inputs=[];let now=100000;
  let state={id:randomUUID(),state:'ready',cancellable:false,canClose:false,codexAuthenticated:true};let event=null,failure='';
  const rpc=async(path,input)=>{calls.push({path,input});if(failure&&path.endsWith(failure))throw Error('lost');
-  if(path.endsWith('/messages'))state={...state,state:'working',cancellable:true};
+  if(path.endsWith('/messages')){state={...state,state:'working',cancellable:true};return {accepted:true,requestId:'10'};}
+  if(path.endsWith('/callback'))return {saved:true,mode:input.mode};
   if(path.endsWith('/save')||path.endsWith('/publish'))state={...state,state:'ready',canClose:true};
   if(path.endsWith('/cancel'))state={...state,state:'ready',cancellable:false};
   if(path.endsWith('/phone-page'))return {path:'/',headings:['Welcome'],images:[{index:1,description:'A mountain lake'}]};
@@ -134,5 +135,14 @@ test('failed preview is inspected once then a clear edit still reaches the build
   assert.equal(f.calls.find(c=>c.path.endsWith('/messages')).input.text,'Remove the goldfish from the homepage.');
   assert.equal(f.contexts.at(-1).previewInspectionAvailable,false);
   assert.equal(f.speech.filter(s=>/Let me check/.test(s)).length,1);
+ }finally{f.flow.dispose();}
+});
+
+test('accepted edits offer a choice and callback consent does not save or edit again',async()=>{
+ const f=fixture();try{await f.open();await f.handle('Improve the rocket',tool('execute_action',{action:'edit',instruction:'Improve the rocket.'}));
+ assert.match(f.speech.at(-1),/wait on the line.*call you back/);assert.equal(f.calls.filter(c=>c.path.endsWith('/callback')).length,0);
+ await f.handle('Call me back',tool('completion_delivery',{mode:'callback'}));assert.deepEqual(f.calls.at(-1).input,{requestId:'10',mode:'callback'});assert.match(f.speech.at(-1),/PIN again/);
+ await f.handle('Actually I will wait',tool('completion_delivery',{mode:'wait'}));assert.deepEqual(f.calls.at(-1).input,{requestId:'10',mode:'wait'});
+ assert.equal(f.calls.filter(c=>/\/(messages|save|publish)$/.test(c.path)).length,1);
  }finally{f.flow.dispose();}
 });

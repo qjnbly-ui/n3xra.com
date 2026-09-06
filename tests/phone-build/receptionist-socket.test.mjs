@@ -36,6 +36,8 @@ records.PhoneRecorder.start=async(u,c,w)=>{
   return [];
  });
 };
+let callbackFixture=null;
+require('../../api/_phone-callbacks.js').callbackForCall=async()=>callbackFixture;
 const server = require('../../api/receptionist/conversation.js');
 const waitFor = async fn => { for(let i=0;i<100;i++){if(fn())return;await delay(10);}throw new Error('Socket test timed out'); };
 test('signed phone connection requires keypad PIN and two confirmations before editing', {timeout:10000}, async()=>{
@@ -70,4 +72,22 @@ test('signed phone connection requires keypad PIN and two confirmations before e
     assert.ok(captured.some(e=>e.kind==='nex_sent'&&e.text.includes('Shall I make')));
     assert.doesNotMatch(JSON.stringify(captured),/1234|0000|I want to access Build Studio/);
   } finally {ws.terminate();await new Promise(r=>server.close(r));}
+});
+
+test('callback resumes the saved request only after a fresh correct keypad PIN', {timeout:10000}, async()=>{
+ actions.length=0;callbackFixture={userId:user,phone:'+15555550123',sessionId:session.id,request:'Improve the rocket.',result:'The rocket has been improved.'};
+ await new Promise(r=>server.listen(0,'127.0.0.1',r));
+ const host=`127.0.0.1:${server.address().port}`,path='/api/receptionist/conversation';
+ const signature=twilio.getExpectedTwilioSignature(process.env.TWILIO_AUTH_TOKEN,`wss://${host}${path}`,{});
+ const ws=new WebSocket(`ws://${host}${path}`,{headers:{'x-twilio-signature':signature}}),speech=[];
+ ws.on('message',raw=>{const d=JSON.parse(raw);if(d.type==='text')speech.push(d.token)});
+ const send=x=>ws.send(JSON.stringify(x));
+ try{
+  await new Promise((resolve,reject)=>{ws.once('open',resolve);ws.once('error',reject)});
+  send({type:'setup',callSid:sid,accountSid:process.env.TWILIO_ACCOUNT_SID,from:'+15555550999',to:'+15555550123',customParameters:{n3xraCallback:'true'}});
+  for(const digit of '0000')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('did not match'));
+  assert.equal(actions.length,0);assert.doesNotMatch(speech.join(' '),/rocket/);
+  for(const digit of '1234')send({type:'dtmf',digit});await waitFor(()=>speech.join(' ').includes('rocket has been improved'));
+  assert.equal(actions.filter(a=>a.path.endsWith('/phone-status')).length,1);assert.equal(actions.filter(a=>a.path.endsWith('/open')||a.path.endsWith('/messages')).length,0);
+ }finally{callbackFixture=null;ws.terminate();await new Promise(r=>server.close(r));}
 });
