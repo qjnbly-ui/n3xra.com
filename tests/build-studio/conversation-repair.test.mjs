@@ -164,3 +164,9 @@ test('retry resumes the saved thread and draft only on the same unchanged baseli
  const originalRpc=f.remote.rpc;f.remote.rpc=async(method,args)=>{rpcs.push([method,args]);return originalRpc(method,args)};
  await f.runIt();assert.equal(f.run.report.resumedFrom,prior.id);assert.ok(rpcs.some(([m,a])=>m==='thread/resume'&&a.threadId==='saved-thread'));assert.equal(commands.some(a=>a[0]==='stash'),false);
 });
+
+test('outcome review excludes accumulated execution logs and prior reports',()=>{
+ const {compactRepairReport}=require('../../dist/build-worker/conversation-repair.js');
+ const compact=compactRepairReport({...report,testEvidence:{passed:true},partialWork:'x'.repeat(32000),reviewWork:'old',usage:{total:200000},assessment:{approved:false}});
+ assert.deepEqual(compact,{...report,testEvidence:{passed:true}});
+});

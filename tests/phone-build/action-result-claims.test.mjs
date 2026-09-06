@@ -52,6 +52,9 @@ test('an unrouted model-only save claim is replanned into a real publish', async
     replies.push(tool('execute_action', {action:'save',instruction:''}));
     await flow.handle('Okay. Save.');
 
+    assert.equal(calls.filter(call => /\/(?:save|publish)$/.test(call.path)).length, 0);
+    replies.push(context => tool('confirm_action', { confirmation_id: context.pending.id }));
+    await flow.handle('Yes, save it.');
     assert.equal(calls.filter(call => /\/(?:save|publish)$/.test(call.path)).length, 1);
     assert.match(speech.at(-1), /Saved to main on GitHub/);
     assert.doesNotMatch(speech.at(-1), /now live/);

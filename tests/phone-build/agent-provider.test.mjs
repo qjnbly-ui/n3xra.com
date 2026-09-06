@@ -19,3 +19,17 @@ test('agent uses existing receptionist model with tool schemas and preserves too
   await assert.rejects(()=>requestBuildAgent([],{},new AbortController().signal),/unavailable/);
  }finally{globalThis.fetch=original;if(key===undefined)delete process.env.GROQ_API_KEY;else process.env.GROQ_API_KEY=key;if(model===undefined)delete process.env.GROQ_RECEPTIONIST_MODEL;else process.env.GROQ_RECEPTIONIST_MODEL=model;}
 });
+test('invalid tool generation and truncated output retry once without replaying failed arguments',async()=>{
+ const original=globalThis.fetch,key=process.env.GROQ_API_KEY;process.env.GROQ_API_KEY='fixture';
+ try {
+  for(const failure of [()=>Response.json({error:{code:'tool_use_failed',failed_generation:'publish secret'}},{status:400}),()=>Response.json({choices:[{finish_reason:'length',message:{content:'partial'}}]})]) {
+   const requests=[];
+   globalThis.fetch=async(_url,init)=>{requests.push(JSON.parse(init.body));return requests.length===1?failure():Response.json({choices:[{finish_reason:'tool_calls',message:{tool_calls:[{id:'reply',type:'function',function:{name:'respond',arguments:'{"text":"Okay, I will wait."}'}}]}}]});};
+   const result=await requestBuildAgent([{role:'user',content:"I'll wait."}],{},new AbortController().signal);
+   assert.equal(requests.length,2);assert.equal(result.tool_calls[0].function.name,'respond');
+   assert.match(requests[1].messages.at(-1).content,/no action ran/);assert.doesNotMatch(JSON.stringify(requests[1]),/publish secret|partial/);
+  }
+  let count=0;globalThis.fetch=async()=>{count++;return Response.json({error:{code:'tool_use_failed'}},{status:400});};
+  await assert.rejects(()=>requestBuildAgent([],{},new AbortController().signal),/unavailable/);assert.equal(count,2);
+ }finally{globalThis.fetch=original;if(key===undefined)delete process.env.GROQ_API_KEY;else process.env.GROQ_API_KEY=key;}
+});
