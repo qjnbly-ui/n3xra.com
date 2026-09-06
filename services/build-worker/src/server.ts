@@ -92,7 +92,7 @@ async function modelCatalog(session: Session) {
     const page = await codexRequest(session, "model/list", { limit: 50, includeHidden: false, ...(cursor ? { cursor } : {}) });
     models.push(...(page.data || [])); cursor = page.nextCursor || undefined;
   } while (cursor && models.length < 500);
-  session.models = models.filter(item => !item.hidden).map(item => ({ model: item.model, displayName: item.displayName, isDefault: item.isDefault, defaultReasoningEffort: item.defaultReasoningEffort, supportedReasoningEfforts: item.supportedReasoningEfforts || [] }));
+  session.models = models.filter(item => !item.hidden).map(item => ({ model: item.model, displayName: item.displayName, isDefault: item.model === "gpt-6-astra", defaultReasoningEffort: item.defaultReasoningEffort, supportedReasoningEfforts: item.supportedReasoningEfforts || [] }));
   return session.models;
 }
 async function syncRepository(session: Session) {
@@ -909,7 +909,7 @@ const server = createServer(async (req, res) => {
       try {
         if (isolated) await remoteWorkspace(session).wake();
         const models = await modelCatalog(session);
-        const requested = String(input.model || session.selectedModel || "");
+        const requested = String(input.model || "gpt-6-astra");
         const model = models.find(item => item.model === requested) || (!requested ? models.find(item => item.isDefault) || models[0] : undefined);
         if (!model) throw new Error("The selected model is unavailable. Choose another model.");
         const effort = String(input.effort || (session.selectedModel === model.model ? session.selectedEffort : "") || model.defaultReasoningEffort || "");

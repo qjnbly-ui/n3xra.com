@@ -165,7 +165,7 @@ async function loadModels(session) {
             option.textContent = model.displayName;
             modelSelect.append(option);
         }
-        modelSelect.value = availableModels.some(item => item.model === session.selectedModel) ? session.selectedModel : (availableModels.find(item => item.isDefault) || availableModels[0])?.model || "";
+        modelSelect.value = (availableModels.find(item => item.model === "gpt-6-astra") || availableModels.find(item => item.model === session.selectedModel) || availableModels.find(item => item.isDefault) || availableModels[0])?.model || "";
         renderEfforts(session.selectedEffort);
         modelSessionId = session.id;
         modelSelect.disabled = effortSelect.disabled = activeSession.state !== "ready";
