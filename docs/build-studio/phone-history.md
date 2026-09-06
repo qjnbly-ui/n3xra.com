@@ -1,6 +1,6 @@
 # Phone conversation review
 
-Open **Build Studio → Phone review**. Only an authenticated active platform owner may access their own records. This release covers the existing verified owner phone-building pilot, not all customer calls or other assistants.
+Open **Admin → AI Settings**. Only an authenticated active platform owner may access their own records. This release covers the existing verified owner phone-building pilot, not all customer calls or other assistants.
 
 ## Capture and cost
 

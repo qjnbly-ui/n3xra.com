@@ -139,6 +139,7 @@ const companyLinks = [
 ];
 
 const toolLinks = [
+  ["/account/admin/ai-settings/", "AI Settings"],
   ["/account/admin/codebase-ai/", "Codebase AI"],
   ["/account/admin/communications/", "Calls & Messages"],
   ["/account/notifications/", "Account Announcements"],
@@ -176,6 +177,7 @@ function isSalesRepresentative() {
 }
 
 function visibleLinks(items) {
+  items = items.filter(([href]) => href !== "/account/admin/ai-settings/" || String(window.__n3xraAdminRole || "").toLowerCase() === "owner");
   if (isSalesRepresentative()) return items.filter(([href]) => ["/account/", "/account/admin/prospects/"].includes(href));
   return isOperationsAdministrator() ? items.filter(([href]) => operationsAdminAllowedLinks.has(href)) : items;
 }
@@ -690,7 +692,7 @@ export async function navigateAdminWorkspace(destination, {
     ...captureAdminScrollState(),
     desktopScrollTop: Number.isFinite(desktopScrollTop) ? desktopScrollTop : document.querySelector(".portal-nav")?.scrollTop || 0,
   };
-  if (!isWorkspaceUrl(url)) {
+  if (!isWorkspaceUrl(url) || normalizePath(url.pathname) === "/account/admin/ai-settings/" || normalizePath(window.location.pathname) === "/account/admin/ai-settings/") {
     window.location.assign(url.href);
     return;
   }

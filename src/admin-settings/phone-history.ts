@@ -1,3 +1,4 @@
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=30";
 import { getAdminSession } from "/account/admin/admin-session.js";
 type Json = Record<string, any>;
 const node = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -86,6 +87,6 @@ node<HTMLButtonElement>("apply").onclick = (event) => void action(event.currentT
   status.textContent = "Instruction applied. It will take effect in your next verified phone-building session.";
 });
 void (async () => {
-  try { access = await getAdminSession(); if (!access.allowed || !access.session) return; await refresh(); }
-  catch (error) { status.textContent = (error as Error).message; }
+  try { access = await getAdminSession(); if (!access.allowed || !access.session) return; document.body.classList.add("admin-ready"); renderAdminNavigation(); await refresh(); }
+  catch (error) { document.body.classList.add("admin-ready"); status.textContent = (error as Error).message; }
 })();

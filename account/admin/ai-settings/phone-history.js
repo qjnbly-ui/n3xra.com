@@ -1,3 +1,4 @@
+import { renderAdminNavigation } from "/account/admin/admin-navigation.js?v=30";
 import { getAdminSession } from "/account/admin/admin-session.js";
 const node = (id) => document.getElementById(id);
 const status = node("status"), calls = node("calls");
@@ -138,9 +139,12 @@ void (async () => {
         access = await getAdminSession();
         if (!access.allowed || !access.session)
             return;
+        document.body.classList.add("admin-ready");
+        renderAdminNavigation();
         await refresh();
     }
     catch (error) {
+        document.body.classList.add("admin-ready");
         status.textContent = error.message;
     }
 })();

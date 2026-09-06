@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "npm run build:ai-core && npm run build:site-assistant && npm run build:client-portal && npm run build:platform-reviews && npm run build:communications && npm run build:communications-admin && npm run build:communications-provider && npm run build:platform-notifications && npm run build:admin-prospects && npm run build:contact-cards && npm run build:build-studio && npm run build:bonanza-proposal && npm run build:maps && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge && npm run build:availability",
+    "build": "npm run build:ai-core && npm run build:site-assistant && npm run build:client-portal && npm run build:platform-reviews && npm run build:communications && npm run build:communications-admin && npm run build:communications-provider && npm run build:platform-notifications && npm run build:admin-prospects && npm run build:contact-cards && npm run build:build-studio && npm run build:admin-settings && npm run build:bonanza-proposal && npm run build:maps && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge && npm run build:availability",
     "build:ai-core": "tsc -p tsconfig.ai.json",
     "build:site-assistant": "tsc -p tsconfig.site-assistant.json",
     "build:client-portal": "tsc -p tsconfig.client-portal.json",
@@ -20,7 +20,7 @@
     "dev:maps": "astro dev --root maps-app",
     "build:build-worker": "tsc -p tsconfig.build-worker.json",
     "start:build-worker": "node dist/build-worker/server.js",
-    "typecheck": "tsc -p tsconfig.ai.json --noEmit && tsc -p tsconfig.site-assistant.json --noEmit && tsc -p tsconfig.client-portal.json --noEmit && tsc -p tsconfig.platform-reviews.json --noEmit && tsc -p tsconfig.communications.json --noEmit && tsc -p tsconfig.communications-admin.json --noEmit && tsc -p tsconfig.communications-provider.json --noEmit && tsc -p tsconfig.platform-notifications.json --noEmit && tsc -p tsconfig.admin-prospects.json --noEmit && tsc -p tsconfig.contact-cards.json --noEmit && tsc -p tsconfig.build-studio.json --noEmit && tsc -p tsconfig.bonanza-proposal.json --noEmit && tsc -p maps-app/tsconfig.json --noEmit && tsc -p tsconfig.build-worker.json --noEmit && tsc -p availability-app/tsconfig.json --noEmit",
+    "typecheck": "tsc -p tsconfig.ai.json --noEmit && tsc -p tsconfig.site-assistant.json --noEmit && tsc -p tsconfig.client-portal.json --noEmit && tsc -p tsconfig.platform-reviews.json --noEmit && tsc -p tsconfig.communications.json --noEmit && tsc -p tsconfig.communications-admin.json --noEmit && tsc -p tsconfig.communications-provider.json --noEmit && tsc -p tsconfig.platform-notifications.json --noEmit && tsc -p tsconfig.admin-prospects.json --noEmit && tsc -p tsconfig.contact-cards.json --noEmit && tsc -p tsconfig.build-studio.json --noEmit && tsc -p tsconfig.bonanza-proposal.json --noEmit && tsc -p maps-app/tsconfig.json --noEmit && tsc -p tsconfig.build-worker.json --noEmit && tsc -p availability-app/tsconfig.json --noEmit && tsc -p tsconfig.admin-settings.json --noEmit",
     "test": "npm run build:ai-core && npm run build:site-assistant && npm run build:client-portal && npm run build:platform-reviews && npm run build:communications && npm run build:communications-admin && npm run build:communications-provider && npm run build:platform-notifications && npm run build:admin-prospects && npm run build:contact-cards && node --test tests/**/*.test.mjs",
     "test:ai-core": "npm run build:ai-core && npm run build:site-assistant && node --test tests/ai-core/*.test.mjs",
     "test:ai-coverage": "npm run build:ai-core && npm run build:site-assistant && node --experimental-test-coverage --test-coverage-include=api/_ai-core/*.js --test-coverage-exclude=api/_ai-core/contracts.js --test-coverage-lines=80 --test-coverage-functions=75 --test-coverage-branches=70 --test tests/ai-core/*.test.mjs",
@@ -38,7 +38,8 @@
     "build:availability": "astro build --root availability-app",
     "dev:availability": "astro dev --root availability-app",
     "test:availability": "node --experimental-strip-types --test tests/resource-availability/*.test.mjs",
-    "test:phone-build": "npm run build:ai-core && npm run build:communications-provider && npm run build:build-worker && node --test tests/phone-build/*.test.mjs tests/receptionist/*.test.mjs tests/build-studio/*.test.mjs tests/phone-history/*.test.mjs"
+    "test:phone-build": "npm run build:ai-core && npm run build:communications-provider && npm run build:build-worker && node --test tests/phone-build/*.test.mjs tests/receptionist/*.test.mjs tests/build-studio/*.test.mjs tests/phone-history/*.test.mjs",
+    "build:admin-settings": "tsc -p tsconfig.admin-settings.json"
   },
   "dependencies": {
     "@astrojs/react": "6.0.5",

@@ -5,6 +5,16 @@
   "trailingSlash": false,
   "redirects": [
     {
+      "source": "/n3xra-admin/build-studio/phone-history",
+      "destination": "/account/admin/ai-settings",
+      "permanent": true
+    },
+    {
+      "source": "/n3xra-admin/build-studio/phone-history.html",
+      "destination": "/account/admin/ai-settings",
+      "permanent": true
+    },
+    {
       "source": "/supabase/:path*",
       "destination": "/404",
       "permanent": false
