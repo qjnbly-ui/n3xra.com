@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0",
   "scripts": {
-    "build": "npm run build:ai-core && npm run build:site-assistant && npm run build:client-portal && npm run build:platform-reviews && npm run build:communications && npm run build:communications-admin && npm run build:communications-provider && npm run build:platform-notifications && npm run build:admin-prospects && npm run build:contact-cards && npm run build:build-studio && npm run build:admin-settings && npm run build:bonanza-proposal && npm run build:maps && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge && npm run build:availability",
+    "build": "npm run build:ai-core && npm run build:site-assistant && npm run build:client-portal && npm run build:platform-reviews && npm run build:communications && npm run build:communications-admin && npm run build:communications-provider && npm run build:platform-notifications && npm run build:admin-prospects && npm run build:contact-cards && npm run build:build-studio && npm run build:admin-settings && npm run build:bonanza-proposal && npm run build:maps && npm run build:project-pulse && npm run build:private-code-index && npm run refresh:ask-knowledge && npm run build:availability && npm run build:text-access",
     "build:ai-core": "tsc -p tsconfig.ai.json",
     "build:site-assistant": "tsc -p tsconfig.site-assistant.json",
     "build:client-portal": "tsc -p tsconfig.client-portal.json",
@@ -39,7 +39,9 @@
     "dev:availability": "astro dev --root availability-app",
     "test:availability": "node --experimental-strip-types --test tests/resource-availability/*.test.mjs",
     "test:phone-build": "npm run build:ai-core && npm run build:communications-provider && npm run build:build-worker && node --test tests/phone-build/*.test.mjs tests/receptionist/*.test.mjs tests/build-studio/*.test.mjs tests/phone-history/*.test.mjs",
-    "build:admin-settings": "tsc -p tsconfig.admin-settings.json"
+    "build:admin-settings": "tsc -p tsconfig.admin-settings.json",
+    "build:text-access": "tsc -p tsconfig.text-access.json",
+    "test:sms-verification": "npm run build:communications-provider && npm run build:text-access && node --test tests/sms-verification/*.test.mjs"
   },
   "dependencies": {
     "@astrojs/react": "6.0.5",

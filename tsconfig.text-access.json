@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ES2022",
+    "moduleResolution": "Bundler",
+    "rootDir": "src/text-access",
+    "outDir": "account/text-access",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "skipLibCheck": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "/shared/lib/supabase-client.js": [
+        "src/text-access/browser.d.ts"
+      ]
+    }
+  },
+  "include": [
+    "src/text-access/**/*.ts"
+  ]
+}
