@@ -174,6 +174,15 @@ async function loadRepairs() {
                     details.append(p);
                 }
             }
+            if (run.report?.partialWork) {
+                const work = document.createElement("details");
+                const label = document.createElement("summary");
+                label.textContent = "Work notes";
+                const pre = document.createElement("pre");
+                pre.textContent = run.report.partialWork;
+                work.append(label, pre);
+                details.append(work);
+            }
             if (run.report?.error) {
                 const p = document.createElement("p");
                 p.textContent = run.report.error;
