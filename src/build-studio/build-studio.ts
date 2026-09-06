@@ -162,7 +162,7 @@ async function loadModels(session: BuildSession) {
     for (const model of availableModels) {
       const option = document.createElement("option"); option.value = model.model; option.textContent = model.displayName; modelSelect.append(option);
     }
-    modelSelect.value = (availableModels.find(item => item.model === "gpt-6-astra") || availableModels.find(item => item.model === session.selectedModel) || availableModels.find(item => item.isDefault) || availableModels[0])?.model || "";
+    modelSelect.value = (availableModels.find(item => item.model === "gpt-5.6-sol") || availableModels.find(item => item.model === session.selectedModel) || availableModels.find(item => item.isDefault) || availableModels[0])?.model || "";
     renderEfforts(session.selectedEffort); modelSessionId = session.id;
     modelSelect.disabled = effortSelect.disabled = activeSession.state !== "ready";
     renderSession(activeSession);
